@@ -29,7 +29,7 @@ Reply with ONLY a JSON object — no prose, no markdown code fences — matching
 this shape:
 {{"title": string, "start": ISO-8601 datetime with a UTC offset, "duration_minutes": \
 integer, "topics": [{{"title": string, "minutes": integer or null, "owner": string \
-or null, "must_hear": [string, ...]}}]}}
+or null, "must_hear": [string, ...], "type": "discussion" or "presentation"}}]}}
 
 The current date and time is {now}, timezone {timezone}. Resolve every relative time \
 in the brief ("in one hour", "tomorrow at 10", "half an hour") against that clock, \
@@ -37,7 +37,9 @@ and always emit "start" with the {timezone} UTC offset — you have no other clo
 Known attendees: {attendees}. Use their names, never their emails, for "owner" and \
 "must_hear" when the brief names them. If duration is unstated, use 30. If no topics \
 are stated, use an empty list. If minutes for a topic are unstated, use null rather \
-than guessing."""
+than guessing. A topic where one named person presents, demos or reads something out \
+is "presentation"; anything the room talks through together is "discussion" — when in \
+doubt, "discussion"."""
 
 
 class BriefTopic(BaseModel):
@@ -45,6 +47,10 @@ class BriefTopic(BaseModel):
     minutes: int | None = None
     owner: str | None = None
     must_hear: list[str] = Field(default_factory=list)
+    # The chair never hands the floor on inside a "presentation" topic; an
+    # unknown value from the model degrades to the safe one rather than
+    # failing the whole parse.
+    type: str = "discussion"
 
 
 class ParsedBrief(BaseModel):

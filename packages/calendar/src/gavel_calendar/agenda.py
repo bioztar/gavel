@@ -110,6 +110,7 @@ def build_agenda(
                 "owner": owner_id,
                 "mustHear": must_hear_ids,
                 "questions": list(draft.questions),
+                "type": draft.type if draft.type == "presentation" else "discussion",
             }
         )
 

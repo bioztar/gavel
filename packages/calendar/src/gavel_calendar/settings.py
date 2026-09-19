@@ -12,11 +12,15 @@ tried, with `GAVEL_ENV_FILE` as an explicit override.
 
 from __future__ import annotations
 
+import json
+import logging
 import os
 from datetime import timedelta
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -53,6 +57,13 @@ class Settings(BaseSettings):
     # Unmapped attendees fall back to their email as `discordId` — stable, unique,
     # but it will not match a real speaker until mapped. Documented in the README.
     calendar_attendee_map: str = ""
+
+    # Per-session policy overrides for meetings this service creates, as a JSON
+    # object of the keys in schema.EARS_DEFAULT_POLICY, e.g.
+    #   CALENDAR_POLICY_OVERRIDES={"offAgendaGraceSeconds": 8, "requireStart": false}
+    # Empty (the default) sends no `policy` at all, so ears uses its own table.
+    # Only the keys named here change; `agenda.build_agenda` merges the rest.
+    calendar_policy_overrides: str = ""
 
     # How often the scheduler re-checks for the next event to start, at most.
     # Also the poll interval for CALENDAR_ICS_FEEDS below.
@@ -109,6 +120,23 @@ class Settings(BaseSettings):
     @property
     def feed_window(self) -> timedelta:
         return timedelta(hours=self.calendar_feed_window_hours)
+
+    @property
+    def policy_overrides(self) -> dict[str, float | bool | str]:
+        """Parsed CALENDAR_POLICY_OVERRIDES. Malformed JSON is logged and
+        ignored — a typo in an override must never stop an invite going out."""
+        raw = self.calendar_policy_overrides.strip()
+        if not raw:
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except ValueError:
+            logger.warning("settings.policy_overrides_unparsable")
+            return {}
+        if not isinstance(parsed, dict):
+            logger.warning("settings.policy_overrides_not_an_object")
+            return {}
+        return {k: v for k, v in parsed.items() if isinstance(v, (int, float, bool, str))}
 
     @property
     def attendee_map(self) -> dict[str, str]:

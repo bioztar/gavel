@@ -203,6 +203,10 @@ class _Row:
     minutes: str = ""
     owner: str = ""
     must_hear: str = ""
+    # "discussion" | "presentation" — see TopicDraft.type. A slot where one
+    # person speaks by design (a demo, a readout) is a presentation, and the
+    # chair will not hand the floor on inside it.
+    type: str = "discussion"
 
 
 def _rows_from_parsed(
@@ -220,6 +224,7 @@ def _rows_from_parsed(
             minutes="" if t.minutes is None else str(t.minutes),
             owner=t.owner or host_name,
             must_hear=", ".join(t.must_hear) or (t.owner or host_name),
+            type=t.type,
         )
         for t in parsed.topics
     ]
@@ -251,6 +256,10 @@ def _render_confirm_html(
 <td><input name="topic_minutes_{i}" value="{e(r.minutes)}" size="4"></td>
 <td><input name="topic_owner_{i}" value="{e(r.owner)}"></td>
 <td><input name="topic_must_hear_{i}" value="{e(r.must_hear)}"></td>
+<td><select name="topic_type_{i}">
+<option value="discussion"{"" if r.type == "presentation" else " selected"}>discussion</option>
+<option value="presentation"{" selected" if r.type == "presentation" else ""}>presentation</option>
+</select></td>
 </tr>"""
         for i, r in enumerate(rows)
     )
@@ -272,7 +281,9 @@ def _render_confirm_html(
 <input id="duration_minutes" name="duration_minutes" type="number" min="1" value="{e(duration)}">
 <label>Topics</label>
 <input type="hidden" name="topics_count" value="{len(rows)}">
-<table><tr><th>Title</th><th>Min</th><th>Owner</th><th>Must hear</th></tr>{topic_rows}</table>
+<table><tr><th>Title</th><th>Min</th><th>Owner</th><th>Must hear</th><th>Type</th></tr>{topic_rows}</table>
+<p class="hint">A <strong>presentation</strong> topic is one person holding the floor on purpose:
+the chair keeps it on the agenda but never hands the floor on inside it.</p>
 <button type="submit">Send</button>
 </form>
 </body></html>"""
@@ -289,6 +300,7 @@ def _rows_from_form(form: FormData) -> list[_Row]:
             minutes=_form_str(form, f"topic_minutes_{i}"),
             owner=_form_str(form, f"topic_owner_{i}"),
             must_hear=_form_str(form, f"topic_must_hear_{i}"),
+            type=_form_str(form, f"topic_type_{i}", "discussion"),
         )
         for i in range(count)
     ]
@@ -304,6 +316,7 @@ def _topic_drafts(rows: list[_Row], total_minutes: int) -> list[TopicDraft]:
             budget_seconds=m * 60,
             owner_name=r.owner.strip() or None,
             must_hear_names=[n.strip() for n in r.must_hear.split(",") if n.strip()],
+            type="presentation" if r.type.strip() == "presentation" else "discussion",
         )
         for r, m in zip(named, filled, strict=True)
     ]
@@ -360,7 +373,9 @@ async def handle_send(form: FormData, store: InviteStore, settings: Settings) ->
     )
 
     session_id = uuid.uuid4().hex[:12]
-    agenda = build_agenda(invite, session_id, settings.attendee_map)
+    agenda = build_agenda(
+        invite, session_id, settings.attendee_map, settings.policy_overrides
+    )
     record = InviteRecord(
         session_id=session_id,
         title=title,

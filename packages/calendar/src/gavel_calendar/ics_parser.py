@@ -49,6 +49,10 @@ class TopicDraft:
     must_hear_names: list[str] = field(default_factory=list)
     goal: str = ""
     questions: list[str] = field(default_factory=list)
+    # "presentation": one person holds the floor by design, so the chair never
+    # hands it on mid-topic (packages/brain floorHog skips these). Nothing in an
+    # .ics carries this, so it only ever arrives from the compose form.
+    type: str = "discussion"
 
 
 @dataclass(frozen=True)

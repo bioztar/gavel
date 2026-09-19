@@ -147,7 +147,8 @@ async def board() -> str:
 
 
 @app.get("/architecture", response_class=HTMLResponse)
-async def architecture() -> str:
+def architecture() -> str:  # sync on purpose: FastAPI runs it in a threadpool,
+    # so the small blocking read never sits on the event loop.
     """The demo deck, served off the same host as everything else.
 
     Mounted read-only from `docs/architecture.html` rather than baked into the
