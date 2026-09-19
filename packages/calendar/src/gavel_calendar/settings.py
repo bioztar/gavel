@@ -6,6 +6,7 @@ setting's value — on a missing/invalid one, raise with its *name* only.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -42,7 +43,30 @@ class Settings(BaseSettings):
     calendar_attendee_map: str = ""
 
     # How often the scheduler re-checks for the next event to start, at most.
+    # Also the poll interval for CALENDAR_ICS_FEEDS below.
     scheduler_poll_seconds: float = 30.0
+
+    # --- Google Calendar secret iCal feed, read-only ------------------------
+    # A calendar's "Secret address in iCal format" (Settings > Integrate
+    # calendar). This is a credential — anyone holding it can read the whole
+    # calendar. Never logged, never echoed in an error or /health response;
+    # code that needs to name a feed uses its index, never its value.
+    # Comma-separated; zero, one, or many. Empty means the manual `POST
+    # /invite` path is the only way an invite arrives — unchanged behavior.
+    calendar_ics_feeds: str = ""
+
+    # How far ahead of "now" a polled feed event may start to be ingested.
+    # A feed carries a year of history; without this every poll would try
+    # to build a session for last March's standup.
+    calendar_feed_window_hours: float = 24.0
+
+    @property
+    def ics_feed_urls(self) -> list[str]:
+        return [u.strip() for u in self.calendar_ics_feeds.split(",") if u.strip()]
+
+    @property
+    def feed_window(self) -> timedelta:
+        return timedelta(hours=self.calendar_feed_window_hours)
 
     @property
     def attendee_map(self) -> dict[str, str]:

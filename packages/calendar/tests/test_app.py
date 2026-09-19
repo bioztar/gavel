@@ -76,3 +76,21 @@ def test_join_unknown_session_404s() -> None:
     with TestClient(app) as client:
         resp = client.post("/m/does-not-exist/join")
         assert resp.status_code == 404
+
+
+def test_board_lists_pending_invites_with_join_buttons() -> None:
+    with TestClient(app) as client:
+        invite_resp = client.post("/invite", files={"file": ("demo.ics", FIXTURE.read_bytes())})
+        session_id = invite_resp.json()["sessionId"]
+
+        page = client.get("/board")
+        assert page.status_code == 200
+        assert "Launch readiness" in page.text
+        assert f'action="/m/{session_id}/join"' in page.text
+
+
+def test_health_reports_zero_feeds_when_unconfigured() -> None:
+    with TestClient(app) as client:
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        assert resp.json()["feeds"] == []
