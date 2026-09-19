@@ -71,6 +71,36 @@ services:
       LOG_JSON: "true"
     ports:
       - "127.0.0.1:${WIRE_PORT:-8787}:8787"
+    networks:
+      - default
+      - traefik-public
+    labels:
+      # The operator console is the CONTROL PLANE: it starts and ends sessions, edits
+      # meetings, and drives the TTS say-box. Publishing it is publishing the ability to
+      # make Karen talk in a live call, so the route is off by default and, when on, is
+      # unconditionally behind basic auth.
+      #
+      # Two switches, both required:
+      #   GAVEL_CONSOLE_PUBLIC=true   — creates the route at all
+      #   GAVEL_CONSOLE_USERS=<htpasswd bcrypt line> — the credential
+      # Set them with scripts/set-console-auth.sh, which never echoes the password.
+      # With PUBLIC unset the container is exactly as it was: 127.0.0.1:8787 only.
+      #
+      # PathPrefix(`/api/`) is deliberate and is the whole REST surface — unlike the
+      # watch page, there is no read-only subset worth carving out here, because every
+      # useful console action is a write. Auth is what makes it safe, not path pruning.
+      traefik.enable: "${GAVEL_CONSOLE_PUBLIC:-false}"
+      traefik.docker.network: ${TRAEFIK_NETWORK:-traefik-public}
+      traefik.http.routers.gavel-console.rule:
+        Host(`${GAVEL_DOMAIN:-gavel.pro7ocol.com}`) && (Path(`/console`) ||
+        Path(`/live`) || PathPrefix(`/api/`))
+      traefik.http.routers.gavel-console.priority: "110"
+      traefik.http.routers.gavel-console.entrypoints: websecure
+      traefik.http.routers.gavel-console.tls: "true"
+      traefik.http.routers.gavel-console.tls.certresolver: mytlschallenge
+      traefik.http.routers.gavel-console.middlewares: gavel-console-auth
+      traefik.http.middlewares.gavel-console-auth.basicauth.users: ${GAVEL_CONSOLE_USERS:-}
+      traefik.http.services.gavel-console.loadbalancer.server.port: "8787"
     depends_on:
       migrate:
         condition: service_completed_successfully
