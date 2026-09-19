@@ -132,7 +132,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
 </div>
 
 <script type="application/json" id="fallback">{
-  "updated": "2026-09-19T15:05:00+02:00",
+  "updated": "2026-09-19T13:07:56+00:00",
   "freeze": "2026-09-20T11:00:00+02:00",
   "demos": "2026-09-20T14:00:00+02:00",
   "people": {
@@ -179,6 +179,16 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "id": "quality",
       "title": "quality + evals — sponsor extras, never blocking",
       "package": "docs/QUALITY.md"
+    },
+    {
+      "id": "face",
+      "title": "face — the chair's video (fal)",
+      "package": "packages/chair-video"
+    },
+    {
+      "id": "calendar",
+      "title": "calendar — invite → session → agenda",
+      "package": "packages/calendar"
     }
   ],
   "tasks": [
@@ -351,103 +361,103 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "id": "B1",
       "lane": "brain",
       "title": "Load and validate the agenda, session state object",
-      "owner": "vitaly",
+      "owner": "artem",
       "effort": "45m",
       "deps": [],
-      "status": "todo",
+      "status": "done",
       "spine": true,
-      "note": ""
+      "note": "Agenda from session.started (ears console) or AGENDA_FILE; zod-validated; policy = YAML defaults ← agenda."
     },
     {
       "id": "B2",
       "lane": "brain",
       "title": "Talk-time state machine — rolling-window share per person",
-      "owner": "vitaly",
+      "owner": "artem",
       "effort": "1h",
       "deps": [],
-      "status": "todo",
+      "status": "done",
       "spine": true,
-      "note": "Runs on speaking events plus a clock. No audio."
+      "note": "TalkLedger: total / per-topic / rolling-window per person from speaking frames. GET /state."
     },
     {
       "id": "B3",
       "lane": "brain",
       "title": "Replay harness — run replay.jsonl through the machine",
-      "owner": "vitaly",
+      "owner": "artem",
       "effort": "45m",
       "deps": [
         "B2"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": false,
-      "note": "The fastest feedback loop in the build. Build it early."
+      "note": "pnpm replay <jsonl> — fake clock, --stub-llm, --policy k=v, --config dir. Fixture replay.offagenda.jsonl."
     },
     {
       "id": "B4",
       "lane": "brain",
       "title": "Agenda clock — current topic, spent vs budget, topics at risk",
-      "owner": "vitaly",
+      "owner": "artem",
       "effort": "1h",
       "deps": [
         "B1"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": true,
-      "note": ""
+      "note": "Topic clock, overrun → announce + advance, wrap-up after the last topic."
     },
     {
       "id": "B5",
       "lane": "brain",
       "title": "Interrupt policy — the triggers. This is the product",
-      "owner": "vitaly",
+      "owner": "artem",
       "effort": "1.5h",
       "deps": [
         "B2",
         "B4"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": true,
-      "note": "Deterministic. The model never decides whether to speak."
+      "note": "escalate / offAgenda (park + priority redirect) / floorHog / topicOverrun / silence (named invite, round robin). Pure, tested."
     },
     {
       "id": "B6a",
       "lane": "brain",
       "title": "Mastra orchestration, thin — Nebius as the model, SLNG + fal as tools",
-      "owner": "vitaly",
+      "owner": "artem",
       "effort": "45m",
       "deps": [
         "B5"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": false,
-      "note": "Decided thin (2026-09-19). Basic orchestration and traces only. Triggers stay plain code outside it. If it costs more than 45m on the day, fall back to direct SDK calls."
+      "note": "Mastra agents chair/relevance/operator, ears+memory tools, intervene workflow; traces in Postgres schema mastra."
     },
     {
       "id": "B6",
       "lane": "brain",
       "title": "Nebius — one sentence in the chair's voice, template fallback",
-      "owner": "vitaly",
+      "owner": "artem",
       "effort": "1h",
       "deps": [
         "B6a",
         "S1"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": false,
-      "note": "Generated through the Mastra agent. Always has a template fallback. On time beats clever."
+      "note": "Qwen3-235B line (fast profile Qwen3-30B classifier), 2.5 s timeout → YAML template. Pre-composed during grace."
     },
     {
       "id": "B7",
       "lane": "brain",
       "title": "SLNG TTS, send speak frame over the wire",
-      "owner": "vitaly",
+      "owner": "artem",
       "effort": "1h",
       "deps": [
         "B6"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": true,
-      "note": "Measure round-trip latency early. Over ~3s and the moment has passed."
+      "note": "SLNG TTS (fish, ~1.2 s), cached per line → speak frame with priority."
     },
     {
       "id": "B8",
@@ -497,14 +507,14 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "id": "B10",
       "lane": "brain",
       "title": "Tier 2 — transcripts, topic coverage, content-aware lines",
-      "owner": "either",
+      "owner": "artem",
       "effort": "1.5h",
       "deps": [
         "E6"
       ],
-      "status": "todo",
+      "status": "doing",
       "spine": false,
-      "note": ""
+      "note": "Transcripts drive off-agenda detection + parking lot; minutes not yet."
     },
     {
       "id": "V1",
@@ -619,6 +629,161 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "status": "todo",
       "spine": false,
       "note": "Triggers are unit tests, not evals. Only the generated sentence is scored: right person, under 20 words, hands the floor somewhere, never invents content. Cheap Nebius-rubric version first."
+    },
+    {
+      "id": "F1",
+      "lane": "face",
+      "title": "Avatar candidates — 4 stills via fal flux + PROMPTS.md",
+      "owner": "vitaly",
+      "effort": "30m",
+      "deps": [
+        "S1"
+      ],
+      "status": "doing",
+      "spine": false,
+      "note": "Crewmate generates four, Vitaly picks one. One still is reused for every utterance."
+    },
+    {
+      "id": "F2",
+      "lane": "face",
+      "title": "fal queue client — submit, poll status_url, fetch response_url",
+      "owner": "vitaly",
+      "effort": "30m",
+      "deps": [
+        "S1"
+      ],
+      "status": "doing",
+      "spine": false,
+      "note": "Auth header 'Authorization: Key <FAL_KEY>'. Key loaded from .env, never logged."
+    },
+    {
+      "id": "F3",
+      "lane": "face",
+      "title": "POST /speak-video — TTS wav in, lip-synced mp4 out",
+      "owner": "vitaly",
+      "effort": "45m",
+      "deps": [
+        "F1",
+        "F2"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Returns {videoUrl, durationMs, latencyMs}. Audio never waits for video."
+    },
+    {
+      "id": "F4",
+      "lane": "face",
+      "title": "Latency table — each lip-sync model, 3s and 8s utterances",
+      "owner": "vitaly",
+      "effort": "30m",
+      "deps": [
+        "F3"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "sync-lipsync/v2, veed/lipsync/v2, kling lipsync, longcat avatar. Measured, not guessed — this picks the model."
+    },
+    {
+      "id": "F5",
+      "lane": "face",
+      "title": "GET /idle — silent loop clip, and GET /healthz",
+      "owner": "vitaly",
+      "effort": "20m",
+      "deps": [
+        "F1"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Chair has a face between utterances."
+    },
+    {
+      "id": "F6",
+      "lane": "face",
+      "title": "Director (minimax/h3-max/director) — infinite livestream",
+      "owner": "vitaly",
+      "effort": "45m",
+      "deps": [
+        "F4"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Gated on one question: is the output playable in a browser <video> (HLS/WebRTC)? If yes, <video> → canvas → captureStream() feeds stage and Vonage publisher. If no, lip-sync wins."
+    },
+    {
+      "id": "K1",
+      "lane": "calendar",
+      "title": ".ics parser → CONTRACT §1 agenda in seconds",
+      "owner": "vitaly",
+      "effort": "45m",
+      "deps": [],
+      "status": "doing",
+      "spine": false,
+      "note": "Topic lines like '- Pricing — 10m (owner: Artem)'. Emits Artem's exact agenda shape, never a second one."
+    },
+    {
+      "id": "K2",
+      "lane": "calendar",
+      "title": "fixtures/demo.ics + parser tests — Google, Outlook, hand-written",
+      "owner": "vitaly",
+      "effort": "30m",
+      "deps": [
+        "K1"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Committed fixtures use invented names and emails. Real invites never land in the repo."
+    },
+    {
+      "id": "K3",
+      "lane": "calendar",
+      "title": "POST /invite — ingest .ics, create session via Artem's machinery",
+      "owner": "vitaly",
+      "effort": "30m",
+      "deps": [
+        "K1"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Calls ears-discord's existing session/agenda code. Does not edit his package."
+    },
+    {
+      "id": "K4",
+      "lane": "calendar",
+      "title": "GET /m/<sessionId> — join page with a Join button",
+      "owner": "vitaly",
+      "effort": "30m",
+      "deps": [
+        "K3"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "The demo move: open the invite, click through, chair is in the call."
+    },
+    {
+      "id": "K5",
+      "lane": "calendar",
+      "title": "Auto-join at start time; the link forces it early",
+      "owner": "vitaly",
+      "effort": "30m",
+      "deps": [
+        "K4"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Both paths — scheduled join, and the link overriding the clock for the demo."
+    },
+    {
+      "id": "K6",
+      "lane": "calendar",
+      "title": "Google Calendar OAuth — only if the rest is finished",
+      "owner": "vitaly",
+      "effort": "60m",
+      "deps": [
+        "K5"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET documented, never committed. First cut if time is short."
     }
   ],
   "credentials": [
@@ -688,8 +853,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
     "The Nebius line (B6) — fall back to templates",
     "Never cut: E1 E2 E3 B1 B2 B4 B5 B7"
   ]
-}
-</script>
+}</script>
 <script>
 (function(){
   var ST=['todo','doing','done','blocked','cut'];
