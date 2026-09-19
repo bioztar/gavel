@@ -1,0 +1,120 @@
+{
+  "id": "09-host-monologue",
+  "title": "A monologue by the meeting's own host",
+  "notes": "Vitaly is the host and the owner of this topic, and has 88% of the window. The policy has no exemption for hosts, so yes, it still interrupts \u2014 this case checks it does, and that the line stays respectful of the person who called the meeting.",
+  "agenda": {
+    "sessionId": "hb26-eval",
+    "purpose": "Decide the launch date and name an owner for each blocker",
+    "totalSeconds": 300,
+    "attendees": [
+      {
+        "discordId": "100000000000000001",
+        "name": "Vitaly",
+        "role": "host"
+      },
+      {
+        "discordId": "100000000000000002",
+        "name": "Ana",
+        "role": "attendee"
+      },
+      {
+        "discordId": "100000000000000003",
+        "name": "Marc",
+        "role": "attendee"
+      }
+    ],
+    "topics": [
+      {
+        "id": "t1",
+        "title": "Where we actually are",
+        "goal": "One honest status per workstream",
+        "budgetSeconds": 90,
+        "owner": "100000000000000002",
+        "mustHear": [
+          "100000000000000002",
+          "100000000000000003"
+        ],
+        "questions": [
+          "What is not done that you expected to be done?"
+        ]
+      },
+      {
+        "id": "t2",
+        "title": "The date",
+        "goal": "A date everyone in the call commits to out loud",
+        "budgetSeconds": 120,
+        "owner": "100000000000000001",
+        "mustHear": [
+          "100000000000000002"
+        ],
+        "questions": [
+          "What date can you defend?"
+        ]
+      },
+      {
+        "id": "t3",
+        "title": "Blocker owners",
+        "goal": "A name against each blocker",
+        "budgetSeconds": 90,
+        "owner": "100000000000000001",
+        "mustHear": [],
+        "questions": []
+      }
+    ],
+    "policy": {}
+  },
+  "sessionTitle": "Launch review",
+  "state": {
+    "nowMs": 1000000,
+    "topicIndex": 2,
+    "topicStartedAtMs": 900000,
+    "people": [
+      {
+        "id": "100000000000000001",
+        "name": "Vitaly",
+        "role": "host",
+        "totalMs": 240000,
+        "topicMs": 88000,
+        "windowMs": 88000,
+        "holding": true,
+        "holdingSince": 912000
+      },
+      {
+        "id": "100000000000000002",
+        "name": "Ana",
+        "role": "attendee",
+        "totalMs": 60000,
+        "topicMs": 12000,
+        "windowMs": 12000,
+        "holding": false,
+        "holdingSince": null
+      },
+      {
+        "id": "100000000000000003",
+        "name": "Marc",
+        "role": "attendee",
+        "totalMs": 40000,
+        "topicMs": 0,
+        "windowMs": 0,
+        "holding": false,
+        "holdingSince": null
+      }
+    ],
+    "lastSpeakerId": "100000000000000001",
+    "recaps": {
+      "100000000000000001": "he will own the billing blocker himself"
+    }
+  },
+  "expect": {
+    "trigger": "floorHog",
+    "kind": "floorHog",
+    "names": {
+      "kind": "person",
+      "name": "Vitaly"
+    },
+    "floorTo": {
+      "kind": "person",
+      "name": "Marc"
+    }
+  }
+}

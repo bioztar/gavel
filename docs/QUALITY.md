@@ -83,3 +83,38 @@ instead of two hours, because the test set already exists.
 Both are **after** the spine. Quality Clouds only once there is code worth scanning — which
 is now true for `ears-discord`. Galtea only once the chair produces lines, which is after the
 brain's B7. Neither blocks anything, neither is allowed to block anything.
+
+## The cheap version, built — `packages/brain/evals/`
+
+The ten cases above exist, frozen, one JSON file each in `packages/brain/evals/cases/`. Each
+one is a real `Agenda` plus the policy `Snapshot` fields at the instant the trigger fires, and
+the expectation the case is for: which trigger and intervention kind, whose name belongs in the
+line, and where the floor should land.
+
+```
+pnpm evals                     # offline: the YAML templates speak, judged dimensions not run
+pnpm evals -- --model          # the real Nebius composer writes the lines
+pnpm evals -- --model --judge  # the full scored pass
+```
+
+`--model` and `--judge` need `NEBIUS_API_KEY`; without it the run stops with
+`NEBIUS_API_KEY is not set` before any call is made. The default needs no key and no network,
+which is what keeps the table regenerable by anyone.
+
+- `run.ts` puts each case through the chair's own code — `evaluate()` from
+  `policy/triggers.ts` picks the intervention, `Engine.compose()` builds the line off
+  `config/prompts/chair.yaml`. Nothing about the decision or the prompt is re-implemented here;
+  only the clock, wire, store and TTS are stubs, as in `replay.ts`.
+- `score.ts` is the five dimensions. Three are arithmetic and are counted in code against each
+  case's own expectations: the word count, the right person named (and nobody wrongly singled
+  out), the floor handed to a named person or a named agenda item. Two are judgement — polite
+  enough to survive a real meeting, invents nothing it never heard — and go to a model through
+  the `Judge` interface in `judge.ts`, holding the line to exactly the facts the prompt was
+  given. With no judge they read "not run", never "pass".
+- `results.md` is the table: one row per case, the line, the five scores, what failed.
+
+Tests: `test/evalCases.test.ts` and `test/evalScore.test.ts`, both offline — the stub model and
+a fake judge. No test touches the network.
+
+What this does not do: it is not Galtea, there is no account and no SDK. If someone does run
+Galtea later, the test set and the rubric it needs are already here.

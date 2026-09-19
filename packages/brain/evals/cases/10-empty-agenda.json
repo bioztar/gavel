@@ -1,0 +1,80 @@
+{
+  "id": "10-empty-agenda",
+  "title": "An empty agenda",
+  "notes": "A session with attendees and no topics and no stated purpose: the chair has nothing to steer by. The floor-hog trigger still fires, but topicTitle and question are empty \u2014 so every noun in the line has to come from the room. Inventing an agenda item here is the worst failure in the set.",
+  "agenda": {
+    "sessionId": "hb26-eval",
+    "purpose": "",
+    "totalSeconds": 0,
+    "attendees": [
+      {
+        "discordId": "100000000000000001",
+        "name": "Vitaly",
+        "role": "host"
+      },
+      {
+        "discordId": "100000000000000002",
+        "name": "Ana",
+        "role": "attendee"
+      },
+      {
+        "discordId": "100000000000000003",
+        "name": "Marc",
+        "role": "attendee"
+      }
+    ],
+    "topics": [],
+    "policy": {}
+  },
+  "sessionTitle": null,
+  "state": {
+    "nowMs": 1000000,
+    "topicIndex": 0,
+    "topicStartedAtMs": 880000,
+    "people": [
+      {
+        "id": "100000000000000001",
+        "name": "Vitaly",
+        "role": "host",
+        "totalMs": 120000,
+        "topicMs": 0,
+        "windowMs": 70000,
+        "holding": true,
+        "holdingSince": 930000
+      },
+      {
+        "id": "100000000000000002",
+        "name": "Ana",
+        "role": "attendee",
+        "totalMs": 30000,
+        "topicMs": 0,
+        "windowMs": 20000,
+        "holding": false,
+        "holdingSince": null
+      },
+      {
+        "id": "100000000000000003",
+        "name": "Marc",
+        "role": "attendee",
+        "totalMs": 15000,
+        "topicMs": 0,
+        "windowMs": 10000,
+        "holding": false,
+        "holdingSince": null
+      }
+    ],
+    "lastSpeakerId": "100000000000000001"
+  },
+  "expect": {
+    "trigger": "floorHog",
+    "kind": "floorHog",
+    "names": {
+      "kind": "person",
+      "name": "Vitaly"
+    },
+    "floorTo": {
+      "kind": "person",
+      "name": "Marc"
+    }
+  }
+}
