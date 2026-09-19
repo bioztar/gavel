@@ -221,3 +221,33 @@ def test_invite_email_carries_the_agenda_not_the_brief() -> None:
         assert "10 min" in body and "5 min" in body
         assert "Artem" in body and "Vitaly" in body
         assert "presentation" in body.lower()
+
+
+def test_invite_email_does_not_repeat_the_owner_as_must_be_heard():
+    """A presentation arrives with its presenter as the only must-hear (compose's
+    fallback). Saying it twice on one row is noise, not information."""
+    from datetime import datetime, timedelta
+
+    from gavel_calendar.invite_email import render_invite_text
+
+    agenda = {
+        "purpose": "Decide the cut.",
+        "attendees": [
+            {"discordId": "vitaly", "name": "Vitaly"},
+            {"discordId": "artem", "name": "Artem"},
+        ],
+        "topics": [
+            {"title": "Architecture", "budgetSeconds": 300, "type": "presentation",
+             "owner": "vitaly", "mustHear": ["vitaly"]},
+            {"title": "Open discussion", "budgetSeconds": 360, "type": "discussion",
+             "owner": "vitaly", "mustHear": ["vitaly", "artem"]},
+        ],
+    }
+    start = datetime(2026, 9, 20, 10, 0)
+    body = render_invite_text(
+        agenda, title="demo", start=start, end=start + timedelta(minutes=15),
+        join_url="https://x/j", discord_url="https://d/x",
+    )
+    arch, disc = body.split("2. Open discussion")
+    assert "must be heard: —" in arch
+    assert "must be heard: Vitaly, Artem" in disc

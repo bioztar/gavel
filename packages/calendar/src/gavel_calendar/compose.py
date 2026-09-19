@@ -288,8 +288,13 @@ def _render_confirm_html(
             "<p style='color:var(--warn);font-size:1.05rem'><strong>There's no agenda in "
             "that brief.</strong> Karen won't put a meeting in three people's calendars "
             "without one — what does this call have to decide? Name the topics below, "
-            "with who owns each.</p>"
+            "with who owns each, or <a href='/compose'>say it again</a> with the agenda "
+            "in it.</p>"
         )
+        # The link matters more than it looks: this page is a POST result, so the
+        # browser's own Back button offers "Confirm Form Resubmission" instead of
+        # the brief box. Re-dictating is the likelier fix for a missing agenda, and
+        # it should not depend on knowing that.
     else:
         warning = ""
 

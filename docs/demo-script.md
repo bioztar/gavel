@@ -105,7 +105,7 @@ use it if you are confident the catch fires; it names the thing that must work.*
 |---|---|---|---|
 | 0:15 | **Ask for a meeting the way you actually ask** | `/compose` | One empty box. Hit the mic, say §4a (~8s). "No form, no invitee list. This is how a meeting really gets booked — a sentence, and somebody else's calendar." |
 | 0:28 | **She refuses** | pushback page | Read her line off the screen, out loud. Then: "It is not being awkward. That is ninety minutes of three people's time, and it wants to know what the ninety minutes buys. Nothing gets into a calendar through this without an agenda." |
-| 0:50 | **Say what it is for** | `/compose` | Back, mic, §4b (~18s). "Same box. This time I say what has to come out of it." |
+| 0:50 | **Say what it is for** | `/compose` | Hit **say it again** on her pushback — mic, §4b (~18s). "Same box. This time I say what has to come out of it." (Use the link, never the browser Back button: this page is a POST result.) |
 | 1:12 | **The table is the contract** | confirm table | Point at **Type**: "Rows one and three are presentations — one person holds the floor on purpose. Row two is a discussion. She treats them differently and you will see how." Point at **Must hear**: "Both of us have to be heard on row two. That is a promise she keeps." Point at **Invitees**: "Read off the brief. I can still fix it here." |
 | 1:40 | **Send** | success page | "Real invite, real .ics, real mailbox." |
 | 1:48 | **The invite is not what I dictated** | mailbox | Open it. "I dictated a paragraph. They get this: purpose in one line, every topic numbered, with an owner, a time budget, and who has to be heard on it. The agenda has teeth before anybody joins." |

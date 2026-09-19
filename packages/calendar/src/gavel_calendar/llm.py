@@ -36,7 +36,12 @@ The current date and time is {now}, timezone {timezone}. Resolve every relative 
 in the brief ("in one hour", "tomorrow at 10", "half an hour") against that clock, \
 and always emit "start" with the {timezone} UTC offset — you have no other clock. \
 Known attendees: {attendees}. Use their names, never their emails, for "owner" and \
-"must_hear" when the brief names them. If duration is unstated, use 30. If no topics \
+"must_hear" when the brief names them. "must_hear" is ONLY the people the brief \
+explicitly says must be heard, must give their opinion, or must weigh in on that \
+topic. It is not the audience and it is not "whoever is not presenting" — if the \
+brief does not say it for that topic, emit an empty list. A topic someone presents \
+has an empty "must_hear" unless the brief names someone who must still be heard on \
+it. If duration is unstated, use 30. If no topics \
 are stated, use an empty list. If minutes for a topic are unstated, use null rather \
 than guessing. A topic where one named person presents, demos or reads something out \
 is "presentation"; anything the room talks through together is "discussion" — when in \

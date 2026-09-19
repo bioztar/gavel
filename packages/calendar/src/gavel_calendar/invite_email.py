@@ -46,6 +46,21 @@ def _names(agenda: dict, ids: list[str] | None) -> str:
     return ", ".join(attendee_name(agenda, i) for i in (ids or [])) or "—"
 
 
+def _must_hear(agenda: dict, topic: dict) -> str:
+    """Who has to speak on this topic, beyond the person already running it.
+
+    `compose` falls back to the owner when a brief names nobody, so a topic one
+    person presents arrives with that same person as its only must-hear. Printing
+    "owner: Vitaly / must be heard: Vitaly" tells an invitee nothing and makes the
+    column look like filler everywhere else it is real.
+    """
+    ids = topic.get("mustHear") or []
+    owner = topic.get("owner")
+    if owner is not None and list(ids) == [owner]:
+        return "—"
+    return _names(agenda, ids)
+
+
 def _minutes(topic: dict) -> str:
     return f"{max(round(int(topic.get('budgetSeconds', 0)) / 60), 1)} min"
 
@@ -63,7 +78,7 @@ def render_invite_text(
     for n, t in enumerate(agenda.get("topics", []), start=1):
         lines.append(f"{n}. {t['title']} — {_minutes(t)}")
         lines.append(f"   owner: {attendee_name(agenda, t.get('owner'))}")
-        lines.append(f"   must be heard: {_names(agenda, t.get('mustHear'))}")
+        lines.append(f"   must be heard: {_must_hear(agenda, t)}")
         if t.get("type") == "presentation":
             lines.append("   presentation — one speaker, uninterrupted")
     lines += [
@@ -96,7 +111,7 @@ def _topic_row(agenda: dict, n: int, topic: dict, striped: bool) -> str:
 <td style="{cell};color:{_INK};font-weight:600">{e(topic["title"])}{badge}</td>
 <td style="{cell};color:{_DIM};white-space:nowrap">{_minutes(topic)}</td>
 <td style="{cell};color:{_INK}">{e(attendee_name(agenda, topic.get("owner")))}</td>
-<td style="{cell};color:{_INK}">{e(_names(agenda, topic.get("mustHear")))}</td>
+<td style="{cell};color:{_INK}">{e(_must_hear(agenda, topic))}</td>
 </tr>"""
 
 
