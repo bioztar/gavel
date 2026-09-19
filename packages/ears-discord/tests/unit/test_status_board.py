@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 
 from ears.settings import Settings
-from ears.status_board import FIELD_LIMIT, StatusBoard, render
+from ears.status_board import FIELD_LIMIT, StatusBoard, StatusConfig, render
 
 ACTIVE: dict[str, Any] = {
     "sessionId": "s1",
@@ -91,14 +91,15 @@ def test_long_lists_keep_the_newest_within_discord_limits() -> None:
 
 class FakePoster:
     def __init__(self) -> None:
-        self.status_channel_id: str | None = "chan"
-        self.sent: list[dict[str, Any]] = []
+        self.guild_id: str | None = "g"
+        self.channel_id: str | None = "voice"
+        self.sent: list[tuple[str, dict[str, Any]]] = []
         self.edits: list[dict[str, Any]] = []
         self.gone = False
 
     async def send_embed(self, channel_id: str, embed: dict[str, Any]) -> tuple[str, str]:
-        self.sent.append(embed)
-        return f"m{len(self.sent)}", "https://discord.com/channels/g/chan/m"
+        self.sent.append((channel_id, embed))
+        return f"m{len(self.sent)}", f"https://discord.com/channels/g/{channel_id}/m"
 
     async def edit_embed(self, channel_id: str, message_id: str, embed: dict[str, Any]) -> None:
         if self.gone:
@@ -137,7 +138,7 @@ def test_board_posts_once_per_session_and_edits_only_on_change() -> None:
 def test_board_waits_for_a_brain_and_a_channel() -> None:
     async def scenario() -> FakePoster:
         poster = FakePoster()
-        poster.status_channel_id = None
+        poster.guild_id = poster.channel_id = None
         down = httpx.MockTransport(lambda _: httpx.Response(503))
         up = httpx.MockTransport(lambda _: httpx.Response(200, json=ACTIVE))
         for transport in (down, up):
@@ -146,3 +147,26 @@ def test_board_waits_for_a_brain_and_a_channel() -> None:
         return poster
 
     assert asyncio.run(scenario()).sent == []
+
+
+def test_board_follows_each_servers_settings() -> None:
+    configs: dict[str, StatusConfig] = {}
+
+    async def scenario() -> FakePoster:
+        poster = FakePoster()
+        brain = httpx.MockTransport(lambda _: httpx.Response(200, json=ACTIVE))
+        async with httpx.AsyncClient(transport=brain) as http:
+            settings = Settings(_env_file=None)  # type: ignore[call-arg]
+            board = StatusBoard(settings, http, poster, lambda g: configs.get(g, StatusConfig()))
+            configs["g"] = StatusConfig(enabled=False)
+            await board.update()  # turned off for this server
+            configs["g"] = StatusConfig(channel_id="text")
+            await board.update()  # a text channel instead of the voice chat
+            poster.guild_id = poster.channel_id = None  # the bot left voice...
+            await board.update()  # ...the message it has stays (and nothing changed)
+            configs["g"] = StatusConfig()
+            await board.update()  # back to the voice chat, but not in voice: nowhere new to post
+        return poster
+
+    poster = asyncio.run(scenario())
+    assert [channel for channel, _ in poster.sent] == ["text"]

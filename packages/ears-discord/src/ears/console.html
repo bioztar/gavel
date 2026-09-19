@@ -57,6 +57,10 @@ button:disabled { opacity: .5; cursor: default; }
 .card .row + .row, .card .row + input, .card input + .row { margin-top: 5px; }
 .server-card select { margin-top: 5px; }
 .server-card .state { font-size: 11px; color: var(--muted); }
+.server-card .status-msg { margin-top: 8px; padding-top: 7px; border-top: 1px solid var(--line); }
+.server-card .status-msg label { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text); font-size: 12px; }
+.server-card .status-msg input { width: auto; margin: 0; }
+.server-card .status-warn { color: var(--warn); font-size: 11px; margin-top: 4px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; }
 details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin: 10px 0 4px; }
 .sessionbar { border-top: 1px solid var(--line); padding: 10px 12px; display: grid; gap: 6px; }
@@ -286,14 +290,50 @@ function renderDiscordServers() {
         ${!selectedExists && server.selectedChannelId ? `<option value="${esc(server.selectedChannelId)}" selected>Unavailable channel (${esc(server.selectedChannelId)})</option>` : ""}
         ${options}
       </select>
+      ${statusSettings(server)}
     </div>`;
   }).join("");
+}
+/* The live status message in Discord: on/off and where, per server. */
+function statusSettings(server) {
+  const status = server.status || { enabled: true, channelId: null };
+  const texts = server.textChannels || [];
+  const chosen = texts.find((c) => c.id === status.channelId);
+  const voice = server.channels.find((c) => c.id === (server.connectedChannelId || server.selectedChannelId));
+  // Where it would post now, and whether Karen may: Send Messages + Embed Links.
+  const target = status.channelId ? chosen : voice;
+  const where = status.channelId ? `#${chosen?.name || status.channelId}` : voice ? `${voice.name}'s chat` : null;
+  const warn = status.enabled && where && !target?.canPost
+    ? `<div class="status-warn">⚠ Karen can't post in ${esc(where)} — give her Send Messages and Embed Links there.</div>` : "";
+  const options = texts.map((c) =>
+    `<option value="${esc(c.id)}" ${c.id === status.channelId ? "selected" : ""}>#${esc(c.name)}${c.canPost ? "" : " · no permission"}</option>`).join("");
+  return `<div class="status-msg">
+    <label><input type="checkbox" data-status-enabled="${esc(server.id)}" ${status.enabled ? "checked" : ""}>Live meeting-status message</label>
+    <select data-status-channel="${esc(server.id)}" ${status.enabled ? "" : "disabled"}>
+      <option value="">In the meeting voice channel's chat</option>
+      ${status.channelId && !chosen ? `<option value="${esc(status.channelId)}" selected>Unavailable channel (${esc(status.channelId)})</option>` : ""}
+      ${options}
+    </select>${warn}
+  </div>`;
+}
+async function saveStatusSettings(guildId) {
+  const card = document.querySelector(`[data-status-enabled="${guildId}"]`).closest(".server-card");
+  const enabled = card.querySelector("[data-status-enabled]").checked;
+  const channelId = card.querySelector("[data-status-channel]").value || null;
+  discordState = await api("PUT", `/api/discord/servers/${guildId}/status`, { enabled, channelId });
+  renderDiscordServers();
 }
 async function loadDiscordServers() {
   discordState = await api("GET", "/api/discord/servers");
   renderDiscordServers();
 }
 $("discord-servers").onchange = async (e) => {
+  const statusGuild = e.target.dataset.statusEnabled || e.target.dataset.statusChannel;
+  if (statusGuild) {
+    try { await saveStatusSettings(statusGuild); }
+    catch (error) { toast(error.message); await loadDiscordServers().catch(() => {}); }
+    return;
+  }
   const guildId = e.target.dataset.discordGuild; if (!guildId) return;
   e.target.disabled = true;
   try {

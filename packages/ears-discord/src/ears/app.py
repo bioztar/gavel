@@ -55,6 +55,7 @@ from .meetings import Meeting
 from .pcm_stream import PcmStream
 from .segmenter import Chunk, Segmenter
 from .settings import Settings
+from .status_board import StatusConfig
 from .stt import SlngStt, SttError
 from .stt_stream import Segment, StreamingStt, make_provider
 from .tts import SlngTts, TtsError
@@ -141,6 +142,8 @@ class Ears:
                 context=self._stt_context,
             )
         self._utterance: dict[str, tuple[str, int]] = {}  # discord_id → (utterance id, next seq)
+        # Each server's status-message settings (console); loaded from Postgres at startup.
+        self.status_configs: dict[str, StatusConfig] = {}
 
     # --- fan-out ---------------------------------------------------------------------
 
@@ -196,7 +199,32 @@ class Ears:
     def discord_servers(self) -> dict[str, Any]:
         if self.voice is None:
             return {"connected": False, "servers": []}
-        return self.voice.discord_servers()
+        view = self.voice.discord_servers()
+        for server in view["servers"]:
+            server["status"] = self.status_config(server["id"]).view()
+        return view
+
+    def status_config(self, guild_id: str) -> StatusConfig:
+        return self.status_configs.get(guild_id, StatusConfig())
+
+    async def configure_status(
+        self, guild_id: str, enabled: bool, channel_id: str | None
+    ) -> dict[str, Any]:
+        """Whether a server gets the status message, and in which text channel (None: voice chat)."""
+        if self.voice is None:
+            raise RuntimeError("Discord bot is not running")
+        server = next((s for s in self.discord_servers()["servers"] if s["id"] == guild_id), None)
+        if server is None:
+            raise ValueError("Discord server is not available to this bot")
+        if channel_id is not None and not any(
+            c["id"] == channel_id for c in server["textChannels"]
+        ):
+            raise ValueError("text channel is not available on this Discord server")
+        config = StatusConfig(enabled=enabled, channel_id=channel_id)
+        self.status_configs[guild_id] = config
+        await self.store.set_discord_status(guild_id, config)
+        self.debug("status.configured", guildId=guild_id, **config.view())
+        return self.discord_servers()
 
     async def configure_discord_channel(
         self, guild_id: str, channel_id: str | None

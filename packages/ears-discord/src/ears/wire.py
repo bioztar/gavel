@@ -8,6 +8,7 @@
     GET  /api/status                session, meeting, participants, open turns, playback
     GET  /api/discord/servers       servers/channels visible to the bot + selections
     PUT  /api/discord/servers/{id}  {"channelId": ...|null} → select its meeting channel
+    PUT  /api/discord/servers/{id}/status  {"enabled", "channelId"|null} → its status message
     GET  /api/meetings              ...and POST, PUT /{id}, DELETE /{id}
     POST /api/sessions              {"meetingId": ...|null} → end the current session, start a new one
     POST /api/sessions/end
@@ -114,6 +115,11 @@ class DiscordChannelSelection(BaseModel):
     channel_id: str | None = Field(default=None, alias="channelId", pattern=r"^\d+$")
 
 
+class StatusSettings(BaseModel):
+    enabled: bool = True
+    channel_id: str | None = Field(default=None, alias="channelId", pattern=r"^\d+$")
+
+
 class MemoryIn(Frame):
     discord_id: str
     name: str | None = None
@@ -215,6 +221,15 @@ def create_api(ears: Ears) -> FastAPI:
             raise HTTPException(422, "expected a Discord server id")
         try:
             return await ears.configure_discord_channel(guild_id, body.channel_id)
+        except ValueError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+
+    @api.put("/api/discord/servers/{guild_id}/status")
+    async def configure_discord_status(guild_id: str, body: StatusSettings) -> dict[str, Any]:
+        try:
+            return await ears.configure_status(guild_id, body.enabled, body.channel_id)
         except ValueError as exc:
             raise HTTPException(404, str(exc)) from exc
         except RuntimeError as exc:

@@ -72,6 +72,18 @@ class DiscordGuild(Base):
     updated_at: Mapped[datetime] = _ts(server_default=func.now(), onupdate=func.now())
 
 
+class DiscordStatus(Base):
+    """How one Discord server wants the live meeting-status message (status_board.py)."""
+
+    __tablename__ = "discord_status"
+
+    guild_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    # A text channel; NULL posts in the meeting voice channel's own text chat.
+    channel_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    updated_at: Mapped[datetime] = _ts(server_default=func.now(), onupdate=func.now())
+
+
 class CallSession(Base):
     """One run of a meeting: started from the console, or on joining voice."""
 

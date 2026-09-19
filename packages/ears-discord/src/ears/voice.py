@@ -157,6 +157,15 @@ def _humans(channel: VocalGuildChannel) -> list[Participant]:
     ]
 
 
+def _can_post(channel: Any) -> bool:
+    """Send Messages + Embed Links there: what the status message needs."""
+    me = channel.guild.me
+    if me is None:
+        return False
+    perms = channel.permissions_for(me)
+    return bool(perms.view_channel and perms.send_messages and perms.embed_links)
+
+
 class Voice:
     def __init__(
         self,
@@ -233,8 +242,14 @@ class Voice:
                             "id": str(channel.id),
                             "name": channel.name,
                             "participants": len(_humans(channel)),
+                            "canPost": _can_post(channel),
                         }
                         for channel in guild.voice_channels
+                    ],
+                    # Where the status message may go instead of the voice channel's chat.
+                    "textChannels": [
+                        {"id": str(channel.id), "name": channel.name, "canPost": _can_post(channel)}
+                        for channel in guild.text_channels
                     ],
                 }
                 for guild in self.client.guilds
@@ -268,10 +283,8 @@ class Voice:
     # --- the status message (status_board.py) -----------------------------------------
 
     @property
-    def status_channel_id(self) -> str | None:
-        if self._settings.discord_status_channel_id is not None:
-            return str(self._settings.discord_status_channel_id)
-        return self.channel_id  # a voice channel has its own text chat
+    def guild_id(self) -> str | None:
+        return str(self._channel.guild.id) if self._channel else None
 
     async def send_embed(self, channel_id: str, embed: dict[str, Any]) -> tuple[str, str]:
         message = await self._messageable(channel_id).send(embed=discord.Embed.from_dict(embed))

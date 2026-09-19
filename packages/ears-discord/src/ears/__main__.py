@@ -44,6 +44,7 @@ async def main() -> None:
             logger.warning("stt.disabled", reason="SLNG_API_KEY unset")
         tts = SlngTts(settings, http) if settings.stt_enabled else None
         ears = Ears(settings, store, bus, stt, tts)
+        ears.status_configs = await store.discord_status()
         bus.start(ears.command)
 
         server = _Server(
@@ -68,7 +69,7 @@ async def main() -> None:
             ears.voice = voice
             background.append(loop.create_task(_supervise("voice", voice.run())))
             if settings.discord_status_enabled:
-                board = StatusBoard(settings, http, voice, ears.debug)
+                board = StatusBoard(settings, http, voice, ears.status_config, ears.debug)
                 background.append(loop.create_task(_supervise("status", board.run())))
         else:
             logger.warning("voice.disabled", reason="DISCORD_EARS_TOKEN unset — wire only")

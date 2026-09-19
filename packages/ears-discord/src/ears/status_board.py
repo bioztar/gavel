@@ -1,10 +1,10 @@
 """The meeting's status as one Discord message, edited in place as the meeting moves.
 
 Reads the brain's view (the same `/state` the console's *What Karen understands* panel
-shows), renders it as an embed, and keeps one message per session up to date — posted in
-the meeting voice channel's own text chat unless `DISCORD_STATUS_CHANNEL_ID` names another
-channel. The notes come from the brain's `digest`: deduplicated there, by a model call that
-runs only when the notes change.
+shows), renders it as an embed, and keeps one message per session up to date. Each server
+chooses in the console whether it wants the message and where: the meeting voice channel's
+own text chat (the default) or a text channel. The notes come from the brain's `digest`:
+deduplicated there, by a model call that runs only when the notes change.
 
 `render` is pure; `StatusBoard` only fetches, compares and hands embeds to `voice.py`,
 which stays the only module that imports discord.
@@ -15,6 +15,8 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
@@ -38,9 +40,22 @@ COLORS = {
 }
 
 
+@dataclass(frozen=True)
+class StatusConfig:
+    """One server's choice, set in the console. `channel_id` None: the voice channel's chat."""
+
+    enabled: bool = True
+    channel_id: str | None = None
+
+    def view(self) -> dict[str, Any]:
+        return {"enabled": self.enabled, "channelId": self.channel_id}
+
+
 class StatusPoster(Protocol):
     @property
-    def status_channel_id(self) -> str | None: ...
+    def guild_id(self) -> str | None: ...
+    @property
+    def channel_id(self) -> str | None: ...
     async def send_embed(self, channel_id: str, embed: dict[str, Any]) -> tuple[str, str]: ...
     async def edit_embed(self, channel_id: str, message_id: str, embed: dict[str, Any]) -> None: ...
 
@@ -233,13 +248,16 @@ class StatusBoard:
         settings: Settings,
         http: httpx.AsyncClient,
         poster: StatusPoster,
+        config: Callable[[str], StatusConfig] = lambda _: StatusConfig(),
         debug: Any = None,
     ) -> None:
         self.settings = settings
         self.http = http
         self.poster = poster
+        self.config = config
         self.debug = debug or (lambda kind, **data: None)
         self.session_id: str | None = None
+        self.guild_id: str | None = None
         self.channel_id: str | None = None
         self.message_id: str | None = None
         self._shown: str | None = None
@@ -260,9 +278,22 @@ class StatusBoard:
         state = await self._fetch()
         if state is None or not isinstance(session := state.get("sessionId"), str):
             return
+        # Between calls the bot may be out of voice: the server of the message it already has.
+        guild = self.poster.guild_id or self.guild_id
+        if guild is None:
+            return
+        config = self.config(guild)
+        if not config.enabled:
+            return
+        target = config.channel_id or self.poster.channel_id
         embed = render(state)
         shown = json.dumps({k: v for k, v in embed.items() if k != "timestamp"}, sort_keys=True)
-        if session == self.session_id and self.message_id is not None:
+        current = (
+            session == self.session_id
+            and self.message_id is not None
+            and target in (None, self.channel_id)
+        )
+        if current and self.message_id is not None:
             if shown == self._shown:
                 return
             try:
@@ -273,16 +304,11 @@ class StatusBoard:
                 logger.info("status.message_gone", message_id=self.message_id)  # deleted: post anew
         if state.get("phase") == "idle":
             return  # a session with no agenda: nothing worth a message yet
-        channel = self.poster.status_channel_id
-        if channel is None:
-            return  # not in voice and no status channel configured: nowhere to post
-        message_id, url = await self.poster.send_embed(channel, embed)
-        self.session_id, self.channel_id, self.message_id, self._shown = (
-            session,
-            channel,
-            message_id,
-            shown,
-        )
+        if target is None:
+            return  # not in voice and no text channel chosen: nowhere to post
+        message_id, url = await self.poster.send_embed(target, embed)
+        self.session_id, self.guild_id = session, guild
+        self.channel_id, self.message_id, self._shown = target, message_id, shown
         logger.info("status.posted", session_id=session, url=url)
         self.debug("status.posted", sessionId=session, url=url)
 

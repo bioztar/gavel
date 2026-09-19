@@ -44,7 +44,7 @@ A no-auth operator page, served by ears itself:
   are snapshotted automatically from the voice channel when a session starts. Stored in
   Postgres (in memory if Postgres is down).
 - **Discord servers** — every server visible to the bot, its voice channels and current
-  occupancy. Choose one meeting channel per server. The moderator joins when someone
+  occupancy. Choose one meeting channel per server, and where its live status message goes. The moderator joins when someone
   enters that channel and leaves shortly after the last person goes.
 - **Sessions** — *Start new session with this meeting* ends the current run and sends the
   brain `session.started` with the agenda. Joining voice starts one automatically.
@@ -64,9 +64,11 @@ text chat, edited in place every `DISCORD_STATUS_INTERVAL_SECONDS` (5) when some
 changed: phase and current topic with a time bar (red once over budget), the agenda,
 talk-time share, then decisions, key facts, what is still open, and the parking lot. One
 message per session; a deleted one is posted again. The notes are the brain's `digest` —
-merged and deduplicated there (see the brain README). `DISCORD_STATUS_CHANNEL_ID` posts to
-another text channel instead; `DISCORD_STATUS_ENABLED=false` turns it off. The console log
-shows `status.posted` with the message link. `status_board.py`; only `voice.py` touches
+merged and deduplicated there (see the brain README). Per server, in the console's server
+card: on/off, and the voice channel's chat or any text channel — with a warning when Karen
+lacks Send Messages / Embed Links there. Stored in Postgres (`discord_status`).
+`DISCORD_STATUS_ENABLED=false` turns it off everywhere. The console log shows
+`status.posted` with the message link. `status_board.py`; only `voice.py` touches
 Discord.
 
 ## What comes out

@@ -27,9 +27,11 @@ from sqlalchemy.ext.asyncio import (
 from ..frames import Participant as ParticipantFrame
 from ..logging import get_logger
 from ..meetings import Agenda, Meeting, MeetingIn
+from ..status_board import StatusConfig
 from .models import (
     CallSession,
     DiscordGuild,
+    DiscordStatus,
     Event,
     Intervention,
     LlmCall,
@@ -63,6 +65,7 @@ class Store:
         self._memory_memories: dict[str, dict[str, Any]] = {}
         self._memory_usage: dict[str, dict[str, float]] = {}
         self._memory_discord_channels: dict[str, str] = {}
+        self._memory_discord_status: dict[str, StatusConfig] = {}
 
     @classmethod
     async def connect(cls, dsn: str) -> Store:
@@ -209,6 +212,33 @@ class Store:
                 s.add(DiscordGuild(guild_id=guild_id, channel_id=channel_id))
             else:
                 row.channel_id = channel_id
+                row.updated_at = datetime.now(UTC)
+
+    async def discord_status(self) -> dict[str, StatusConfig]:
+        """Each server's status-message settings; servers not listed use the defaults."""
+        if self._factory is None:
+            return dict(self._memory_discord_status)
+        async with self._factory() as s:
+            rows = await s.execute(select(DiscordStatus))
+            return {
+                row.guild_id: StatusConfig(enabled=row.enabled, channel_id=row.channel_id)
+                for row in rows.scalars()
+            }
+
+    async def set_discord_status(self, guild_id: str, config: StatusConfig) -> None:
+        if self._factory is None:
+            self._memory_discord_status[guild_id] = config
+            return
+        async with self._factory() as s, s.begin():
+            row = await s.get(DiscordStatus, guild_id)
+            if row is None:
+                s.add(
+                    DiscordStatus(
+                        guild_id=guild_id, enabled=config.enabled, channel_id=config.channel_id
+                    )
+                )
+            else:
+                row.enabled, row.channel_id = config.enabled, config.channel_id
                 row.updated_at = datetime.now(UTC)
 
     async def list_meetings(self) -> list[Meeting]:

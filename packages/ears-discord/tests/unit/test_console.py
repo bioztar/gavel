@@ -57,7 +57,10 @@ class FakeDiscordVoice(FakeVoice):
                     "name": "Demo server",
                     "selectedChannelId": self.selected,
                     "connectedChannelId": None,
-                    "channels": [{"id": "20", "name": "Meeting room", "participants": 0}],
+                    "channels": [
+                        {"id": "20", "name": "Meeting room", "participants": 0, "canPost": True}
+                    ],
+                    "textChannels": [{"id": "30", "name": "general", "canPost": False}],
                 }
             ],
         }
@@ -174,6 +177,27 @@ async def test_discord_servers_and_channel_selection() -> None:
     cleared = client.put("/api/discord/servers/10", json={"channelId": None})
     assert cleared.status_code == 200
     assert await ears.store.discord_channels() == {}
+
+
+async def test_status_message_settings_per_server() -> None:
+    ears, client, _ = make()
+    ears.voice = FakeDiscordVoice()  # type: ignore[assignment]
+
+    server = client.get("/api/discord/servers").json()["servers"][0]
+    assert server["status"] == {"enabled": True, "channelId": None}  # default: the voice chat
+
+    response = client.put(
+        "/api/discord/servers/10/status", json={"enabled": True, "channelId": "30"}
+    )
+    assert response.json()["servers"][0]["status"] == {"enabled": True, "channelId": "30"}
+    assert ears.status_config("10").channel_id == "30"
+    assert (await ears.store.discord_status())["10"].channel_id == "30"
+
+    client.put("/api/discord/servers/10/status", json={"enabled": False, "channelId": None})
+    assert ears.status_config("10").enabled is False
+    # Only this server's own text channels.
+    assert client.put("/api/discord/servers/10/status", json={"channelId": "99"}).status_code == 404
+    assert client.put("/api/discord/servers/11/status", json={}).status_code == 404
 
 
 def test_brain_state_is_proxied_for_the_console(httpx_mock: HTTPXMock) -> None:
