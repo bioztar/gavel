@@ -1,55 +1,45 @@
-# HANDOVER — gavel — 2026-09-19 15:57
+# HANDOVER — gavel — 2026-09-19 14:40
 
 ## State
+Spine complete and merged to `main`: ears↔brain wire, calendar→agenda, two chair personas,
+chair-video. Nothing deployed yet — Artem is building the Docker Compose, deploy is on hold
+awaiting his go-ahead. DNS for `gavel.pro7ocol.com` already resolves to the dev box.
 
-The Discord meeting spine and the full brain are implemented. Karen can gather a room,
-start only on an explicit addressed instruction, run the agenda, balance participation,
-park individual or shared tangents, answer direct questions, and expose structured meeting
-understanding in the ears console. The next milestone is a real multi-person end-to-end
-call, not more offline policy work.
+## Done this session
+- `packages/calendar` merged — `.ics` → §1 agenda → join page → scheduler starts the session
+  through ears' HTTP API. 26 tests pass. Policy overrides merge onto ears' full ten-key table
+  instead of replacing it.
+- `packages/brain` personas merged — `CHAIR_PERSONA=formal|funky`, tone folded into the cached
+  system prefix, per-persona fallback templates rotated per kind.
+- `packages/chair-video` merged — `/speak-video`, `/idle`, `/healthz`, all persona-keyed.
+- **Funky is now the default** (`personas.yaml: active: funky`, `Settings.default_persona`),
+  rendering with `karen-funky-01.png` / `idle-funky.mp4`. Vitaly confirmed the pick.
+- Latency table measured against real fal. Director finding written up by helm during merge.
 
-## Implemented
+## Open decision — blocks the face on stage
+Lip-sync is too slow to be live: fastest completing model is `veed/lipsync/v2` at **41.4s for
+a 3-second utterance**. Three options, Vitaly's call:
+1. **Director** (`minimax/h3-max/director`) — genuinely live, but WebRTC/LiveKit, needs a
+   client integration that does not exist, and per-second session billing.
+2. **Idle loop only** — ships now, face as presence rather than speech. Zero new work.
+3. ~~Pre-render fallback lines~~ — dead: only 2 of 36 funky templates are placeholder-free.
 
-- `ears-discord`: Discord/DAVE voice receive, per-user streaming SLNG STT with diarization,
-  playback/priority/mute commands, turn shaping, Postgres/Redis recording, meeting/session
-  CRUD, and the operator console.
-- `brain`: validated agendas, `gathering → active → finished` lifecycle, explicit wake/start
-  instruction, talk ledger, deterministic triggers, group off-topic handling, persistent
-  parking lot, Nebius relevance/notes and spoken-line generation, template fallback, SLNG
-  TTS, and Mastra workflow traces.
-- Console: exact text Karen is speaking, transcript and floor meters, agenda completion,
-  missing-attendee/readiness state, facts, decisions, unresolved items, and parked topics.
-- Contract: `speak.text` carries the exact spoken line for operator UIs; ears proxies brain's
-  read-only state at `/api/brain-state`.
-- Verification: brain 26 tests + TypeScript; ears 41 tests + Ruff + Pyright; deterministic
-  stub replay and two real Nebius model replays.
+## Next steps (ordered)
+1. Vitaly picks the endpoint (Director vs idle-loop-only).
+2. Google Calendar: only `.ics` parsing exists. Recommended next step is the per-calendar
+   secret iCal URL polled by the existing scheduler — no OAuth, no consent screen.
+3. Deploy when Artem's compose lands: traefik-public network, `websecure` entrypoint,
+   `mytlschallenge` certresolver, label pattern copied from `pro7ocol-website`.
+   `CALENDAR_PUBLIC_URL=https://gavel.pro7ocol.com` or join URLs stay host-relative.
+4. Vonage lane (needs app id + private key + API secret from Vitaly).
+5. Quality Clouds analysis, Galtea eval set.
 
-## Model decision
+## Blockers / needs human
+- Endpoint decision (above).
+- Vonage credentials. Quality Clouds booth answer. Galtea account.
 
-Keep the configured Qwen pair. On the six-minute replay, the final Qwen run used 33 calls,
-16,676 input tokens, 1,921 output tokens, and approximately $0.0027. Gemma returned lines
-faster but violated the constrained wrap-up and spoke as if Karen would do follow-up work.
-
-## Next steps
-
-1. Run S4: ears + brain in one real Discord call with all expected attendees.
-2. Verify the spoken opening, direct-address response, shared tangent redirect, and console
-   understanding in the browser.
-3. Export the real session with `just export-replay` and complete E4.
-4. Record the short demo/dry run. Only then spend time on Vonage, fal video, or the fire drill.
-
-## Known limits
-
-- Meeting understanding is session-memory in brain; durable rows currently cover transcripts,
-  interventions, model calls, and parked memories, not the extracted facts/decisions list.
-- Vonage, fal video, calendar ingestion, concierge, and emergency-demo SMS are planned but
-  not implemented in this repository state.
-- The ears test suite emits two upstream deprecation warnings from Starlette's TestClient;
-  project lint/type checks are clean.
-
-## Run
-
-1. `cd packages/ears-discord && just run`
-2. `cd packages/brain && pnpm start`
-3. Open `http://127.0.0.1:8787/console`, create/start a meeting session, gather everyone,
-   then say “Karen, let's start the meeting.”
+## Key files touched
+- `packages/chair-video/README.md` — latency table + the Director finding
+- `packages/brain/config/personas.yaml` — `active: funky`, asset names corrected
+- `packages/chair-video/src/chair_video/settings.py` — persona→asset map, default funky
+- `docs/CONTRACT.md` — §4 calendar, §5 chair-video

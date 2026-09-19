@@ -210,3 +210,20 @@ calling `ears-discord`'s existing HTTP API (`POST /api/meetings` then `POST /api
 A background scheduler calls the same start path automatically at the event's start time;
 clicking Join just does it early. See `packages/calendar/README.md` for the attendee
 email→`discordId` mapping (the one real seam between an invite and a Discord speaker).
+
+## 5. chair-video (packages/chair-video)
+
+A service the brain calls to turn the chair's spoken audio into a lip-synced talking-head
+clip. It makes no decisions and never touches the agenda — see `packages/chair-video/README.md`
+for latency numbers and persona details.
+
+| Endpoint | Request | Response |
+|---|---|---|
+| `POST /speak-video` | `{"audioUrl"}` or `{"audioBase64","format"}`, optional `"persona"` (`"formal"`\|`"funky"`, default `"formal"`) | `{"videoUrl","durationMs","latencyMs"}` |
+| `GET /idle` | optional `?persona=formal\|funky` | the persona's idle loop (video/mp4) |
+| `GET /healthz` | — | `{"falConfigured","falReachable","lipsyncModel","avatarModel"}` |
+
+An unknown or missing `persona` silently falls back to `"formal"` — a typo on stage must
+not silence the chair. `packages/brain/config/personas.yaml` is the source of truth for a
+persona's tone and template lines; `chair-video`'s own settings decide which asset file a
+persona renders with.

@@ -15,7 +15,7 @@
 # second voice has been confirmed for either persona yet (models.yaml's single voice is
 # used for both until one is). Never invent a voice id here.
 
-active: formal
+active: funky
 
 personas:
   formal:
@@ -29,7 +29,7 @@ personas:
         character — the fact does the work, you don't have to.
       - Aim under 20 words when the facts allow it; never pad with pleasantries.
     avatar: karen-formal.png
-    idle: karen-formal-idle
+    idle: idle-formal.mp4
     voice: "" # not confirmed — see note above
 
   funky:
@@ -42,6 +42,6 @@ personas:
         point, their pace or who they are. The comedy is the situation, not the person.
       - Still brief and still in charge: the joke is a beat, not a monologue.
       - Aim under 20 words when the facts allow it; never pad with pleasantries.
-    avatar: karen-funky.png
-    idle: karen-funky-idle
+    avatar: karen-funky-01.png
+    idle: idle-funky.mp4
     voice: "" # not confirmed — see note above
