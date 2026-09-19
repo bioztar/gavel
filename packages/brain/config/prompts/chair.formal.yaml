@@ -51,6 +51,13 @@ kinds:
       - "Time's up on {{topicTitle}}. Next: {{nextTopicTitle}}. {{nextQuestion?}}"
       - "We'll close {{topicTitle}} here and open {{nextTopicTitle}}. {{nextQuestion?}}"
 
+  nextTopic:
+    templates:
+      - "Sure, {{name}}. Moving on to {{nextTopicTitle}}. {{nextQuestion?}}"
+      - "Very well, we'll close {{topicTitle}} there. Next: {{nextTopicTitle}}. {{nextQuestion?}}"
+      - "Understood, {{name}}. {{nextTopicTitle}} is next. {{nextQuestion?}}"
+      - "Let's move to {{nextTopicTitle}}, then. {{nextQuestion?}}"
+
   wrapUp:
     templates:
       - "That's the agenda, thank you all. Parked for later: {{parkedList}}."

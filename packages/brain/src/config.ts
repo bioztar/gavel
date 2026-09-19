@@ -135,6 +135,7 @@ export const INTERVENTION_KINDS = [
   "escalateMute",
   "escalateFirm",
   "topicOverrun",
+  "nextTopic",
   "wrapUp",
   "silence",
   "roundRobin",

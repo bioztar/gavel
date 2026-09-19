@@ -34,8 +34,11 @@ can decide, but it cannot speak.
 A voice connection opens a **gathering lobby**, not the meeting clock. Karen waits until
 every expected attendee is present and someone says an addressed instruction such as
 “Karen, let's start the meeting.” She then states the agenda, invites a named person to
-open the first topic, and starts moderation. Other requests addressed to Karen get a
-spoken answer as well.
+open the first topic, and starts moderation. Once it is under way, “Karen, next topic” (or
+“let's move on”, “skip this”) moves the meeting on at once: timed, to the next topic in
+order; untimed, to the next one not yet discussed; past the last, she wraps up. Asking
+*about* it (“what's the next topic?”) only gets an answer. Other requests addressed to
+Karen get a spoken answer as well.
 
 Code decides **whether** to act and **what action** to take. The model only writes **what
 to say**, and a YAML template is always there as a fallback. Triggers, checked every 250 ms

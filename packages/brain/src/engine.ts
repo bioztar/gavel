@@ -15,7 +15,7 @@ import type { Memory, Store } from "./ears/store";
 import type { Wire } from "./ears/wire";
 import { log } from "./log";
 import type { Intervention, PersonView, Redirect, Snapshot } from "./policy/snapshot";
-import { evaluate, redirectFor } from "./policy/triggers";
+import { evaluate, nextQuestion, redirectFor, wrapUp } from "./policy/triggers";
 import { type Notes, addNotes, boardNotes, noteKeys, parkedLine, totalNotes } from "./state/notes";
 import { Conversation } from "./state/conversation";
 import { type Classification, RelevanceTracker } from "./state/relevance";
@@ -953,7 +953,7 @@ export class Engine {
   advanceTopic(): void {
     const now = this.now();
     this.ledger.splitAt(now);
-    this.topicIndex += 1;
+    this.topicIndex = this.nextTopicIndex();
     this.topicStartedAt = now;
     this.relevance.resetAll();
     this.redirect = null;
@@ -966,6 +966,20 @@ export class Engine {
       stageStop();
     }
     log.info("topic.advanced", { to: topic?.title ?? "(agenda done)" });
+  }
+
+  /**
+   * Where "next" goes. Timed: the next topic in order. Untimed: the next one not yet
+   * discussed, after this one. Past the last topic: the agenda is done.
+   */
+  private nextTopicIndex(): number {
+    const topics = this.agenda?.topics ?? [];
+    if (this.policy().timed) return this.topicIndex + 1;
+    for (let step = 1; step < topics.length; step++) {
+      const i = (this.topicIndex + step) % topics.length;
+      if (!this.discussed.has(topics[i]!.id)) return i;
+    }
+    return topics.length;
   }
 
   /** Untimed meeting: someone took the room to another agenda item, and the chair follows. */
@@ -1159,6 +1173,13 @@ export class Engine {
       return;
     }
 
+    // "Karen, let's move on to the next topic." A presenter who is done should not have to
+    // wait out the clock.
+    if (this.phase === "active" && wantsNextTopic(request)) {
+      this.queueNextTopic(id);
+      return;
+    }
+
     this.directQueue.push({
       trigger: "addressed",
       kind: "addressed",
@@ -1176,6 +1197,33 @@ export class Engine {
       },
       actions: ["speak"],
       priority: false,
+    });
+  }
+
+  private queueNextTopic(id: string): void {
+    const s = this.snapshot();
+    const next = this.agenda?.topics[this.nextTopicIndex()];
+    log.info("topic.requested", { by: this.nameOf(id), to: next?.title ?? "(agenda done)" });
+    if (!next) {
+      this.directQueue.push({ ...wrapUp(s, "addressed"), targetId: id });
+      return;
+    }
+    const question = nextQuestion(s, next);
+    this.directQueue.push({
+      trigger: "addressed",
+      kind: "nextTopic",
+      topicId: this.topic()?.id ?? null,
+      targetId: id,
+      vars: {
+        name: this.nameOf(id),
+        topicTitle: this.topic()?.title ?? "",
+        topicGoal: this.topic()?.goal ?? "",
+        nextTopicTitle: next.title,
+        nextQuestion: question,
+      },
+      actions: ["speak", "advance"],
+      priority: false,
+      question,
     });
   }
 
@@ -1318,6 +1366,7 @@ export class Engine {
         id: t.id,
         title: t.title,
         budgetSeconds: t.budgetSeconds,
+        type: t.type ?? "discussion",
         // Untimed: nothing is ever "done" by being passed; the room can come back to it.
         done: s.policy.timed && i < s.topicIndex,
         discussed: this.discussed.has(t.id),
@@ -1362,6 +1411,15 @@ const REPEAT_OVERLAP = 0.8;
 /** A greeting or filler with nothing after it: "Hey.", "Hi there,", "Okay, so". */
 const OPENER_ONLY =
   /^(?:(?:hey|hi|hello|hiya|yo|there|ok|okay|so|um+|uh+|well|right|alright|all right|good (?:morning|afternoon|evening))[\s.,!?;:-]*)+$/i;
+/** Asking to move on — not asking about it ("what's the next topic?", "before we move on…"). */
+const NEXT_TOPIC =
+  /\b(?:(?:next|following)\s+(?:topic|item|point|agenda\s+item|one|question)|move\s+on|moving\s+on|skip\s+(?:this|it|ahead|to))\b/i;
+const ABOUT_NEXT = /^(?:what|what's|whats|which|when|how|who|where|why|is|are|will|do|does|tell\s+me|remind\s+me)\b|\bbefore\s+we\b/i;
+
+function wantsNextTopic(request: string): boolean {
+  return NEXT_TOPIC.test(request) && !ABOUT_NEXT.test(request.trim());
+}
+
 const START = /\b(?:(?:start|begin|kick\s*off|open)\b.*\b(?:meeting|agenda|session|call)|let'?s\s+(?:start|begin|get\s+started|kick\s*off))\b/i;
 
 /** "Let's start the meeting, please, Karen." → "Let's start the meeting, please." */

@@ -200,6 +200,16 @@ kinds:
     templates:
       - "We're over time on {{topicTitle}}, so let's move on to {{nextTopicTitle}}. {{nextQuestion?}}"
 
+  # name: who asked to move on; nextTopicTitle, nextQuestion
+  nextTopic:
+    instruction: >-
+      {{name}} asked to move on. Close "{{topicTitle}}" in a few words and open
+      "{{nextTopicTitle}}", with the question.
+    examples:
+      - "Sure, Ana, let's move on. Next, the date: what date can you defend?"
+    templates:
+      - "Sure, {{name}}. Moving on to {{nextTopicTitle}}. {{nextQuestion?}}"
+
   # parkedList: "Vitaly: pricing; Ana: office move" (may be empty), carriedList: open from earlier meetings
   wrapUp:
     instruction: >-

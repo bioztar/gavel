@@ -220,20 +220,7 @@ function topicOverrun(s: Snapshot): Intervention | null {
   if (!s.policy.timed || !t || !t.budgetSeconds) return null;
   if (s.now - s.topicStartedAt < t.budgetSeconds * s.policy.topicOverrunFactor * S) return null;
   const next = s.topics[s.topicIndex + 1];
-  if (!next) {
-    return {
-      trigger: "topicOverrun",
-      kind: "wrapUp",
-      topicId: t.id,
-      vars: {
-        ...base(s),
-        parkedList: s.parked.map((p) => `${p.name} on ${p.summary}`).join(", "),
-        carriedList: s.carried.map((p) => `${p.name} on ${p.summary}`).join(", "),
-      },
-      actions: ["speak", "advance"],
-      priority: false,
-    };
-  }
+  if (!next) return wrapUp(s, "topicOverrun");
   const nextQ = nextQuestion(s, next);
   return {
     trigger: "topicOverrun",
@@ -243,6 +230,22 @@ function topicOverrun(s: Snapshot): Intervention | null {
     actions: ["speak", "advance"],
     priority: false,
     question: nextQ,
+  };
+}
+
+/** The agenda is done: close the meeting, reading back what was parked. */
+export function wrapUp(s: Snapshot, trigger: Intervention["trigger"]): Intervention {
+  return {
+    trigger,
+    kind: "wrapUp",
+    topicId: topicId(s),
+    vars: {
+      ...base(s),
+      parkedList: s.parked.map((p) => `${p.name} on ${p.summary}`).join(", "),
+      carriedList: s.carried.map((p) => `${p.name} on ${p.summary}`).join(", "),
+    },
+    actions: ["speak", "advance"],
+    priority: false,
   };
 }
 

@@ -766,6 +766,44 @@ describe("keeping up with the room, as in the 2026-09-19 cats-vs-dogs session", 
     expect(sent.findLast((f) => f.type === "speak")).toMatchObject(gate);
   });
 
+  it("\"Karen, next topic\" moves on at once, and past the last topic wraps up", async () => {
+    const { engine, tick, say, spoken, start } = room();
+    await start();
+    spoken(2_000);
+    // Asking about the next topic is not asking to go there.
+    await say(ANA, "Karen, what's the next topic?", 5_000);
+    expect(await tick(5_000)).toMatchObject({ kind: "addressed" });
+    spoken(7_000);
+    expect(engine.view().topic?.index).toBe(0);
+
+    await say(ANA, "Karen, I'm done, let's move on to the next topic.", 10_000);
+    expect(await tick(10_000)).toMatchObject({ kind: "nextTopic", targetId: ANA, vars: { nextTopicTitle: "The date" } });
+    expect(engine.view().topic).toMatchObject({ index: 1, title: "The date" });
+    spoken(12_000);
+
+    await say(VIT, "Karen, next topic please.", 20_000);
+    expect(await tick(20_000)).toMatchObject({ kind: "nextTopic" });
+    spoken(22_000);
+    await say(VIT, "Karen, can we move on?", 30_000);
+    expect(await tick(30_000)).toMatchObject({ kind: "wrapUp" });
+    expect(engine.view()).toMatchObject({ phase: "finished", agendaFinished: true });
+  });
+
+  it("untimed, \"next topic\" goes to the next one not yet discussed", async () => {
+    const { engine, tick, say, spoken, start } = room(undefined, { timed: false });
+    await start();
+    spoken(2_000);
+    await say(ANA, "Karen, next topic.", 5_000);
+    expect(await tick(5_000)).toMatchObject({ kind: "nextTopic", vars: { nextTopicTitle: "The date" } });
+    spoken(7_000);
+    await say(ANA, "Karen, next topic.", 10_000);
+    expect(await tick(10_000)).toMatchObject({ kind: "nextTopic", vars: { nextTopicTitle: "Blocker owners" } });
+    spoken(12_000);
+    // Everything has been discussed: "next" ends the meeting.
+    await say(ANA, "Karen, next topic.", 20_000);
+    expect(await tick(20_000)).toMatchObject({ kind: "wrapUp" });
+  });
+
   it("a line past compose.maxWords is asked for once more, shorter", async () => {
     const long = "Thanks for the weather report, Artem, saved that for the small talk folder. Now, back to the real debate: what does a dog do that no cat could?";
     const { prompts, say, tick, lines } = room((user) => (user.includes("Too long") ? "Artem, weather parked. What can a dog do that no cat could?" : long));

@@ -53,6 +53,13 @@ kinds:
       - "{{topicTitle}}, your time's up, thanks for playing. {{nextTopicTitle}}: {{nextQuestion?}}"
       - "Moving on before {{topicTitle}} moves in permanently. {{nextTopicTitle}}: {{nextQuestion?}}"
 
+  nextTopic:
+    templates:
+      - "Say no more, {{name}}. Next stop: {{nextTopicTitle}}. {{nextQuestion?}}"
+      - "{{topicTitle}}, you've been dismissed. Hello, {{nextTopicTitle}}. {{nextQuestion?}}"
+      - "Onward! {{nextTopicTitle}}, you're up. {{nextQuestion?}}"
+      - "You got it, {{name}}. Flipping to {{nextTopicTitle}}. {{nextQuestion?}}"
+
   wrapUp:
     templates:
       - "That's a wrap, team — thanks for showing up and behaving mostly on schedule. Parked for later: {{parkedList}}."
