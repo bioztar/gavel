@@ -1,0 +1,114 @@
+"""The three compose routes through the real app, exercised end to end.
+
+`gavel_calendar.app` builds its `settings` once at import time from whatever
+`.env` this machine has — real `NEBIUS_API_KEY` included. Each test patches
+that already-built object in place (rather than the environment) so nothing
+here can reach a real key or make a real network call; the routes read the
+module attribute `settings` fresh on every request, so the patch takes effect
+immediately. See `test_compose.py` for the same isolation at the unit level.
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Iterator
+
+import pytest
+from fastapi.testclient import TestClient
+from pytest_httpx import HTTPXMock
+
+from gavel_calendar import app as app_module
+from gavel_calendar.app import app, store
+
+
+@pytest.fixture(autouse=True)
+def _clean_store() -> Iterator[None]:
+    store._records.clear()
+    yield
+    store._records.clear()
+
+
+@pytest.fixture(autouse=True)
+def _isolated_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(app_module.settings, "nebius_api_key", "")
+    monkeypatch.setattr(app_module.settings, "nebius_base_url", "https://fake.test/v1")
+    monkeypatch.setattr(app_module.settings, "resend_api_key", "")
+    monkeypatch.setattr(app_module.settings, "compose_from_email", "")
+
+
+def test_root_redirects_to_board() -> None:
+    with TestClient(app, follow_redirects=False) as client:
+        resp = client.get("/")
+        assert resp.status_code == 307
+        assert resp.headers["location"] == "/board"
+
+
+def test_get_compose_renders_brief_form() -> None:
+    with TestClient(app) as client:
+        resp = client.get("/compose")
+        assert resp.status_code == 200
+        assert "<textarea" in resp.text
+
+
+def test_compose_parse_falls_back_without_llm_configured() -> None:
+    with TestClient(app) as client:
+        resp = client.post(
+            "/compose/parse",
+            data={"brief": "set up a meeting", "attendees": "Vitaly <vitaly@test.dev>"},
+        )
+        assert resp.status_code == 200
+        assert "Could not parse" in resp.text
+
+
+def test_compose_send_creates_meeting_with_working_join_link(httpx_mock: HTTPXMock) -> None:
+    # `httpx_mock` with no registered response makes any unmocked network call
+    # fail the test instead of silently escaping — the mailer must dry-run.
+    with TestClient(app) as client:
+        resp = client.post(
+            "/compose/send",
+            data={
+                "title": "Pricing sync",
+                "brief": "talk pricing",
+                "attendees": "Vitaly <vitaly@test.dev>, Artem <artem@test.dev>",
+                "start": "2026-09-20T15:00",
+                "duration_minutes": "30",
+                "topics_count": "1",
+                "topic_title_0": "Pricing",
+                "topic_minutes_0": "",
+                "topic_owner_0": "Vitaly",
+                "topic_must_hear_0": "Artem",
+            },
+        )
+        assert resp.status_code == 200
+        assert "not sent" in resp.text  # dry-run mailer, no RESEND_API_KEY
+
+        assert len(store._records) == 1
+        session_id = next(iter(store._records.keys()))
+
+        join_resp = client.get(f"/m/{session_id}")
+        assert join_resp.status_code == 200
+        assert "Pricing sync" in join_resp.text
+
+
+def test_compose_parse_uses_llm_when_configured(
+    monkeypatch: pytest.MonkeyPatch, httpx_mock: HTTPXMock
+) -> None:
+    payload = {
+        "title": "Pricing sync",
+        "start": "2026-09-19T13:00:00+02:00",
+        "duration_minutes": 15,
+        "topics": [],
+    }
+    httpx_mock.add_response(
+        url="https://fake.test/v1/chat/completions",
+        method="POST",
+        json={"choices": [{"message": {"content": json.dumps(payload)}}]},
+    )
+    monkeypatch.setattr(app_module.settings, "nebius_api_key", "key123")
+    with TestClient(app) as client:
+        resp = client.post(
+            "/compose/parse",
+            data={"brief": "pricing in an hour", "attendees": "Vitaly <vitaly@test.dev>"},
+        )
+    assert resp.status_code == 200
+    assert "Pricing sync" in resp.text

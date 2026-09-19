@@ -2,10 +2,17 @@
 
 Same pattern as `packages/ears-discord/src/ears/settings.py`. Never log a
 setting's value — on a missing/invalid one, raise with its *name* only.
+
+`packages/calendar` is itself sometimes checked out as a git worktree (see
+`packages/chair-video/src/chair_video/settings.py`, same fix): the repo-root
+`.env` may then live in a sibling checkout rather than two directories up, so
+both the worktree-relative path and the main checkout's absolute path are
+tried, with `GAVEL_ENV_FILE` as an explicit override.
 """
 
 from __future__ import annotations
 
+import os
 from datetime import timedelta
 from functools import lru_cache
 
@@ -14,7 +21,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=("../../.env", ".env"),
+        env_file=(
+            "../../.env",
+            ".env",
+            "/home/coder/DEV/gavel/.env",
+            os.environ.get("GAVEL_ENV_FILE", ""),
+        ),
         env_file_encoding="utf-8",
         extra="ignore",
         # `.env.example` ships `KEY=` lines; blank means unset, not "".
@@ -59,6 +71,36 @@ class Settings(BaseSettings):
     # A feed carries a year of history; without this every poll would try
     # to build a session for last March's standup.
     calendar_feed_window_hours: float = 24.0
+
+    # --- compose: the "create a meeting" front door -------------------------
+    # Nebius Token Factory, OpenAI-compatible chat/completions. Already used by
+    # `packages/brain`; the model id is pinned in `llm.py` from
+    # `packages/brain/config/models.yaml`'s `fast` profile, not read from here —
+    # `NEBIUS_MODEL` in `.env` is a leftover, unused on purpose.
+    nebius_api_key: str = ""
+    nebius_base_url: str = "https://api.tokenfactory.nebius.com/v1"
+
+    # A secret; empty means the mailer runs in dry-run mode (see mailer.py).
+    resend_api_key: str = ""
+    # Must be on a Resend-verified sending domain. Empty fails loudly with the
+    # setting's name at send time, never silently.
+    compose_from_email: str = ""
+    # "Name <email>, Name <email>, ..." (RFC 5322 address list) — prefills
+    # GET /compose's attendees field. The three people already on this demo;
+    # kept distinct even where two share a first name, since `agenda.py`
+    # matches an owner/must-hear name case-insensitively and a collision would
+    # silently resolve to the wrong attendee.
+    compose_default_attendees: str = (
+        "Vitaly <vitaly.alt@gmail.com>, Artem <a.shambalev@gmail.com>, "
+        "Vitaly P <vitaly@pro7ocol.com>"
+    )
+    # The meeting's .ics LOCATION and the success page's Discord link.
+    discord_meeting_url: str = (
+        "https://discordapp.com/channels/1550819764258213909/1550820239564996608"
+    )
+    # IANA name. Venue is Barcelona; also what "in one hour" / "tomorrow at
+    # 10" resolve against — see llm.py.
+    compose_timezone: str = "Europe/Madrid"
 
     @property
     def ics_feed_urls(self) -> list[str]:

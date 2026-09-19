@@ -114,3 +114,17 @@ def build_agenda(
     # Fails loudly, offline, before this ever reaches ears or the brain.
     ContractAgenda.model_validate(agenda)
     return agenda
+
+
+def attendee_name(agenda: dict, discord_id: str | None) -> str:
+    """The inverse of the `by_name` lookup above: a built agenda's `discordId`
+    back to its display name, for anywhere an id must read as a human (a join
+    page, an .ics `DESCRIPTION`). An unmapped id — the email fallback from
+    `_attendee_id` — is returned as-is rather than blanked out.
+    """
+    if discord_id is None:
+        return ""
+    for a in agenda["attendees"]:
+        if a["discordId"] == discord_id:
+            return str(a["name"])
+    return discord_id
