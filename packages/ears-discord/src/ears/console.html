@@ -151,11 +151,6 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin:
       <label>Context — notes for the chair</label>
       <textarea id="m-context" rows="3" placeholder="Background, what was decided last time, sensitivities…"></textarea>
 
-      <label class="row"><span class="grow">Attendees</span>
-        <button class="small" id="b-import-voice" title="Everyone currently in the voice channel">from voice</button>
-        <button class="small" id="b-add-att">+ add</button></label>
-      <div id="attendees"></div>
-
       <label class="row"><span class="grow">Topics <span id="total" class="muted"></span></span>
         <button class="small" id="b-add-topic">+ add</button></label>
       <div id="topics"></div>
@@ -357,28 +352,22 @@ function edit(m) {
   current = m;
   $("m-title").value = m.title; $("m-context").value = m.context; $("m-purpose").value = m.agenda.purpose || "";
   $("m-saved").textContent = m.id ? `saved ${m.updatedAt?.slice(11, 16) ?? ""}` : "not saved";
-  renderAttendees(); renderTopics(); renderPolicy();
+  renderTopics(); renderPolicy();
 }
 function readForm() {
   current.title = $("m-title").value.trim();
   current.context = $("m-context").value;
   current.agenda.purpose = $("m-purpose").value;
+  current.agenda.attendees = []; // Each session gets its roster from the voice channel.
   current.agenda.totalSeconds = current.agenda.topics.reduce((a, t) => a + (+t.budgetSeconds || 0), 0);
   return { title: current.title, context: current.context, agenda: current.agenda };
 }
 function attendeeOptions(selected) {
-  return `<option value="">—</option>` + current.agenda.attendees
+  const people = status?.participants ?? [];
+  const missing = selected && !people.some((p) => p.discordId === selected)
+    ? `<option value="${esc(selected)}" selected>Unavailable user (${esc(selected)})</option>` : "";
+  return `<option value="">—</option>${missing}` + people
     .map((a) => `<option value="${esc(a.discordId)}" ${a.discordId === selected ? "selected" : ""}>${esc(a.name)}</option>`).join("");
-}
-function renderAttendees() {
-  $("attendees").innerHTML = current.agenda.attendees.map((a, i) => `
-    <div class="card"><div class="row">
-      <input class="grow" data-a="${i}" data-f="name" value="${esc(a.name)}" placeholder="name">
-      <select data-a="${i}" data-f="role" style="width:95px">
-        ${["host", "attendee"].map((r) => `<option ${a.role === r ? "selected" : ""}>${r}</option>`).join("")}</select>
-      <button class="small danger" data-del-a="${i}">✕</button></div>
-      <input class="mono" data-a="${i}" data-f="discordId" value="${esc(a.discordId)}" placeholder="discord user id">
-    </div>`).join("") || `<div class="muted">No attendees — “from voice” pulls in whoever is in the channel.</div>`;
 }
 function renderTopics() {
   const total = current.agenda.topics.reduce((a, t) => a + (+t.budgetSeconds || 0), 0);
@@ -395,7 +384,7 @@ function renderTopics() {
       <div class="row"><span class="muted" style="font-size:11px">owner</span>
         <select data-t="${i}" data-f="owner" class="grow">${attendeeOptions(t.owner)}</select></div>
       <div class="row" style="flex-wrap:wrap"><span class="muted" style="font-size:11px">must hear</span>
-        ${current.agenda.attendees.map((a) => `<label class="row" style="margin:0;font-size:12px;color:var(--text)">
+        ${(status?.participants ?? []).map((a) => `<label class="row" style="margin:0;font-size:12px;color:var(--text)">
           <input type="checkbox" style="width:auto" data-mh="${i}" value="${esc(a.discordId)}" ${t.mustHear.includes(a.discordId) ? "checked" : ""}>${esc(a.name)}</label>`).join("")}</div>
       <textarea data-t="${i}" data-f="questions" rows="1" placeholder="questions, one per line">${esc(t.questions.join("\n"))}</textarea>
     </div>`).join("") || `<div class="muted">No topics yet.</div>`;
@@ -408,8 +397,7 @@ function renderPolicy() {
 document.addEventListener("input", (e) => {
   const el = e.target, d = el.dataset;
   if (!current) return;
-  if (d.a !== undefined) current.agenda.attendees[+d.a][d.f] = el.value;
-  else if (d.t !== undefined) {
+  if (d.t !== undefined) {
     const t = current.agenda.topics[+d.t];
     if (d.f === "budgetSeconds") { t.budgetSeconds = +el.value || 0; const total = current.agenda.topics.reduce((a, x) => a + (+x.budgetSeconds || 0), 0); $("total").textContent = total ? `· ${clock(total * 1000)} total` : ""; }
     else if (d.f === "questions") t.questions = el.value.split("\n").map((q) => q.trim()).filter(Boolean);
@@ -419,27 +407,14 @@ document.addEventListener("input", (e) => {
     const t = current.agenda.topics[+d.mh];
     t.mustHear = el.checked ? [...new Set([...t.mustHear, el.value])] : t.mustHear.filter((x) => x !== el.value);
   } else if (d.p !== undefined) current.agenda.policy[d.p] = +el.value;
-  if (d.a !== undefined && d.f !== "role") return; // keep focus while typing names/ids
-  if (d.a !== undefined) renderTopics();
 });
-document.addEventListener("change", (e) => { if (e.target.dataset.a !== undefined) renderTopics(); });
 document.addEventListener("click", (e) => {
   const d = e.target.dataset;
-  if (d.delA !== undefined) { current.agenda.attendees.splice(+d.delA, 1); renderAttendees(); renderTopics(); }
   if (d.delT !== undefined) { current.agenda.topics.splice(+d.delT, 1); renderTopics(); }
   if (d.up !== undefined && +d.up > 0) { const ts = current.agenda.topics, i = +d.up; [ts[i - 1], ts[i]] = [ts[i], ts[i - 1]]; renderTopics(); }
 });
 $("m-select").onchange = (e) => { const m = meetings.find((x) => x.id === e.target.value); edit(m ? structuredClone(m) : blankMeeting()); };
 $("b-new").onclick = () => { $("m-select").value = ""; edit(blankMeeting()); $("m-title").focus(); };
-$("b-add-att").onclick = () => { current.agenda.attendees.push({ discordId: "", name: "", role: "attendee" }); renderAttendees(); renderTopics(); };
-$("b-import-voice").onclick = () => {
-  const people = status?.participants ?? [];
-  if (!people.length) return toast("Nobody is in the voice channel right now.");
-  const have = new Set(current.agenda.attendees.map((a) => a.discordId));
-  for (const p of people) if (!have.has(p.discordId))
-    current.agenda.attendees.push({ discordId: p.discordId, name: p.name, role: current.agenda.attendees.length ? "attendee" : "host" });
-  renderAttendees(); renderTopics();
-};
 $("b-add-topic").onclick = () => {
   const ids = new Set(current.agenda.topics.map((t) => t.id)); let n = current.agenda.topics.length + 1;
   while (ids.has("t" + n)) n++;
@@ -450,7 +425,7 @@ $("b-import-json").onclick = () => {
   try {
     const a = JSON.parse($("m-json").value);
     current.agenda = {
-      purpose: a.purpose ?? "", attendees: a.attendees ?? [], policy: { ...POLICY_DEFAULTS, ...(a.policy ?? {}) },
+      purpose: a.purpose ?? "", attendees: [], policy: { ...POLICY_DEFAULTS, ...(a.policy ?? {}) },
       topics: (a.topics ?? []).map((t, i) => ({ id: t.id ?? "t" + (i + 1), title: t.title ?? "", goal: t.goal ?? "",
         budgetSeconds: t.budgetSeconds ?? (t.budgetMinutes ? t.budgetMinutes * 60 : 120), owner: t.owner ?? null,
         mustHear: t.mustHear ?? [], questions: t.questions ?? [] })),

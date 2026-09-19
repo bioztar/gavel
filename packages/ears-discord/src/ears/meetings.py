@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import Field, model_validator
 
-from .frames import Frame
+from .frames import Frame, Participant
 
 
 class Attendee(Frame):
@@ -72,6 +72,39 @@ class Meeting(MeetingIn):
     created_at: str
     updated_at: str
 
-    def agenda_for(self, session_id: str) -> dict[str, Any]:
-        """The contract agenda, stamped with the session it runs in."""
-        return {"sessionId": session_id, **self.agenda.model_dump(by_alias=True)}
+    def agenda_for(
+        self, session_id: str, participants: list[Participant]
+    ) -> dict[str, Any]:
+        """Build a session agenda using whoever is currently in the voice channel.
+
+        Meetings are reusable templates, so their saved attendee list must not decide who
+        attends a particular run. Keep a saved role when it matches a present Discord user
+        (useful for imported agendas); otherwise every present person is an attendee.
+        """
+        saved = {attendee.discord_id: attendee for attendee in self.agenda.attendees}
+        attendees: list[dict[str, str]] = []
+        for person in participants:
+            previous = saved.get(person.discord_id)
+            attendees.append(
+                {
+                    "discordId": person.discord_id,
+                    "name": person.name,
+                    "role": previous.role if previous else "attendee",
+                }
+            )
+        # The old "from voice" button made the first person the host. Preserve that
+        # useful default without making operators manage the roster themselves.
+        matched_saved_attendee = any(
+            person.discord_id in saved for person in participants
+        )
+        if (
+            attendees
+            and not matched_saved_attendee
+            and not any(person["role"] == "host" for person in attendees)
+        ):
+            attendees[0]["role"] = "host"
+        return {
+            "sessionId": session_id,
+            **self.agenda.model_dump(by_alias=True, exclude={"attendees"}),
+            "attendees": attendees,
+        }

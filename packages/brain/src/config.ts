@@ -17,6 +17,9 @@ const Profile = z.object({
   temperature: z.number().min(0).max(2).default(0),
   maxOutputTokens: z.number().int().positive(),
   timeoutMs: z.number().int().positive(),
+  // Replies to someone who asked Karen directly: they are waiting, so a real answer a
+  // little later beats a canned line now.
+  directTimeoutMs: z.number().int().positive().optional(),
   jsonPromptInjection: z.boolean().default(false),
 });
 
@@ -24,9 +27,13 @@ export const ModelsConfig = z.object({
   profiles: z.object({ fast: Profile, normal: Profile }),
   prices: z.record(z.string(), z.object({ input: z.number(), output: z.number() })),
   tts: z.object({
+    // stream: one warm WebSocket, audio forwarded to ears as it is synthesized.
+    // http: the whole clip per request, then one `speak` frame.
+    transport: z.enum(["stream", "http"]).default("http"),
     baseUrl: z.string(),
     model: z.string(),
     voice: z.string(),
+    language: z.string().default("en"),
     timeoutMs: z.number().int().positive(),
     cacheSize: z.number().int().nonnegative(),
   }),
@@ -67,9 +74,13 @@ export const PolicyConfig = z.object({
     recheckSeconds: z.number(),
     cacheSize: z.number().int().nonnegative(),
   }),
+  addressed: z
+    .object({ followUpSeconds: z.number(), contextSeconds: z.number() })
+    .default({ followUpSeconds: 6, contextSeconds: 20 }),
   compose: z.object({
     precompose: z.boolean(),
     lineCacheSeconds: z.number(),
+    templateFallback: z.boolean().default(false),
   }),
   pickSpeaker: z.object({
     order: z.array(z.enum(["mustHear", "owner", "leastOnTopic"])),

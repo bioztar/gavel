@@ -39,10 +39,10 @@ Creating the app and sharing invite links: [docs/DISCORD-SETUP.md](../../docs/DI
 
 A no-auth operator page, served by ears itself:
 
-- **Meeting** — title, purpose, context for the chair, attendees (one click pulls in
-  whoever is in the voice channel), topics with budgets / owner / must-hear, policy
-  thresholds, JSON import/export of the contract agenda. Stored in Postgres (in memory
-  if Postgres is down).
+- **Meeting** — title, purpose, context for the chair, topics with budgets / owner /
+  must-hear, policy thresholds, and JSON import/export of the contract agenda. Attendees
+  are snapshotted automatically from the voice channel when a session starts. Stored in
+  Postgres (in memory if Postgres is down).
 - **Discord servers** — every server visible to the bot, its voice channels and current
   occupancy. Choose one meeting channel per server. The moderator joins when someone
   enters that channel and leaves shortly after the last person goes.
@@ -76,6 +76,11 @@ Every frame goes to three places: the WebSocket at `/`, Redis
 The brain sends `speak` (with the exact `text` for the console, and `priority: true` to
 jump the queue and duck the room as priority speaker), `stop`,
 `mute {discordId, seconds}` (capped at 60 s) and `unmute`.
+
+Or it streams a line while it is still being synthesized: `speak.start` (48 kHz
+`pcm_s16le`, mono or stereo) queues and starts playing it, `speak.chunk`s feed raw PCM
+as it arrives (a late chunk is bridged with silence), `speak.end` closes it. Same queue,
+priority and `spoken` as `speak` — see `src/ears/pcm_stream.py`.
 
 ears is also the brain's store — one Postgres for everything. The brain writes parked
 points and notes per person (`/api/memories`), what the chair said (`/api/interventions`)

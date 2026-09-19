@@ -31,6 +31,7 @@ class FakeStt:
 class FakeVoice:
     def __init__(self) -> None:
         self.played: list[bytes] = []
+        self.sources: list[Any] = []
         self.priorities: list[bool] = []
         self.done: Any = None
         self.mutes: list[tuple[str, bool]] = []
@@ -38,6 +39,12 @@ class FakeVoice:
 
     def play(self, audio: bytes, done: Any, priority: bool = False) -> bool:
         self.played.append(audio)
+        self.priorities.append(priority)
+        self.done = done
+        return True
+
+    def play_source(self, source: Any, done: Any, priority: bool = False) -> bool:
+        self.sources.append(source)
         self.priorities.append(priority)
         self.done = done
         return True
@@ -234,3 +241,34 @@ def test_llm_calls_keep_running_session_totals() -> None:
         json={"sessionId": "s1", "kind": "silence", "line": "Ana?", "source": "template"},
     )
     assert ok.json() == {"ok": True}
+
+
+def test_streamed_speak_plays_as_chunks_arrive_and_reports_spoken_once() -> None:
+    ears, voice, sent = _wired()
+    pcm = base64.b64encode(bytes(range(256)) * 15).decode()  # 3840 bytes of mono PCM
+    ears.command('{"type":"speak.start","utteranceId":"s1","text":"Hi","priority":true}')
+    assert len(voice.sources) == 1 and voice.priorities == [True]  # plays before any audio
+    stream = voice.sources[0]
+    assert stream.read() == bytes(3840)  # nothing yet: silence, still playing
+    ears.command(f'{{"type":"speak.chunk","utteranceId":"s1","audio":"{pcm}"}}')
+    ears.command('{"type":"speak.chunk","utteranceId":"nope","audio":"AAAA"}')  # unknown: ignored
+    ears.command('{"type":"speak.end","utteranceId":"s1"}')
+    frames = [stream.read(), stream.read(), stream.read()]
+    assert [len(f) for f in frames] == [3840, 3840, 0]  # mono doubled to stereo, then done
+    assert not [f for f in sent if f["type"] == "spoken"]
+    voice.done(None)
+    assert [f["utteranceId"] for f in sent if f["type"] == "spoken"] == ["s1"]
+
+
+def test_stop_releases_queued_streams() -> None:
+    ears, _, _ = _wired()
+    ears.command('{"type":"speak.start","utteranceId":"s1"}')
+    ears.command('{"type":"speak.start","utteranceId":"s2"}')
+    ears.command('{"type":"stop"}')
+    assert "s2" not in ears._streams
+
+
+def test_bad_stream_format_is_rejected() -> None:
+    ears, voice, _ = _wired()
+    ears.command('{"type":"speak.start","utteranceId":"s1","sampleRate":24000}')
+    assert voice.sources == []

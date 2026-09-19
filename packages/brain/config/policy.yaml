@@ -37,12 +37,24 @@ relevance:
   recheckSeconds: 8      # while an off-agenda episode is open, re-check at most this often
   cacheSize: 256         # identical (topic, window) pairs reuse the verdict
 
+# Someone talking to Karen directly.
+addressed:
+  # "Karen," on its own: the next thing that person says within this long is the request.
+  followUpSeconds: 6
+  # What they said just before addressing her (e.g. "What's our agenda? … Karen?") goes
+  # to the model too, from at most this far back.
+  contextSeconds: 20
+
 compose:
   # Pre-compose the redirect the moment an off-agenda episode opens, while the grace
   # period runs, so the live cost at interruption time is only TTS.
   precompose: true
   # A line for the same kind + person + topic is reused for this long instead of a new call.
   lineCacheSeconds: 300
+  # When the model is slow or down, speak the YAML template instead. Off: the chair stays
+  # quiet rather than say a canned line (non-speaking actions — start, advance, park — still
+  # happen). Offline replay turns it on, since its stub model composes nothing.
+  templateFallback: false
 
 pickSpeaker:
   # Who the chair invites when the room goes quiet or someone hogs the floor.

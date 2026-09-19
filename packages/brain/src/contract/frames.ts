@@ -60,6 +60,17 @@ export function parseEarsFrame(raw: unknown): EarsFrame | null {
 
 export type BrainFrame =
   | { type: "speak"; utteranceId: string; audio: string; text?: string; format?: string; priority?: boolean }
+  | {
+      type: "speak.start";
+      utteranceId: string;
+      text?: string;
+      format: "pcm_s16le";
+      sampleRate: 48000;
+      channels: 1 | 2;
+      priority?: boolean;
+    }
+  | { type: "speak.chunk"; utteranceId: string; audio: string }
+  | { type: "speak.end"; utteranceId: string; error?: string }
   | { type: "stop" }
   | { type: "mute"; discordId: string; seconds: number; reason?: string }
   | { type: "unmute"; discordId: string };

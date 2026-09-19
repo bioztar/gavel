@@ -95,6 +95,9 @@ frames from both surfaces and that is the entire point of the seam.
 | `type` | Does | Fields |
 |---|---|---|
 | `speak` | Play this audio into the voice channel | `utteranceId`, `audio` (base64), `format`; additive `text` is the exact spoken line for operator UIs |
+| `speak.start` | Additive: a line streamed while it is synthesized. Queues and plays like `speak` (same `priority` rules), bridging gaps with silence until chunks arrive | `utteranceId`, `format` (`pcm_s16le`), `sampleRate` (`48000`), `channels` (`1` \| `2`), `text?`, `priority?` |
+| `speak.chunk` | Raw PCM for an open `speak.start`, in order. Unknown `utteranceId`s are ignored | `utteranceId`, `audio` (base64) |
+| `speak.end` | No more chunks; the line ends once what arrived has played. One `spoken` per line, as for `speak` | `utteranceId`, `error?` |
 | `stop` | Stop current playback | — |
 
 The brain does its own TTS and hands over finished audio. The ears do not know what a
@@ -128,6 +131,10 @@ sentence is.
 addressed to Karen with an explicit start instruction (for example, “Karen, let's start
 the meeting”). It then speaks the agenda, names the first speaker, and enters the active
 phase. Joining voice or reaching a wall-clock time never starts moderation by itself.
+
+For sessions started from the ears console, ears replaces a meeting template's attendee
+list with the human users currently in its voice channel. The roster is snapshotted when
+the session starts and is re-sent unchanged if a brain reconnects.
 
 ### Additive — moderation (brain → ears, and back)
 

@@ -73,7 +73,7 @@ user joins the server, so ears never sees that server.
 ### Option A: build it
 
 ```
-https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot&permissions=40895744
+https://discord.com/oauth2/authorize?client_id=1550818383845400670&scope=bot&permissions=40895744
 ```
 
 Optional query parameters:
@@ -92,7 +92,7 @@ Optional query parameters:
 3. **Default Install Settings → Guild Install**: scopes `bot` (and
    `applications.commands` if you like), then tick the six permissions from §3.
 4. **Save Changes** and copy the link. It has the form
-   `https://discord.com/oauth2/authorize?client_id=<APP_ID>`, and Discord fills in the
+   `https://discord.com/oauth2/authorize?client_id=1550818383845400670`, and Discord fills in the
    scopes and permissions from these defaults.
 
 Option B gives a short link, and the portal also shows **Add App** on the bot's profile.

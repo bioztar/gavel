@@ -25,6 +25,8 @@ interface UsageLike {
 }
 
 export class MastraLlm implements Llm {
+  readonly composes = true;
+
   constructor(
     private cfg: () => Config["models"],
     private onUsage: (u: Usage) => void,
@@ -54,7 +56,7 @@ export class MastraLlm implements Llm {
     const res = await chairAgent.generate(req.user, {
       instructions: req.system,
       modelSettings: { temperature: p.temperature, maxOutputTokens: p.maxOutputTokens },
-      abortSignal: AbortSignal.timeout(p.timeoutMs),
+      abortSignal: AbortSignal.timeout(req.timeoutMs ?? p.timeoutMs),
     });
     this.report("chair", p.model, res.usage as UsageLike | undefined, started);
     return res.text?.trim() || null;

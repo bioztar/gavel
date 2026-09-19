@@ -163,3 +163,132 @@ describe("Karen and the meeting lobby", () => {
     expect(engine.view()).toMatchObject({ chairName: "Karen", phase: "active", readyToStart: false });
   });
 });
+
+describe("talking to Karen, as in the 2026-09-19 demo transcript", () => {
+  function lobby(compose: (user: string) => string | null = () => null) {
+    const config = loadConfig();
+    let now = 0;
+    const prompts: string[] = [];
+    const sent: BrainFrame[] = [];
+    const llm = {
+      composes: true,
+      classify: async () => null,
+      compose: async (req: { user: string }) => (prompts.push(req.user), compose(req.user)),
+    };
+    const engine = new Engine({
+      config: () => config,
+      clock: () => now,
+      wire: { connected: true, send: (f) => (sent.push(f), true) },
+      store: new MemoryStore(),
+      llm,
+      tts: new SilentTts(),
+      fallbackAgenda: null,
+    });
+    const agenda = loadAgendaFile(resolve(FIXTURES, "agenda.demo.json"));
+    engine.handle({ type: "ready", channelId: "c", participants: agenda.attendees.map(({ discordId, name }) => ({ discordId, name })), atMs: 0 });
+    engine.handle({ type: "session.started", sessionId: "s", title: "Sync", agenda, atMs: 0 });
+    const artem = agenda.attendees[0]!.discordId;
+    let n = 0;
+    const say = async (text: string, at: number) => {
+      now = at;
+      engine.handle({ type: "transcript", discordId: artem, text, final: true, utteranceId: `u${n++}`, atMs: at });
+      const iv = engine.tick();
+      await engine.idle();
+      // Karen finished speaking.
+      const speak = sent.findLast((f) => f.type === "speak");
+      if (speak?.type === "speak") engine.handle({ type: "spoken", utteranceId: speak.utteranceId, atMs: at });
+      return iv;
+    };
+    return { engine, prompts, sent, say, tick: async (at: number) => ((now = at), engine.tick()) };
+  }
+
+  it("hears the name at the end of a sentence and starts the meeting", async () => {
+    const { engine, say } = lobby();
+    expect((await say("Yeah. Working. Let's start the meeting, please, Karen.", 1_000))?.kind).toBe("startMeeting");
+    expect(engine.phase).toBe("active");
+  });
+
+  it("answers the question, not a bare '.', and tells the model where the meeting is", async () => {
+    const { prompts, say } = lobby(() => "Hi!");
+    const iv = await say("Hello, Karen.", 1_000);
+    expect(iv?.vars.request).toBe("Hello.");
+    expect(iv?.vars.meetingState).toMatch(/^Not started yet/);
+    expect(iv?.vars.question).toBeUndefined();
+    const iv2 = await say("What is this meeting about, Karen?", 3_000);
+    expect(iv2?.vars.request).toBe("What is this meeting about?");
+    expect(iv2?.vars.agendaList).toMatch(/, and /);
+    // Never served from the cache of an earlier answer.
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain("yourRecentLines: Hi!");
+  });
+
+  it("'Karen,' then the request in the next chunk, with what came before as context", async () => {
+    const { say, tick } = lobby(() => "ok");
+    await say("What is our agenda today?", 1_000);
+    expect(await say("Karen,", 2_000)).toBeNull();
+    const iv = await say("please answer.", 4_000);
+    expect(iv?.kind).toBe("addressed");
+    expect(iv?.vars.request).toBe("please answer.");
+    expect(iv?.vars.earlierWords).toBe("What is our agenda today?");
+    // Name alone and nothing after: answered from the earlier words once the wait runs out.
+    await say("Karen?", 20_000);
+    expect(await tick(23_000)).toBeNull();
+    expect((await tick(26_500))?.vars.request).toBe("(only your name)");
+  });
+
+  it("with template fallback off, a model that gives nothing means Karen stays quiet", async () => {
+    const { engine, sent, say } = lobby(() => null);
+    await say("Karen, can you tell me a joke?", 1_000);
+    expect(engine.history.at(-1)?.kind).toBe("addressed");
+    expect(sent.filter((f) => f.type === "speak")).toHaveLength(0);
+  });
+});
+
+describe("streamed speech", () => {
+  it("sends speak.start at once, each chunk as it lands, then speak.end", async () => {
+    const config = loadConfig();
+    config.models.tts.transport = "stream";
+    const sent: BrainFrame[] = [];
+    const tts = {
+      synthesize: async () => ({ audio: Buffer.alloc(0), format: "wav", latencyMs: 0, cached: false }),
+      stream: async (_text: string, onChunk: (pcm: Buffer) => void) => {
+        expect(sent.map((f) => f.type)).toEqual(["speak.start"]); // ears is already playing
+        onChunk(Buffer.from([1, 2]));
+        onChunk(Buffer.from([3, 4]));
+        return { firstAudioMs: 210, cached: false };
+      },
+    };
+    const engine = new Engine({
+      config: () => config,
+      clock: () => 0,
+      wire: { connected: true, send: (f) => (sent.push(f), true) },
+      store: new MemoryStore(),
+      llm: new StubLlm(),
+      tts,
+      fallbackAgenda: null,
+    });
+    const out = await engine.speak("Hello there.", true);
+    expect(sent.map((f) => f.type)).toEqual(["speak.start", "speak.chunk", "speak.chunk", "speak.end"]);
+    expect(sent[0]).toMatchObject({ text: "Hello there.", sampleRate: 48000, channels: 1, priority: true });
+    expect(sent[1]).toMatchObject({ audio: Buffer.from([1, 2]).toString("base64") });
+    expect(new Set(sent.map((f) => ("utteranceId" in f ? f.utteranceId : null))).size).toBe(1);
+    expect(out.ttsMs).toBe(210);
+  });
+
+  it("a TTS failure still closes the line so ears reports spoken", async () => {
+    const config = loadConfig();
+    config.models.tts.transport = "stream";
+    const sent: BrainFrame[] = [];
+    const engine = new Engine({
+      config: () => config,
+      clock: () => 0,
+      wire: { connected: true, send: (f) => (sent.push(f), true) },
+      store: new MemoryStore(),
+      llm: new StubLlm(),
+      tts: { synthesize: async () => { throw new Error("unused"); }, stream: async () => { throw new Error("socket closed"); } },
+      fallbackAgenda: null,
+    });
+    await engine.speak("Hi.", false);
+    expect(sent.at(-1)).toMatchObject({ type: "speak.end", error: "Error: socket closed" });
+  });
+});

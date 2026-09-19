@@ -51,16 +51,30 @@ kinds:
     templates:
       - "I'm ready, {{name}}, but we're still waiting for {{missingNames}}. I'll hold until they're here."
 
+  # request: their words to Karen; earlierWords: what they said just before (may be empty);
+  # meetingState: plain-words phase; agendaList; yourRecentLines: Karen's last few lines
   addressed:
-    instruction: >-
-      {{name}} directly addressed you as Karen and said: "{{request}}". Answer their request
-      briefly using only the agenda and the known facts, decisions, and open items. If the
-      answer is unknown, say so plainly. Do not pretend to perform an action you cannot perform.
+    instruction: |-
+      {{name}} is talking to you directly. Reply to exactly this: "{{request}}"
+      If those words hold no real question (like "please answer" or only your name), their
+      question is in what they said just before: "{{earlierWords}}".
+      - About the agenda, the meeting, or what it is for: name the items in agendaList.
+      - A greeting: greet back in a few words.
+      - A harmless quick request, like a joke: just do it, in one line.
+      - Otherwise answer from meetingState, purpose and the known facts, decisions and open
+        items. If you do not know, say so plainly.
+      Answer first. Before the meeting has started, never ask a topic question. You may add
+      that they can ask you to start the meeting, but not if yourRecentLines already said it.
+      Never repeat or rephrase anything in yourRecentLines. Do not pretend to perform an
+      action you cannot perform.
     examples:
+      - "Hi Artem! We haven't started yet. Say 'Karen, start the meeting' when everyone's in."
+      - "Three things today: where we actually are, the date, and blocker owners."
       - "Ana, we're on launch risks now; the decision on timing is still open."
     templates:
-      - "{{name}}, I heard you. We're currently on {{topicTitle}}."
-      - "{{name}}, I heard you, but I don't have enough information to answer that yet."
+      - "{{name}}, today's agenda is {{agendaList}}."
+      - "{{name}}, we're currently on {{topicTitle}}."
+      - "{{name}}, sorry, I don't have an answer to that yet."
 
   # summary: what they drifted into (≤12 words), quote: their recent words
   offAgenda:

@@ -8,7 +8,7 @@ import { loadConfig, watchConfig } from "./config";
 import { loadAgendaFile } from "./contract/agenda";
 import { MastraLlm } from "./chair/mastraLlm";
 import { StubLlm } from "./chair/llm";
-import { SilentTts, SlngTts } from "./chair/tts";
+import { SilentTts, SlngTts, type Tts } from "./chair/tts";
 import { EarsStore } from "./ears/store";
 import { EarsWire } from "./ears/wire";
 import { Engine } from "./engine";
@@ -32,6 +32,9 @@ if (!env.nebiusApiKey) log.warn("nebius.off", { reason: "NEBIUS_API_KEY unset â€
 if (!env.slngApiKey) log.warn("tts.off", { reason: "SLNG_API_KEY unset â€” the chair cannot speak" });
 
 const wire = new EarsWire(env.earsWireUrl);
+const tts: Tts = env.slngApiKey ? new SlngTts(() => config.models.tts, env.slngApiKey) : new SilentTts();
+// Open the streaming TTS socket now, so the chair's first line doesn't pay for it.
+tts.warm?.();
 let engine: Engine;
 const llm = env.nebiusApiKey ? new MastraLlm(() => config.models, (u) => engine.recordUsage(u)) : new StubLlm();
 
@@ -41,7 +44,7 @@ engine = new Engine({
   wire,
   store: new EarsStore(env.earsHttpUrl),
   llm,
-  tts: env.slngApiKey ? new SlngTts(() => config.models.tts, env.slngApiKey) : new SilentTts(),
+  tts,
   fallbackAgenda: agenda,
   // Every intervention runs as a traced Mastra workflow.
   runner: async (_engine, iv) => {

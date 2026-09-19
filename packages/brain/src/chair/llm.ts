@@ -14,6 +14,8 @@ export interface ClassifyRequest {
 export interface ComposeRequest {
   system: string;
   user: string;
+  /** Overrides the normal profile's timeout (someone asked Karen directly and is waiting). */
+  timeoutMs?: number;
 }
 
 export interface Usage {
@@ -27,6 +29,8 @@ export interface Usage {
 }
 
 export interface Llm {
+  /** False for a stub that never composes: the engine then always speaks the YAML templates. */
+  readonly composes: boolean;
   classify(req: ClassifyRequest): Promise<Classification | null>;
   compose(req: ComposeRequest): Promise<string | null>;
 }
@@ -36,6 +40,8 @@ export interface Llm {
  * For offline replay and tests — deterministic and free.
  */
 export class StubLlm implements Llm {
+  readonly composes = false;
+
   async classify(req: ClassifyRequest): Promise<Classification | null> {
     const words = new Set(tokens(req.window));
     if (words.size < 4) return { verdict: "unclear" };

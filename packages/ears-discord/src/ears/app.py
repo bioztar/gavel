@@ -36,8 +36,11 @@ from .frames import (
     SessionEnded,
     SessionStarted,
     Speak,
+    SpeakChunk,
+    SpeakEnd,
     SpeakingEnd,
     SpeakingStart,
+    SpeakStart,
     Spoken,
     Stop,
     Transcript,
@@ -49,6 +52,7 @@ from .frames import (
 )
 from .logging import get_logger
 from .meetings import Meeting
+from .pcm_stream import PcmStream
 from .segmenter import Chunk, Segmenter
 from .settings import Settings
 from .stt import SlngStt, SttError
@@ -75,6 +79,8 @@ class _Utterance:
     source: str  # "brain" | "console"
     priority: bool = False
     text: str | None = None
+    # A line still arriving over `speak.chunk` frames; `audio` is empty then.
+    stream: PcmStream | None = None
 
 
 class Ears:
@@ -105,11 +111,15 @@ class Ears:
         self.session_id: str | None = None
         # The meeting of the current session — or of the last one, reused on rejoin.
         self.meeting: Meeting | None = None
+        # Frozen when a session starts so reconnecting brains receive the same roster.
+        self._session_agenda: dict[str, Any] | None = None
         self._stt_locks: dict[str, asyncio.Lock] = {}
         self._tasks: set[asyncio.Task[Any]] = set()
         self._playback: deque[_Utterance] = deque()
         self._playing: _Utterance | None = None
         self._interrupted = False
+        # Streamed lines still receiving chunks, queued or playing.
+        self._streams: dict[str, PcmStream] = {}
         # People ears server-muted, and the timer that lifts it. ears only ever unmutes these.
         self._muted: dict[str, asyncio.TimerHandle] = {}
         # Streaming STT (default) replaces the segmenter + HTTP path.
@@ -192,11 +202,15 @@ class Ears:
 
     # --- sessions -----------------------------------------------------------------------
 
-    def start_session(self, meeting: Meeting | None) -> str:
+    def start_session(
+        self, meeting: Meeting | None, participants: list[Participant] | None = None
+    ) -> str:
         """End the current session, if any, and start a new run of `meeting`."""
         self.end_session()
         sid = uuid.uuid4()
         self.session_id, self.meeting = str(sid), meeting
+        people = participants if participants is not None else list(self.participants.values())
+        self._session_agenda = meeting.agenda_for(self.session_id, people) if meeting else None
         self.store.start_session(
             sid,
             meeting_id=meeting.id if meeting else None,
@@ -219,6 +233,7 @@ class Ears:
         self.store.end_session()
         logger.info("session.ended", session_id=self.session_id)
         self.session_id = None
+        self._session_agenda = None
 
     def _session_frame(self, session_id: str) -> SessionStarted:
         m = self.meeting
@@ -227,7 +242,7 @@ class Ears:
             meeting_id=m.id if m else None,
             title=m.title if m else None,
             context=m.context if m else None,
-            agenda=m.agenda_for(session_id) if m else None,
+            agenda=self._session_agenda if m else None,
         )
 
     # --- VoiceEvents -----------------------------------------------------------------
@@ -237,7 +252,7 @@ class Ears:
         self.guild_id, self.channel_id = guild_id, channel_id
         self.debug("voice.joined", channelId=channel_id, moved=moved)
         if moved or self.session_id is None:
-            self.start_session(self.meeting)
+            self.start_session(self.meeting, participants)
         else:
             self.store.set_session_channel(guild_id, channel_id)
         self._set_participants(participants)  # after the session exists, so it is recorded
@@ -477,6 +492,38 @@ class Ears:
                     frame.text,
                 )
             )
+        elif isinstance(frame, SpeakStart):
+            stream = PcmStream(channels=frame.channels)
+            self._streams[frame.utterance_id] = stream
+            self.enqueue(
+                _Utterance(
+                    frame.utterance_id,
+                    b"",
+                    "brain",
+                    frame.priority,
+                    frame.text,
+                    stream,
+                )
+            )
+        elif isinstance(frame, SpeakChunk):
+            target = self._streams.get(frame.utterance_id)
+            if target is None:
+                return
+            try:
+                target.feed(base64.b64decode(frame.audio, validate=True))
+            except (binascii.Error, ValueError):
+                self.debug("speak.bad_chunk", utteranceId=frame.utterance_id)
+        elif isinstance(frame, SpeakEnd):
+            ended = self._streams.pop(frame.utterance_id, None)
+            if ended is not None:
+                ended.end()
+                self.debug(
+                    "speak.stream_end",
+                    utteranceId=frame.utterance_id,
+                    bytes=ended.fed_bytes,
+                    underruns=ended.underruns,
+                    error=frame.error,
+                )
         elif isinstance(frame, Mute):
             self._spawn(self._mute(frame.discord_id, frame.seconds, frame.reason))
         elif isinstance(frame, Unmute):
@@ -535,6 +582,10 @@ class Ears:
 
     def stop_playback(self) -> None:
         dropped = len(self._playback)
+        for item in self._playback:
+            if item.stream is not None:
+                item.stream.end()
+                self._streams.pop(item.utterance_id, None)
         self._playback.clear()
         self.debug("speak.stop", dropped=dropped, playing=self._playing is not None)
         if self._playing is not None and self.voice is not None:
@@ -545,7 +596,12 @@ class Ears:
         if self._playing is not None or not self._playback:
             return
         item = self._playback.popleft()
-        if self.voice is None or not self.voice.play(item.audio, self._on_played, item.priority):
+        played = self.voice is not None and (
+            self.voice.play_source(item.stream, self._on_played, item.priority)
+            if item.stream is not None
+            else self.voice.play(item.audio, self._on_played, item.priority)
+        )
+        if not played:
             self.emit(Spoken(utterance_id=item.utterance_id, error="not in a voice channel"))
             self._play_next()
             return

@@ -10,7 +10,7 @@ import { type Agenda, type Attendee, mergePolicy } from "./contract/agenda";
 import type { EarsFrame, Participant } from "./contract/frames";
 import { ContextBlock } from "./chair/context";
 import type { Llm, Usage } from "./chair/llm";
-import type { Tts } from "./chair/tts";
+import { STREAM_RATE, type Tts } from "./chair/tts";
 import type { Memory, Store } from "./ears/store";
 import type { Wire } from "./ears/wire";
 import { log } from "./log";
@@ -77,6 +77,10 @@ export class Engine {
   private precomposed = new Map<string, Precomposed>();
   private directQueue: Intervention[] = [];
   private handledUtterances = new Set<string>();
+  /** People who said just "Karen," — their next words are the request. */
+  private awaitingRequest = new Map<string, number>();
+  /** Each person's recent final transcripts, for context when they address Karen. */
+  private recentWords = new Map<string, Array<{ at: number; text: string }>>();
   private facts: string[] = [];
   private decisions: string[] = [];
   private openItems: string[] = [];
@@ -127,7 +131,7 @@ export class Engine {
         this.ledger.end(frame.discordId, at);
         break;
       case "transcript":
-        this.maybeAddressKaren(frame.discordId, frame.text, frame.utteranceId, frame.final);
+        this.maybeAddressKaren(frame.discordId, frame.text, at, frame.utteranceId, frame.final);
         this.relevance.addTranscript(frame.discordId, frame.text);
         this.maybeClassify(frame.discordId);
         break;
@@ -164,6 +168,8 @@ export class Engine {
     this.precomposed.clear();
     this.directQueue = [];
     this.handledUtterances.clear();
+    this.awaitingRequest.clear();
+    this.recentWords.clear();
     this.facts = [];
     this.decisions = [];
     this.openItems = [];
@@ -234,6 +240,13 @@ export class Engine {
       if (!this.ledger.holding(id, now, graceMs)) this.relevance.clear(id);
     }
     for (const id of this.people.keys()) this.maybeClassify(id);
+    // "Karen," and then nothing: answer from what they said before it.
+    const followUpMs = this.cfg.policy.addressed.followUpSeconds * 1000;
+    for (const [id, since] of this.awaitingRequest) {
+      if (now - since < followUpMs) continue;
+      this.awaitingRequest.delete(id);
+      this.onRequest(id, "", since);
+    }
     this.ledger.prune(now, this.policy().floorWindowSeconds * 2000);
 
     if (this.directQueue.length && !this.pending && !this.composing) {
@@ -451,12 +464,20 @@ export class Engine {
     log.debug("chair.precompose", { key });
   }
 
-  /** The line: a pre-composed or recent one if we have it, else the model, else the template. */
+  /**
+   * The line: a pre-composed or recent one if we have it, else the model, else — only when
+   * policy.yaml's compose.templateFallback is on, or there is no model — the template. An
+   * empty line means the chair says nothing this time.
+   */
   async compose(iv: Intervention): Promise<Composed> {
     const started = performance.now();
-    const timeoutMs = this.cfg.models.profiles.normal.timeoutMs;
+    const profile = this.cfg.models.profiles.normal;
+    // Someone asked Karen directly and is waiting: a real answer a little later beats a
+    // canned one now.
+    const direct = iv.trigger === "addressed" || iv.trigger === "meetingStart";
+    const timeoutMs = direct ? (profile.directTimeoutMs ?? profile.timeoutMs) : profile.timeoutMs;
     const key = this.lineKey(iv);
-    const ready = this.precomposed.get(key);
+    const ready = direct ? undefined : this.precomposed.get(key);
     const fresh = ready && this.now() - ready.at < this.cfg.policy.compose.lineCacheSeconds * 1000;
     let line: string | null = null;
     let source: Composed["source"] = "llm";
@@ -466,18 +487,19 @@ export class Engine {
     }
     if (!line) {
       source = "llm";
-      const promise = this.generate(iv);
-      this.precomposed.set(key, { at: this.now(), promise });
+      const promise = this.generate(iv, timeoutMs);
+      if (!direct) this.precomposed.set(key, { at: this.now(), promise });
       line = await withTimeout(promise, timeoutMs);
     }
-    if (!line) {
+    if (!line && (this.cfg.policy.compose.templateFallback || !this.deps.llm.composes)) {
       line = this.template(iv);
       source = "template";
     }
-    return { line, source, composeMs: Math.round(performance.now() - started) };
+    if (!line) log.warn("chair.no_line", { kind: iv.kind, reason: "model gave nothing in time; template fallback is off" });
+    return { line: line ?? "", source, composeMs: Math.round(performance.now() - started) };
   }
 
-  private async generate(iv: Intervention): Promise<string | null> {
+  private async generate(iv: Intervention, timeoutMs?: number): Promise<string | null> {
     const kind = this.cfg.chair.kinds[iv.kind];
     // Only an explicit question to Karen needs the live notes. Supplying them to routine
     // redirects and wrap-ups tempts smaller models to improvise extra commitments.
@@ -487,6 +509,7 @@ export class Engine {
           knownFacts: this.facts.join("; "),
           knownDecisions: this.decisions.join("; "),
           knownOpenItems: this.openItems.join("; "),
+          yourRecentLines: this.recentChairLines(3),
         }
       : iv.vars;
     const user = render(this.cfg.chair.user, {
@@ -499,7 +522,7 @@ export class Engine {
         .join("\n"),
     });
     try {
-      const text = await this.deps.llm.compose({ system: `${this.cfg.chair.system}\n${this.contextText()}`, user });
+      const text = await this.deps.llm.compose({ system: `${this.cfg.chair.system}\n${this.contextText()}`, user, timeoutMs });
       return text ? clean(text) : null;
     } catch (err) {
       log.warn("chair.compose_failed", { kind: iv.kind, error: String(err) });
@@ -520,7 +543,9 @@ export class Engine {
     );
     const pool = filled.length ? filled : [templates[templates.length - 1]!];
     const seenBefore = this.history.filter((h) => h.kind === iv.kind).length - 1;
-    return render(pool[seenBefore % pool.length]!, iv.vars);
+    // Spoken aloud, people are addressed by first name ("Artem", not "Artem Shambalev").
+    const vars = { ...iv.vars, name: firstName(iv.vars.name), addresseeName: firstName(iv.vars.addresseeName) };
+    return render(pool[seenBefore % pool.length]!, vars);
   }
 
   /** Park, speak, mute, advance — whichever the intervention calls for, in that order. */
@@ -528,7 +553,7 @@ export class Engine {
     if (iv.actions.includes("park") && iv.park) await this.park(iv.park);
     if (iv.actions.includes("park")) for (const p of iv.parks ?? []) await this.park(p);
     let out: { ttsMs?: number; utteranceId?: string } = {};
-    if (iv.actions.includes("speak")) out = await this.speak(line, iv.priority);
+    if (iv.actions.includes("speak") && line) out = await this.speak(line, iv.priority);
     if (iv.actions.includes("mute") && iv.targetId && iv.muteSeconds) {
       this.mute(iv.targetId, iv.muteSeconds, `gavel: ${iv.kind}`);
     }
@@ -577,6 +602,7 @@ export class Engine {
   async speak(text: string, priority: boolean): Promise<{ ttsMs?: number; utteranceId?: string }> {
     const utteranceId = randomUUID();
     this.pending = { utteranceId, at: this.now() };
+    if (this.cfg.models.tts.transport === "stream" && this.deps.tts.stream) return this.speakStreamed(utteranceId, text, priority);
     try {
       const speech = await this.deps.tts.synthesize(text);
       const sent = this.deps.wire.send({
@@ -599,6 +625,34 @@ export class Engine {
       log.warn("chair.tts_failed", { error: String(err) });
       this.chairDone(this.now());
       return {};
+    }
+  }
+
+  /**
+   * ears starts playing (and queues, or cuts in for a priority line) on `speak.start`, then
+   * plays each chunk as it lands — so the room hears the first words ~0.2 s after the text
+   * reaches TTS instead of after the whole clip is synthesized.
+   */
+  private async speakStreamed(utteranceId: string, text: string, priority: boolean): Promise<{ ttsMs?: number; utteranceId?: string }> {
+    const wire = this.deps.wire;
+    const started = wire.send({ type: "speak.start", utteranceId, text, format: "pcm_s16le", sampleRate: STREAM_RATE, channels: 1, priority });
+    if (!started) {
+      log.warn("chair.not_connected", { text });
+      this.chairDone(this.now());
+      return {};
+    }
+    this.pending = { utteranceId, at: this.now() };
+    try {
+      const done = await this.deps.tts.stream!(text, (pcm) => {
+        wire.send({ type: "speak.chunk", utteranceId, audio: pcm.toString("base64") });
+      });
+      wire.send({ type: "speak.end", utteranceId });
+      return { ttsMs: done.firstAudioMs, utteranceId };
+    } catch (err) {
+      log.warn("chair.tts_failed", { error: String(err) });
+      // ears finishes whatever arrived and reports `spoken` as usual.
+      wire.send({ type: "speak.end", utteranceId, error: String(err).slice(0, 200) });
+      return { utteranceId };
     }
   }
 
@@ -655,16 +709,42 @@ export class Engine {
     log.info("meeting.started", { sessionId: this.sessionId, topic: this.topic()?.title });
   }
 
-  private maybeAddressKaren(id: string, text: string, utteranceId?: string, final?: boolean): void {
-    if (final === false || !/\bkaren\b/i.test(text)) return;
+  private maybeAddressKaren(id: string, text: string, at: number, utteranceId?: string, final?: boolean): void {
+    if (final === false) return;
     const key = utteranceId ?? `${id}:${text.toLowerCase().replace(/\s+/g, " ").trim()}`;
     if (this.handledUtterances.has(key)) return;
     this.handledUtterances.add(key);
 
+    if (KAREN.test(text)) {
+      // Her name can come anywhere: "Karen, what's the agenda?", "Let's start, Karen."
+      const request = withoutName(text);
+      if (/[\p{L}\p{N}]/u.test(request)) this.onRequest(id, request, at);
+      else this.awaitingRequest.set(id, at);
+    } else if (this.awaitingRequest.has(id)) {
+      this.awaitingRequest.delete(id);
+      this.onRequest(id, text.trim(), at);
+    }
+    this.remember(id, text, at);
+  }
+
+  private remember(id: string, text: string, at: number): void {
+    const keepMs = this.cfg.policy.addressed.contextSeconds * 1000;
+    const list = (this.recentWords.get(id) ?? []).filter((w) => at - w.at <= keepMs);
+    list.push({ at, text: text.trim() });
+    this.recentWords.set(id, list.slice(-4));
+  }
+
+  private earlierWords(id: string, at: number): string {
+    const keepMs = this.cfg.policy.addressed.contextSeconds * 1000;
+    return (this.recentWords.get(id) ?? [])
+      .filter((w) => at - w.at <= keepMs && !KAREN.test(w.text))
+      .map((w) => w.text)
+      .join(" ");
+  }
+
+  private onRequest(id: string, request: string, at: number): void {
     const who = this.nameOf(id);
-    const request = text.replace(/^.*?\bkaren\b[\s,:-]*/i, "").trim();
-    const wantsStart = /\b(start|begin|kick\s*off)\b/i.test(request) &&
-      (/\b(meeting|agenda|session)\b/i.test(request) || /\blet'?s\s+(start|begin)\b/i.test(request));
+    const wantsStart = START.test(request);
 
     if (wantsStart && this.phase === "gathering") {
       const missing = this.missingAttendees();
@@ -694,7 +774,7 @@ export class Engine {
         addresseeId: starter.id,
         vars: {
           name: who,
-          agendaList: (this.agenda?.topics ?? []).map((t, i) => `${i + 1}, ${t.title}`).join("; "),
+          agendaList: this.agendaList(),
           topicTitle: topic?.title ?? "",
           topicGoal: topic?.goal ?? "",
           addresseeName: starter.name,
@@ -707,7 +787,6 @@ export class Engine {
       });
       return;
     }
-    if (wantsStart && this.phase === "active") return;
 
     this.directQueue.push({
       trigger: "addressed",
@@ -716,15 +795,49 @@ export class Engine {
       targetId: id,
       vars: {
         name: who,
-        request: request || text,
-        topicTitle: this.topic()?.title ?? "",
-        topicGoal: this.topic()?.goal ?? "",
-        question: this.topic()?.questions[0] ?? "",
-        phase: this.phase,
+        request: request || "(only your name)",
+        earlierWords: this.earlierWords(id, at),
+        meetingState: this.meetingState(),
+        meetingTitle: this.title ?? "",
+        purpose: this.agenda?.purpose ?? "",
+        agendaList: this.agendaList(),
+        topicTitle: this.phase === "active" ? (this.topic()?.title ?? "") : "",
       },
       actions: ["speak"],
       priority: false,
     });
+  }
+
+  /** "where we actually are, the date, and blocker owners" — the way it is said aloud. */
+  private agendaList(): string {
+    const titles = (this.agenda?.topics ?? []).map((t) => t.title);
+    return titles.length ? joinNames(titles) : "";
+  }
+
+  /** Where the meeting is, in words the chair model cannot mistake for a topic. */
+  private meetingState(): string {
+    const topics = this.agenda?.topics ?? [];
+    switch (this.phase) {
+      case "gathering": {
+        const missing = this.missingAttendees();
+        const waiting = missing.length ? ` Still waiting for ${joinNames(missing)}.` : "";
+        return `Not started yet; people are joining.${waiting}`;
+      }
+      case "active":
+        return `In progress, on topic ${this.topicIndex + 1} of ${topics.length}: ${this.topic()?.title ?? ""}.`;
+      case "finished":
+        return "The agenda is finished.";
+      default:
+        return "No meeting is set up yet.";
+    }
+  }
+
+  private recentChairLines(n: number): string {
+    return this.history
+      .filter((h) => h.line)
+      .slice(-n)
+      .map((h) => h.line)
+      .join(" | ");
   }
 
   private missingAttendees(): string[] {
@@ -828,6 +941,23 @@ function addUnique(target: string[], values: string[] | undefined): void {
     target.push(value);
     if (target.length > 50) target.shift();
   }
+}
+
+const KAREN = /\bkaren\b/i;
+const START = /\b(?:(?:start|begin|kick\s*off|open)\b.*\b(?:meeting|agenda|session|call)|let'?s\s+(?:start|begin|get\s+started|kick\s*off))\b/i;
+
+/** "Let's start the meeting, please, Karen." → "Let's start the meeting, please." */
+function withoutName(text: string): string {
+  return text
+    .replace(/,?\s*\bkaren\b\s*,?/gi, " ")
+    .replace(/\s+([.,!?;:])/g, "$1")
+    .replace(/^[\s.,!?;:-]+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function firstName(name: string | undefined): string | undefined {
+  return name?.trim().split(/\s+/)[0];
 }
 
 function joinNames(names: string[]): string {

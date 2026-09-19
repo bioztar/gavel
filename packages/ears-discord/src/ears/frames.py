@@ -167,6 +167,31 @@ class Speak(Frame):
     priority: bool = False
 
 
+# additive: a line streamed while it is synthesized. `speak.start` opens it (it queues and
+# plays like `speak`), `speak.chunk`s carry raw PCM, `speak.end` closes it. One `spoken`
+# per line, when playback of the whole line finishes.
+class SpeakStart(Frame):
+    type: Literal["speak.start"] = "speak.start"
+    utterance_id: str
+    text: str | None = None
+    format: Literal["pcm_s16le"] = "pcm_s16le"
+    sample_rate: Literal[48000] = 48000
+    channels: Literal[1, 2] = 1
+    priority: bool = False
+
+
+class SpeakChunk(Frame):
+    type: Literal["speak.chunk"] = "speak.chunk"
+    utterance_id: str
+    audio: str  # base64 PCM
+
+
+class SpeakEnd(Frame):
+    type: Literal["speak.end"] = "speak.end"
+    utterance_id: str
+    error: str | None = None
+
+
 class Stop(Frame):
     type: Literal["stop"] = "stop"
 
@@ -188,8 +213,15 @@ class Unmute(Frame):
     discord_id: str
 
 
-BrainFrame = Speak | Stop | Mute | Unmute
-_BRAIN_FRAMES: dict[str, type[Frame]] = {"speak": Speak, "mute": Mute, "unmute": Unmute}
+BrainFrame = Speak | SpeakStart | SpeakChunk | SpeakEnd | Stop | Mute | Unmute
+_BRAIN_FRAMES: dict[str, type[Frame]] = {
+    "speak": Speak,
+    "speak.start": SpeakStart,
+    "speak.chunk": SpeakChunk,
+    "speak.end": SpeakEnd,
+    "mute": Mute,
+    "unmute": Unmute,
+}
 
 
 def parse_brain_frame(raw: str | bytes) -> BrainFrame | None:

@@ -90,12 +90,22 @@ def test_meeting_crud_and_session_carries_agenda() -> None:
     assert updated.json()["title"] == "Sync 2"
     assert [m["title"] for m in client.get("/api/meetings").json()] == ["Sync 2"]
 
+    ears.participants = {
+        "2": Participant(discord_id="2", name="Ana"),
+        "3": Participant(discord_id="3", name="Marc"),
+    }
     sid = client.post("/api/sessions", json={"meetingId": meeting["id"]}).json()["sessionId"]
     [started] = [f for f in sent if f["type"] == "session.started"]
     assert started["sessionId"] == sid
     assert started["title"] == "Sync 2" and started["context"] == "ctx"
     assert started["agenda"]["sessionId"] == sid
+    assert started["agenda"]["attendees"] == [
+        {"discordId": "2", "name": "Ana", "role": "host"},
+        {"discordId": "3", "name": "Marc", "role": "attendee"},
+    ]
     assert started["agenda"]["topics"][0]["mustHear"] == ["1"]
+    ears.participants["4"] = Participant(discord_id="4", name="Jo")
+    assert ears.hello()[-1]["agenda"]["attendees"] == started["agenda"]["attendees"]
 
     # A new session ends the previous one.
     client.post("/api/sessions", json={"meetingId": None})
@@ -144,6 +154,7 @@ def test_console_page_is_served() -> None:
     page = client.get("/console")
     assert page.status_code == 200 and "ears console" in page.text
     assert "What Karen understands" in page.text
+    assert "b-add-att" not in page.text and "b-import-voice" not in page.text
     assert client.get("/", follow_redirects=False).headers["location"] == "/console"
 
 

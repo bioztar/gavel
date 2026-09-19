@@ -21,6 +21,8 @@ profiles:
     maxOutputTokens: 70
     # A live interruption cannot wait: past this the YAML template is spoken instead.
     timeoutMs: 2500
+    # Someone asked Karen directly (or to start) and is waiting for the answer.
+    directTimeoutMs: 5000
 
 # USD per 1M tokens (Nebius catalog, Sept 2026). Used for the cost log in ears' llm_calls.
 #
@@ -44,12 +46,25 @@ prices:
   openai/gpt-oss-120b: { input: 0.15, output: 0.60 }
   MiniMaxAI/MiniMax-M3: { input: 0.30, output: 1.00 }
 
-# The chair's voice. SLNG, same route ears' console say-box uses (Fish on eu-west was the
-# fastest measured from Barcelona, ~1.2 s). Auth: SLNG_API_KEY.
+# The chair's voice, on SLNG. `stream` keeps one WebSocket open and warm (SLNG's unified
+# bridge, /v1/bridges/unmute/tts/<model>) and forwards 48 kHz PCM to ears as it arrives.
+# Auth: SLNG_API_KEY.
+#
+# Bake-off 2026-09-19 from Barcelona, eu-west, warm socket, one 18-word line — time from
+# sending the text to the first audio:
+#   deepgram/aura:2       ~0.2 s   ($0.015/min)   <- Karen: aura-2-thalia-en
+#   cartesia/sonic:3.5    0.1-0.4 s ($0.035/min)
+#   soniox/tts-rt:v1      ~0.2 s, but ~6 s to finish the line
+#   slng/fish/tts:s2.1-pro ~1.3 s streaming, ~1.55 s whole clip over HTTP (the old voice)
+# Back to the old voice: transport: http, model: slng/fish/tts:s2.1-pro,
+# voice: 16cabdb7f8d240569aff36c9e480d783.
 tts:
+  transport: stream
   baseUrl: https://eu-west.api.slng.ai
-  model: slng/fish/tts:s2.1-pro
-  voice: 16cabdb7f8d240569aff36c9e480d783
+  model: deepgram/aura:2
+  voice: aura-2-thalia-en
+  language: en
+  # Whole line (stream) or whole request (http); past this the line is dropped.
   timeoutMs: 8000
-  # Identical lines (templates repeat) reuse the audio instead of paying twice.
+  # Identical lines reuse the audio instead of paying twice.
   cacheSize: 64

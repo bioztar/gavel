@@ -270,11 +270,18 @@ class Voice:
 
         `priority` plays as Discord's priority speaker, ducking everyone else.
         """
+        if self._vc is None or not self._vc.is_connected():
+            return False
+        return self.play_source(
+            discord.FFmpegPCMAudio(io.BytesIO(audio), pipe=True), done, priority
+        )
+
+    def play_source(self, source: discord.AudioSource, done: Any, priority: bool = False) -> bool:
+        """Play any audio source — a finished file or a line still streaming in."""
         vc = self._vc
         if vc is None or not vc.is_connected():
             return False
         vc._gavel_priority = priority  # type: ignore[attr-defined]  # read by _speak above
-        source = discord.FFmpegPCMAudio(io.BytesIO(audio), pipe=True)
 
         def after(error: Exception | None) -> None:
             self._call(done, error)
