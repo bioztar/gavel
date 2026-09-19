@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     discord_guild_id: int | None = None
     # Unset: join whichever voice channel has humans in it.
     discord_voice_channel_id: int | None = None
+    # Stay briefly after the last person leaves, in case they reconnect or switch device.
+    discord_leave_grace_seconds: float = 10.0
     # py-cord does not find Homebrew's libopus on its own.
     opus_lib: str = "/opt/homebrew/lib/libopus.dylib"
 

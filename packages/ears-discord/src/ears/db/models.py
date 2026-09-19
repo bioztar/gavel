@@ -62,6 +62,16 @@ class Meeting(Base):
     updated_at: Mapped[datetime] = _ts(server_default=func.now(), onupdate=func.now())
 
 
+class DiscordGuild(Base):
+    """The meeting voice channel selected for one Discord server."""
+
+    __tablename__ = "discord_guilds"
+
+    guild_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    channel_id: Mapped[str] = mapped_column(String(32))
+    updated_at: Mapped[datetime] = _ts(server_default=func.now(), onupdate=func.now())
+
+
 class CallSession(Base):
     """One run of a meeting: started from the console, or on joining voice."""
 

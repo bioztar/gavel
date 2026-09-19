@@ -63,7 +63,7 @@ async def main() -> None:
         if settings.discord_ears_token:
             from .voice import Voice  # the only discord import in the process
 
-            voice = Voice(settings, ears)
+            voice = Voice(settings, ears, await store.discord_channels())
             ears.voice = voice
             background.append(loop.create_task(_supervise("voice", voice.run())))
         else:

@@ -21,7 +21,8 @@ Discord Developer Portal → New Application → Bot.
 - **Invite it** with the **`bot`** scope, not just `applications.commands`:
   `https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot&permissions=40895744`
   (View Channel, Connect, Speak, Use Voice Activity, Mute Members, Priority Speaker).
-- **Server id** → `DISCORD_GUILD_ID`, only needed if the bot is in several servers.
+- Once ears is running, select the meeting voice channel for each server in the operator
+  console. The selection is stored in Postgres; no server/channel IDs are needed in `.env`.
 - Test server: **https://discord.gg/qR6RwKuAh**
 
 A second application will be needed only if the Concierge is ever revived. Do not share

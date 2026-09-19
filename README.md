@@ -90,8 +90,9 @@ uses the ears operator console; the Vonage and generated-video surfaces remain p
 
 ## Try it
 
-Join the test Discord server: **https://discord.gg/qR6RwKuAh** — hop into a voice channel
-while `ears-discord` is running and the bot joins you. Setup and the operator console:
+Join the test Discord server: **https://discord.gg/qR6RwKuAh**. While `ears-discord` is
+running, select its meeting voice channel in the operator console; the bot joins when
+someone enters it and leaves after the room empties. Setup and the operator console:
 [packages/ears-discord/README.md](packages/ears-discord/README.md).
 
 Start ears with `just run`, start brain with `pnpm start`, open

@@ -6,6 +6,8 @@
 
     GET  /health                    what is connected
     GET  /api/status                session, meeting, participants, open turns, playback
+    GET  /api/discord/servers       servers/channels visible to the bot + selections
+    PUT  /api/discord/servers/{id}  {"channelId": ...|null} → select its meeting channel
     GET  /api/meetings              ...and POST, PUT /{id}, DELETE /{id}
     POST /api/sessions              {"meetingId": ...|null} → end the current session, start a new one
     POST /api/sessions/end
@@ -108,6 +110,10 @@ class Say(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
 
 
+class DiscordChannelSelection(BaseModel):
+    channel_id: str | None = Field(default=None, alias="channelId", pattern=r"^\d+$")
+
+
 class MemoryIn(Frame):
     discord_id: str
     name: str | None = None
@@ -196,6 +202,23 @@ def create_api(ears: Ears) -> FastAPI:
     @api.get("/api/status")
     async def status() -> dict[str, Any]:
         return ears.status()
+
+    @api.get("/api/discord/servers")
+    async def discord_servers() -> dict[str, Any]:
+        return ears.discord_servers()
+
+    @api.put("/api/discord/servers/{guild_id}")
+    async def configure_discord_server(
+        guild_id: str, body: DiscordChannelSelection
+    ) -> dict[str, Any]:
+        if not guild_id.isdigit():
+            raise HTTPException(422, "expected a Discord server id")
+        try:
+            return await ears.configure_discord_channel(guild_id, body.channel_id)
+        except ValueError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
 
     @api.get("/api/brain-state")
     async def brain_state() -> dict[str, Any]:

@@ -55,6 +55,8 @@ button:disabled { opacity: .5; cursor: default; }
 .mono { font-family: var(--mono); font-size: 12px; }
 .card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; margin: 6px 0; }
 .card .row + .row, .card .row + input, .card input + .row { margin-top: 5px; }
+.server-card select { margin-top: 5px; }
+.server-card .state { font-size: 11px; color: var(--muted); }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; }
 details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin: 10px 0 4px; }
 .sessionbar { border-top: 1px solid var(--line); padding: 10px 12px; display: grid; gap: 6px; }
@@ -138,6 +140,11 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin:
       <button class="small" id="b-new">New</button>
     </h2>
     <div class="scroll pad">
+      <label class="row"><span class="grow">Discord servers &amp; meeting channels</span>
+        <button class="small" id="b-refresh-discord">refresh</button></label>
+      <div id="discord-servers"><div class="muted">Loading Discord servers…</div></div>
+
+      <label>Meeting</label>
       <div class="row"><select id="m-select" class="grow"></select></div>
       <label>Title</label><input id="m-title" placeholder="Q4 launch sync">
       <label>Purpose</label><input id="m-purpose" placeholder="Decide the launch date and name an owner for each blocker">
@@ -257,6 +264,50 @@ function renderStatus() {
 }
 async function pollStatus() { try { status = await api("GET", "/api/status"); renderStatus(); } catch {} }
 setInterval(pollStatus, 3000);
+
+/* ═════════════ Discord servers ═════════════ */
+let discordState = null;
+function renderDiscordServers() {
+  const root = $("discord-servers");
+  if (!discordState?.connected) {
+    root.innerHTML = `<div class="card muted">Discord bot is offline or still connecting.</div>`;
+    return;
+  }
+  if (!discordState.servers.length) {
+    root.innerHTML = `<div class="card muted">This bot is not installed on any server.</div>`;
+    return;
+  }
+  root.innerHTML = discordState.servers.map((server) => {
+    const selectedExists = server.channels.some((channel) => channel.id === server.selectedChannelId);
+    const options = server.channels.map((channel) =>
+      `<option value="${esc(channel.id)}" ${channel.id === server.selectedChannelId ? "selected" : ""}>${esc(channel.name)}${channel.participants ? ` · ${channel.participants} present` : ""}</option>`).join("");
+    const state = server.connectedChannelId
+      ? `Moderator is in ${server.channels.find((c) => c.id === server.connectedChannelId)?.name || "voice"}`
+      : server.selectedChannelId ? "Waiting for people" : "Choose a channel to enable meetings";
+    return `<div class="card server-card">
+      <div class="row"><strong class="grow">${esc(server.name)}</strong><span class="state">${esc(state)}</span></div>
+      <select data-discord-guild="${esc(server.id)}">
+        <option value="">Not configured</option>
+        ${!selectedExists && server.selectedChannelId ? `<option value="${esc(server.selectedChannelId)}" selected>Unavailable channel (${esc(server.selectedChannelId)})</option>` : ""}
+        ${options}
+      </select>
+    </div>`;
+  }).join("");
+}
+async function loadDiscordServers() {
+  discordState = await api("GET", "/api/discord/servers");
+  renderDiscordServers();
+}
+$("discord-servers").onchange = async (e) => {
+  const guildId = e.target.dataset.discordGuild; if (!guildId) return;
+  e.target.disabled = true;
+  try {
+    discordState = await api("PUT", `/api/discord/servers/${guildId}`, { channelId: e.target.value || null });
+    renderDiscordServers();
+  } catch (error) { toast(error.message); await loadDiscordServers().catch(() => {}); }
+};
+$("b-refresh-discord").onclick = () => loadDiscordServers().catch((e) => toast(e.message));
+setInterval(() => loadDiscordServers().catch(() => {}), 5000);
 
 function insightList(values, empty) {
   if (!values?.length) return `<span class="muted">${esc(empty)}</span>`;
@@ -622,6 +673,7 @@ $("b-clear-log").onclick = () => { $("log").innerHTML = ""; };
 
 (async () => {
   await pollStatus();
+  await loadDiscordServers().catch((e) => toast(e.message));
   await pollBrain();
   await loadMeetings(status?.meeting?.id).catch((e) => toast(e.message));
   connect();

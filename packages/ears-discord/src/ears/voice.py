@@ -158,7 +158,12 @@ def _humans(channel: VocalGuildChannel) -> list[Participant]:
 
 
 class Voice:
-    def __init__(self, settings: Settings, events: VoiceEvents) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        events: VoiceEvents,
+        selected_channels: dict[str, str] | None = None,
+    ) -> None:
         self._settings = settings
         self._events = events
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -170,6 +175,13 @@ class Voice:
         self._channel: VocalGuildChannel | None = None
         self._guild_id: int | None = None
         self._joining = False
+        self._selected_channels = dict(selected_channels or {})
+        # Keep the old env pair as a one-time seed while deployments move to the console.
+        if settings.discord_guild_id is not None and settings.discord_voice_channel_id is not None:
+            self._selected_channels.setdefault(
+                str(settings.discord_guild_id), str(settings.discord_voice_channel_id)
+            )
+        self._leave_task: asyncio.Task[None] | None = None
         self._register()
 
     # --- public -------------------------------------------------------------------
@@ -190,6 +202,7 @@ class Voice:
             watchdog.cancel()
 
     async def close(self) -> None:
+        self._cancel_leave()
         if self._vc is not None:
             await self._vc.disconnect(force=True)
         await self.client.close()
@@ -200,6 +213,57 @@ class Voice:
 
     def participants(self) -> list[Participant]:
         return _humans(self._channel) if self._channel else []
+
+    def discord_servers(self) -> dict[str, Any]:
+        """Console-safe view of every server and voice channel visible to the bot."""
+        return {
+            "connected": self.client.is_ready(),
+            "servers": [
+                {
+                    "id": str(guild.id),
+                    "name": guild.name,
+                    "selectedChannelId": self._selected_channels.get(str(guild.id)),
+                    "connectedChannelId": (
+                        str(self._channel.id)
+                        if self._channel is not None and self._channel.guild.id == guild.id
+                        else None
+                    ),
+                    "channels": [
+                        {
+                            "id": str(channel.id),
+                            "name": channel.name,
+                            "participants": len(_humans(channel)),
+                        }
+                        for channel in guild.voice_channels
+                    ],
+                }
+                for guild in self.client.guilds
+            ],
+        }
+
+    async def configure_channel(self, guild_id: str, channel_id: str | None) -> None:
+        """Select the meeting channel for a server and apply it immediately."""
+        guild = self.client.get_guild(int(guild_id))
+        if guild is None:
+            raise ValueError("Discord server is not available to this bot")
+        channel: VocalGuildChannel | None = None
+        if channel_id is not None:
+            candidate = guild.get_channel(int(channel_id))
+            if not isinstance(candidate, VocalGuildChannel):
+                raise ValueError("voice channel is not available on this Discord server")
+            channel = candidate
+
+        old = self._selected_channels.get(guild_id)
+        if channel_id is None:
+            self._selected_channels.pop(guild_id, None)
+        else:
+            self._selected_channels[guild_id] = channel_id
+        logger.info("voice.configured", guild=guild.name, channel=channel.name if channel else None)
+
+        if self._channel is not None and self._channel.guild.id == guild.id and old != channel_id:
+            await self._disconnect("channel configuration changed")
+        if self._channel is None and channel is not None and _humans(channel):
+            await self._join(channel)
 
     def play(self, audio: bytes, done: Any, priority: bool = False) -> bool:
         """Play encoded audio (wav/mp3/ogg — anything FFmpeg reads). `done(error)` runs on the loop.
@@ -253,7 +317,7 @@ class Voice:
             if channel is not None:
                 await self._join(channel)
             else:
-                logger.info("voice.waiting", reason="no humans in any voice channel yet")
+                logger.info("voice.waiting", reason="no humans in a configured voice channel")
 
         @self.client.event
         async def on_guild_join(guild: discord.Guild) -> None:
@@ -275,6 +339,7 @@ class Voice:
         if me is not None and member.id == me.id:
             if after.channel is None and self._channel is not None:
                 logger.warning("voice.left", channel=self._channel.name)
+                self._cancel_leave()
                 self._vc, self._channel = None, None
                 self._events.on_left()
             elif (
@@ -284,39 +349,39 @@ class Voice:
             ):
                 # Someone dragged the bot to another channel: follow it.
                 self._channel = after.channel
-                self._events.on_joined(
-                    str(after.channel.guild.id), str(after.channel.id), _humans(after.channel)
-                )
+                people = _humans(after.channel)
+                self._events.on_joined(str(after.channel.guild.id), str(after.channel.id), people)
+                if people:
+                    self._cancel_leave()
+                else:
+                    self._schedule_leave()
             return
         if member.bot:
             return
         if self._channel is None:
-            wanted = self._settings.discord_voice_channel_id
-            if after.channel is not None and (wanted is None or after.channel.id == wanted):
+            wanted = self._selected_channels.get(str(member.guild.id))
+            if after.channel is not None and wanted == str(after.channel.id):
                 await self._join(after.channel)
             return
         ours = self._channel.id
         if (before.channel and before.channel.id == ours) or (
             after.channel and after.channel.id == ours
         ):
-            self._events.on_participants(_humans(self._channel))
+            people = _humans(self._channel)
+            self._events.on_participants(people)
+            if people:
+                self._cancel_leave()
+            else:
+                self._schedule_leave()
 
     def _pick_channel(self) -> VocalGuildChannel | None:
-        wanted = self._settings.discord_voice_channel_id
-        guilds = self.client.guilds
-        if self._settings.discord_guild_id is not None:
-            guilds = [g for g in guilds if g.id == self._settings.discord_guild_id]
-        for guild in guilds:
-            if wanted is not None:
-                channel = guild.get_channel(wanted)
-                if isinstance(channel, VocalGuildChannel):
-                    return channel
+        for guild in self.client.guilds:
+            wanted = self._selected_channels.get(str(guild.id))
+            if wanted is None:
                 continue
-            occupied = [c for c in guild.voice_channels if _humans(c)]
-            if occupied:
-                return max(occupied, key=lambda c: len(_humans(c)))
-        if wanted is not None:
-            logger.error("voice.channel_not_found", channel_id=wanted)
+            channel = guild.get_channel(int(wanted))
+            if isinstance(channel, VocalGuildChannel) and _humans(channel):
+                return channel
         return None
 
     async def _join(self, channel: VocalGuildChannel) -> None:
@@ -329,11 +394,51 @@ class Voice:
             self._vc, self._channel = vc, channel
             self._guild_id = channel.guild.id
             self._start_listening()
-            self._events.on_joined(str(channel.guild.id), str(channel.id), _humans(channel))
+            people = _humans(channel)
+            self._events.on_joined(str(channel.guild.id), str(channel.id), people)
+            if not people:
+                self._schedule_leave()
         except Exception as exc:
             logger.exception("voice.join_failed", error=str(exc))
         finally:
             self._joining = False
+
+    def _schedule_leave(self) -> None:
+        if self._leave_task is None:
+            assert self._loop is not None
+            self._leave_task = self._loop.create_task(self._leave_when_empty())
+
+    def _cancel_leave(self) -> None:
+        if self._leave_task is not None:
+            if self._leave_task is not asyncio.current_task():
+                self._leave_task.cancel()
+            self._leave_task = None
+
+    async def _leave_when_empty(self) -> None:
+        try:
+            await asyncio.sleep(self._settings.discord_leave_grace_seconds)
+            if self._channel is not None and not _humans(self._channel):
+                await self._disconnect("channel empty")
+        except asyncio.CancelledError:
+            raise
+        finally:
+            self._leave_task = None
+
+    async def _disconnect(self, reason: str) -> None:
+        vc, channel = self._vc, self._channel
+        if vc is None and channel is None:
+            return
+        self._vc, self._channel = None, None
+        self._cancel_leave()
+        logger.info("voice.leaving", channel=channel.name if channel else None, reason=reason)
+        try:
+            if vc is not None:
+                await vc.disconnect(force=True)
+        finally:
+            self._events.on_left()
+        next_channel = self._pick_channel()
+        if next_channel is not None:
+            await self._join(next_channel)
 
     def _start_listening(self) -> None:
         vc = self._vc

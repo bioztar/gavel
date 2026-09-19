@@ -176,6 +176,20 @@ class Ears:
             "playback": {"playing": self._playing is not None, "queued": len(self._playback)},
         }
 
+    def discord_servers(self) -> dict[str, Any]:
+        if self.voice is None:
+            return {"connected": False, "servers": []}
+        return self.voice.discord_servers()
+
+    async def configure_discord_channel(
+        self, guild_id: str, channel_id: str | None
+    ) -> dict[str, Any]:
+        if self.voice is None:
+            raise RuntimeError("Discord bot is not running")
+        await self.voice.configure_channel(guild_id, channel_id)
+        await self.store.set_discord_channel(guild_id, channel_id)
+        return self.voice.discord_servers()
+
     # --- sessions -----------------------------------------------------------------------
 
     def start_session(self, meeting: Meeting | None) -> str:

@@ -43,6 +43,31 @@ class FakeVoice:
     def stop_playback(self) -> None: ...
 
 
+class FakeDiscordVoice(FakeVoice):
+    def __init__(self) -> None:
+        super().__init__()
+        self.selected: str | None = None
+
+    def discord_servers(self) -> dict[str, Any]:
+        return {
+            "connected": True,
+            "servers": [
+                {
+                    "id": "10",
+                    "name": "Demo server",
+                    "selectedChannelId": self.selected,
+                    "connectedChannelId": None,
+                    "channels": [{"id": "20", "name": "Meeting room", "participants": 0}],
+                }
+            ],
+        }
+
+    async def configure_channel(self, guild_id: str, channel_id: str | None) -> None:
+        if guild_id != "10" or channel_id not in {None, "20"}:
+            raise ValueError("not available")
+        self.selected = channel_id
+
+
 def make() -> tuple[Ears, TestClient, list[dict[str, Any]]]:
     settings = Settings(_env_file=None)  # type: ignore[call-arg]
     ears = Ears(settings, Store(None), Bus(None, "t", 10), None, FakeTts())  # type: ignore[arg-type]
@@ -120,6 +145,24 @@ def test_console_page_is_served() -> None:
     assert page.status_code == 200 and "ears console" in page.text
     assert "What Karen understands" in page.text
     assert client.get("/", follow_redirects=False).headers["location"] == "/console"
+
+
+async def test_discord_servers_and_channel_selection() -> None:
+    ears, client, _ = make()
+    voice = FakeDiscordVoice()
+    ears.voice = voice  # type: ignore[assignment]
+
+    servers = client.get("/api/discord/servers").json()
+    assert servers["servers"][0]["name"] == "Demo server"
+
+    response = client.put("/api/discord/servers/10", json={"channelId": "20"})
+    assert response.status_code == 200
+    assert response.json()["servers"][0]["selectedChannelId"] == "20"
+    assert await ears.store.discord_channels() == {"10": "20"}
+
+    cleared = client.put("/api/discord/servers/10", json={"channelId": None})
+    assert cleared.status_code == 200
+    assert await ears.store.discord_channels() == {}
 
 
 def test_brain_state_is_proxied_for_the_console(httpx_mock: HTTPXMock) -> None:

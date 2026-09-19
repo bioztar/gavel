@@ -29,6 +29,7 @@ from ..logging import get_logger
 from ..meetings import Agenda, Meeting, MeetingIn
 from .models import (
     CallSession,
+    DiscordGuild,
     Event,
     Intervention,
     LlmCall,
@@ -61,6 +62,7 @@ class Store:
         self._memory_meetings: dict[str, Meeting] = {}
         self._memory_memories: dict[str, dict[str, Any]] = {}
         self._memory_usage: dict[str, dict[str, float]] = {}
+        self._memory_discord_channels: dict[str, str] = {}
 
     @classmethod
     async def connect(cls, dsn: str) -> Store:
@@ -181,6 +183,33 @@ class Store:
         self._put(write)
 
     # --- meetings (awaited: they are console requests, not the call loop) -------
+
+    async def discord_channels(self) -> dict[str, str]:
+        """Return the selected meeting channel for each configured Discord server."""
+        if self._factory is None:
+            return dict(self._memory_discord_channels)
+        async with self._factory() as s:
+            rows = await s.execute(select(DiscordGuild))
+            return {row.guild_id: row.channel_id for row in rows.scalars()}
+
+    async def set_discord_channel(self, guild_id: str, channel_id: str | None) -> None:
+        """Persist a server selection; ``None`` leaves that server unconfigured."""
+        if self._factory is None:
+            if channel_id is None:
+                self._memory_discord_channels.pop(guild_id, None)
+            else:
+                self._memory_discord_channels[guild_id] = channel_id
+            return
+        async with self._factory() as s, s.begin():
+            if channel_id is None:
+                await s.execute(delete(DiscordGuild).where(DiscordGuild.guild_id == guild_id))
+                return
+            row = await s.get(DiscordGuild, guild_id)
+            if row is None:
+                s.add(DiscordGuild(guild_id=guild_id, channel_id=channel_id))
+            else:
+                row.channel_id = channel_id
+                row.updated_at = datetime.now(UTC)
 
     async def list_meetings(self) -> list[Meeting]:
         if self._factory is None:

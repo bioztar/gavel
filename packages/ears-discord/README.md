@@ -10,7 +10,8 @@ Makes no decisions. Never reads the agenda. The wire is
 
 ## Run it
 
-Test server: **https://discord.gg/qR6RwKuAh** — join a voice channel there once `just run` is up.
+Test server: **https://discord.gg/qR6RwKuAh** — after `just run`, select its meeting
+voice channel in the console and join it.
 
 ```bash
 brew install opus ffmpeg just     # libopus for decode, ffmpeg for playback
@@ -19,10 +20,13 @@ just run                          # joins voice, serves ws://127.0.0.1:8787
 just stub-brain                   # second terminal: prints frames, speaks every 30s
 ```
 
-Env (repo-root `.env`): `DISCORD_EARS_TOKEN`, `SLNG_API_KEY`. Optional:
-`DISCORD_GUILD_ID` (only if the bot is in several servers), `DISCORD_VOICE_CHANNEL_ID`
-(otherwise it joins wherever humans are). Postgres and Redis are optional at runtime —
-if either is down, ears logs it once and the brain still gets every frame.
+Env (repo-root `.env`): `DISCORD_EARS_TOKEN`, `SLNG_API_KEY`. Meeting channels are
+selected per Discord server in the console and persisted in Postgres. The old
+`DISCORD_GUILD_ID` + `DISCORD_VOICE_CHANNEL_ID` pair remains a deployment seed for
+backward compatibility. `DISCORD_LEAVE_GRACE_SECONDS` controls how long the moderator
+waits after the room empties before leaving (10 seconds by default). Postgres and Redis
+are optional at runtime — if either is down, ears logs it once and the brain still gets
+every frame.
 
 The bot must be invited with the **`bot`** scope, not just `applications.commands`:
 `https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot&permissions=40895744`
@@ -38,6 +42,9 @@ A no-auth operator page, served by ears itself:
   whoever is in the voice channel), topics with budgets / owner / must-hear, policy
   thresholds, JSON import/export of the contract agenda. Stored in Postgres (in memory
   if Postgres is down).
+- **Discord servers** — every server visible to the bot, its voice channels and current
+  occupancy. Choose one meeting channel per server. The moderator joins when someone
+  enters that channel and leaves shortly after the last person goes.
 - **Sessions** — *Start new session with this meeting* ends the current run and sends the
   brain `session.started` with the agenda. Joining voice starts one automatically.
 - **Live transcript** — per-speaker utterances as chunks land, with STT latency and confidence.
@@ -74,9 +81,9 @@ points and notes per person (`/api/memories`), what the chair said (`/api/interv
 and every model call's tokens and cost (`/api/llm-calls`); each write shows up in the
 console log as `memory.*` / `chair.*`.
 
-HTTP: `GET /health`, `GET /api/status`, `/api/meetings`, `/api/sessions`, `POST /api/say`,
-`/api/memories`, `/api/interventions`, `/api/llm-calls` — full list at the top of
-`src/ears/wire.py`, OpenAPI at `/docs`.
+HTTP: `GET /health`, `GET /api/status`, `/api/discord/servers`, `/api/meetings`,
+`/api/sessions`, `POST /api/say`, `/api/memories`, `/api/interventions`, `/api/llm-calls`
+— full list at the top of `src/ears/wire.py`, OpenAPI at `/docs`.
 
 `just export-replay > ../contract/fixtures/replay.jsonl` turns the last recorded call into
 the brain's replay fixture (plan chunk E4).
