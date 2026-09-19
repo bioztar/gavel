@@ -87,3 +87,17 @@ Done since the last snapshot: the old item 1 here (root `/` 404 on the public ho
 - `compose.yaml` — the two ICS env passthrough lines.
 - `.env` (untracked) — four malformed comment lines fixed; backup alongside.
 - `HANDOVER.md` — this file.
+
+## Console is published (2026-09-19)
+
+`https://gavel.pro7ocol.com/console` is live behind HTTPS basic auth — user `karen`,
+password set in the repo-root `.env` as a bcrypt hash (`GAVEL_CONSOLE_USERS`, with every
+`$` doubled because compose interpolates them). `GAVEL_CONSOLE_PUBLIC=true` is what creates
+the Traefik route at all; unset it and the route disappears.
+
+The route covers `/console`, `/live` (websocket) and `PathPrefix(/api/)` — the whole REST
+surface, because every useful console action is a write. `/watch` and `/board` are unchanged
+and still open.
+
+Turn it off after the hackathon: `scripts/set-console-auth.sh --off`.
+Change the password: `scripts/set-console-auth.sh karen` then `docker compose up -d ears`.
