@@ -68,7 +68,7 @@ function offAgenda(s: Snapshot): Intervention | null {
   const grace = s.policy.offAgendaGraceSeconds * S;
   const due = s.episodes
     .map(({ id, episode }) => ({ p: person(s, id), episode }))
-    .filter(({ p, episode }) => p?.holding && s.now - episode.offSince >= grace)
+    .filter(({ p, episode }) => p?.holding && s.now - episode.offSince >= grace && !movedOn(s, p.id))
     .sort((a, b) => a.episode.offSince - b.episode.offSince)[0];
   if (!due?.p) return null;
   // A tangent often changes speakers. If another participant has an open episode for
@@ -79,6 +79,18 @@ function offAgenda(s: Snapshot): Intervention | null {
     .filter(({ p, episode }) => p && sameTangent(due.episode, episode, grace * 2)) as Array<{ p: PersonView; episode: Episode }>;
   if (group.length > 1) return groupRedirectFor(s, group);
   return redirectFor(s, due.p, due.episode);
+}
+
+/**
+ * Someone not drifting has spoken up since the drifter's last remark: the room has moved on,
+ * and a redirect aimed at the drifter now would land on whoever is talking (2026-09-19:
+ * "Artem, helicopters…" while Vitaly had the floor).
+ */
+export function movedOn(s: Snapshot, id: string): boolean {
+  const since = person(s, id)?.lastSaidAt ?? null;
+  if (since === null) return false;
+  const drifting = new Set(s.episodes.map((e) => e.id));
+  return s.people.some((q) => q.id !== id && !drifting.has(q.id) && (q.lastSaidAt ?? -Infinity) > since);
 }
 
 function sameTangent(a: Episode, b: Episode, conversationWindowMs: number): boolean {

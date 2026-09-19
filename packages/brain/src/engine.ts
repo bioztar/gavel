@@ -103,6 +103,8 @@ export class Engine {
   private carried: Memory[] = [];
   private muted = new Map<string, number>();
   private precomposed = new Map<string, Precomposed>();
+  /** Who the line being spoken redirects: what they say under it is not a new tangent. */
+  private redirecting: string[] = [];
   private directQueue: Intervention[] = [];
   private handledUtterances = new Set<string>();
   /** Every line Karen has spoken this session. She never says one twice. */
@@ -111,6 +113,8 @@ export class Engine {
   private awaitingRequest = new Map<string, { since: number; opener: string }>();
   /** Each person's recent final transcripts, for context when they address Karen. */
   private recentWords = new Map<string, Array<{ at: number; text: string }>>();
+  /** When each person last said something of substance (PersonView.lastSaidAt). */
+  private lastSaidAt = new Map<string, number>();
   private facts: string[] = [];
   private decisions: string[] = [];
   private openItems: string[] = [];
@@ -167,12 +171,19 @@ export class Engine {
       case "speaking.end":
         this.ledger.end(frame.discordId, at);
         break;
-      case "transcript":
+      case "transcript": {
         if (frame.final !== false) this.conversation.add({ at, id: frame.discordId, name: this.nameOf(frame.discordId), text: frame.text });
-        this.maybeAddressKaren(frame.discordId, frame.text, at, frame.utteranceId, frame.final);
-        this.relevance.addTranscript(frame.discordId, frame.text);
+        // Interim segments are words said too: the talker is still talking.
+        if (wordCount(frame.text) >= SAID_WORDS) this.lastSaidAt.set(frame.discordId, at);
+        if (this.maybeAddressKaren(frame.discordId, frame.text, at, frame.utteranceId, frame.final)) {
+          // Talking to Karen is not drifting off the agenda: she answers them instead.
+          this.endEpisode(frame.discordId, "addressed");
+          break;
+        }
+        this.relevance.addTranscript(frame.discordId, frame.text, at);
         this.maybeClassify(frame.discordId);
         break;
+      }
       case "spoken":
         if (this.pending?.utteranceId === frame.utteranceId) this.chairDone(at);
         break;
@@ -204,12 +215,14 @@ export class Engine {
     this.parked = [];
     this.carried = [];
     this.precomposed.clear();
+    this.redirecting = [];
     this.directQueue = [];
     this.handledUtterances.clear();
     this.said = [];
     this.conversation.reset();
     this.awaitingRequest.clear();
     this.recentWords.clear();
+    this.lastSaidAt.clear();
     this.facts = [];
     this.decisions = [];
     this.openItems = [];
@@ -281,7 +294,7 @@ export class Engine {
     // An episode ends when its speaker has been quiet for the whole grace period.
     const graceMs = this.policy().offAgendaGraceSeconds * 1000;
     for (const [id] of this.relevance.episodes()) {
-      if (!this.ledger.holding(id, now, graceMs)) this.relevance.clear(id);
+      if (!this.ledger.holding(id, now, graceMs)) this.endEpisode(id, "quiet");
     }
     for (const id of this.people.keys()) this.maybeClassify(id);
     this.maybeDigest(now);
@@ -298,6 +311,7 @@ export class Engine {
     this.ledger.prune(now, this.policy().floorWindowSeconds * 2000);
     this.maybeAutoStart(now);
 
+    this.prepareDirect();
     if (this.directQueue.length && !this.pending && !this.composing) {
       const direct = this.directQueue.shift()!;
       this.launch(direct);
@@ -356,6 +370,7 @@ export class Engine {
         windowMs: talk.windowMs,
         holding: this.ledger.holding(p.discordId, now, gap) && !this.muted.has(p.discordId),
         holdingSince: this.ledger.holdingSince(p.discordId, now, gap),
+        lastSaidAt: this.lastSaidAt.get(p.discordId) ?? null,
       };
     });
     const recaps: Record<string, string> = {};
@@ -394,9 +409,9 @@ export class Engine {
 
   private maybeClassify(id: string): void {
     const now = this.now();
+    // Classifying goes on while Karen talks: a tangent started under her line is caught
+    // then, not ~10 s later once she has finished (2026-09-19 session).
     if (!this.agenda || !this.topic() || this.phase !== "active") return;
-    // Nothing could act on a verdict while the chair is mid-sentence.
-    if (this.pending) return;
     const since = this.ledger.holdingSince(id, now, this.cfg.policy.engine.floorGapMs);
     if (since === null || !this.relevance.due(id, now, now - since)) return;
     const topic = this.topic();
@@ -434,13 +449,34 @@ export class Engine {
     if (result) log.debug("relevance", { who: this.nameOf(id), ...result, cached });
     if (change === "opened") {
       const episode = this.relevance.episode(id)!;
-      log.info("offagenda.opened", { who: this.nameOf(id), verdict: episode.verdict, summary: episode.summary });
+      log.info("offagenda.opened", {
+        who: this.nameOf(id),
+        verdict: episode.verdict,
+        summary: episode.summary,
+        driftingMs: this.now() - episode.offSince,
+      });
+      // A line pre-composed for an earlier tangent must not be spoken about this one.
+      this.dropRedirectLines(id);
       if (this.cfg.policy.compose.precompose) {
         const person = this.snapshot().people.find((p) => p.id === id);
         if (person) this.precompose(redirectFor(this.snapshot(), person, episode));
       }
     } else if (change === "closed") {
       log.info("offagenda.closed", { who: this.nameOf(id) });
+      this.dropRedirectLines(id);
+    }
+  }
+
+  /** Their tangent is over (they went quiet, or turned to Karen): forget it and its line. */
+  private endEpisode(id: string, reason: string): void {
+    if (this.relevance.episode(id)) log.info("offagenda.ended", { who: this.nameOf(id), reason });
+    this.relevance.clear(id);
+    this.dropRedirectLines(id);
+  }
+
+  private dropRedirectLines(id: string): void {
+    for (const kind of ["offAgenda", "otherTopic"]) {
+      for (const key of this.precomposed.keys()) if (key.startsWith(`${kind}:${id}:`)) this.precomposed.delete(key);
     }
   }
 
@@ -469,8 +505,8 @@ export class Engine {
       this.redirect = { targetId: iv.targetId, topicId: iv.topicId, spokenAt: null };
     }
     if (iv.trigger === "offAgenda") {
-      if (iv.targetId) this.relevance.clear(iv.targetId);
-      for (const p of iv.parks ?? []) this.relevance.clear(p.discordId);
+      this.redirecting = [...(iv.targetId ? [iv.targetId] : []), ...(iv.parks ?? []).map((p) => p.discordId)];
+      for (const id of this.redirecting) this.relevance.clear(id);
     }
     const entry = { ...iv, at: now };
     this.history.push(entry);
@@ -487,6 +523,8 @@ export class Engine {
         .catch((err) => log.error("chair.intervention_failed", { kind: iv.kind, error: String(err) }))
         .finally(() => {
           this.composing = false;
+          // Nothing was said (no line, or no connection): no one is being redirected.
+          if (!this.pending) this.redirecting = [];
         }),
     );
   }
@@ -504,6 +542,24 @@ export class Engine {
     // question. Policy interventions intentionally keep the shorter reusable key.
     const direct = iv.kind === "addressed" ? `:${iv.vars.request ?? ""}` : "";
     return `${iv.kind}:${iv.targetId ?? iv.addresseeId ?? "-"}:${iv.topicId ?? "-"}${direct}`;
+  }
+
+  /**
+   * Someone spoke to Karen while she was talking: write the answer now, so it plays the
+   * moment she finishes instead of a compose round later. Only once her own line is out
+   * (pending), so the answer is written knowing what she just said.
+   */
+  private prepareDirect(): void {
+    if (!this.pending) return;
+    const profile = this.cfg.models.profiles.normal;
+    for (const iv of this.directQueue) {
+      const key = this.lineKey(iv);
+      if (this.precomposed.has(key)) continue;
+      const promise = this.generate(iv, profile.directTimeoutMs ?? profile.timeoutMs);
+      this.precomposed.set(key, { at: this.now(), promise });
+      this.track(promise);
+      log.debug("chair.prepare", { key });
+    }
   }
 
   private precompose(iv: Intervention): void {
@@ -528,7 +584,8 @@ export class Engine {
     const direct = iv.trigger === "addressed" || iv.trigger === "meetingStart";
     const timeoutMs = direct ? (profile.directTimeoutMs ?? profile.timeoutMs) : profile.timeoutMs;
     const key = this.lineKey(iv);
-    const ready = direct ? undefined : this.precomposed.get(key);
+    // Pre-composed: a redirect while its grace ran, or an answer while Karen was still talking.
+    const ready = this.precomposed.get(key);
     const fresh = ready && this.now() - ready.at < this.cfg.policy.compose.lineCacheSeconds * 1000;
     let line: string | null = null;
     let source: Composed["source"] = "llm";
@@ -583,13 +640,47 @@ export class Engine {
         .join("\n"),
       avoid: avoidRepeat ? render(this.cfg.chair.avoidRepeat, { said: this.said.join(" | ") }) : "",
     });
+    const system = `${this.cfg.chair.system}\n${this.contextText()}`;
+    const started = performance.now();
+    let line: string | null;
     try {
-      const text = await this.deps.llm.compose({ system: `${this.cfg.chair.system}\n${this.contextText()}`, user, timeoutMs });
-      return text ? clean(text) : null;
+      const text = await this.deps.llm.compose({ system, user, timeoutMs });
+      line = text ? clean(text) : null;
     } catch (err) {
       log.warn("chair.compose_failed", { kind: iv.kind, error: String(err) });
       return null;
     }
+    return line && this.shorter(iv, system, user, line, started, timeoutMs);
+  }
+
+  /**
+   * Every word is Karen holding the room: a line past compose.maxWords is asked for once
+   * more, shorter, within whatever is left of the caller's timeout. The shorter one wins.
+   */
+  private async shorter(iv: Intervention, system: string, user: string, line: string, started: number, timeoutMs?: number): Promise<string> {
+    const maxWords = this.cfg.policy.compose.maxWords;
+    const words = wordCount(line);
+    if (!maxWords || words <= maxWords) return line;
+    // Leave a margin under the caller's own timeout, or the long line is lost too.
+    const leftMs = Math.floor((timeoutMs ?? this.cfg.models.profiles.normal.timeoutMs) - (performance.now() - started) - 150);
+    if (leftMs < 300) {
+      log.debug("chair.too_long", { kind: iv.kind, words, retried: false });
+      return line;
+    }
+    const retry = render(this.cfg.chair.tooLong, { line, words: String(words), maxWords: String(maxWords) });
+    const again = await withTimeout(
+      this.deps.llm
+        .compose({ system, user: `${user}\n${retry}`, timeoutMs: leftMs })
+        .then((text) => (text ? clean(text) : null))
+        .catch((err) => {
+          log.warn("chair.compose_failed", { kind: iv.kind, error: String(err), retry: "tooLong" });
+          return null;
+        }),
+      leftMs,
+    );
+    const best = again && wordCount(again) < words ? again : line;
+    log.debug("chair.too_long", { kind: iv.kind, words, retried: true, now: wordCount(best), again });
+    return best;
   }
 
   /**
@@ -803,6 +894,10 @@ export class Engine {
 
   private chairDone(at: number): void {
     this.pending = null;
+    // They talked on under the redirect, likely before hearing it. Carrying on after it is
+    // the escalate trigger's call, not a fresh off-agenda episode.
+    for (const id of this.redirecting) this.endEpisode(id, "redirected");
+    this.redirecting = [];
     this.chairLastSpokeAt = at;
     if (this.redirect && this.redirect.spokenAt === null) this.redirect.spokenAt = at;
   }
@@ -818,15 +913,20 @@ export class Engine {
     log.info("meeting.started", { sessionId: this.sessionId, topic: this.topic()?.title });
   }
 
-  private maybeAddressKaren(id: string, text: string, at: number, utteranceId?: string, final?: boolean): void {
-    if (final === false) return;
+  /** True when these words were said to Karen (her name, or the rest of a "Karen, …" request). */
+  private maybeAddressKaren(id: string, text: string, at: number, utteranceId?: string, final?: boolean): boolean {
+    if (final === false) return false;
     const key = utteranceId ?? `${id}:${text.toLowerCase().replace(/\s+/g, " ").trim()}`;
-    if (this.handledUtterances.has(key)) return;
+    if (this.handledUtterances.has(key)) return false;
     this.handledUtterances.add(key);
 
+    let addressed = true;
     if (KAREN.test(text)) {
       // Her name can come anywhere: "Karen, what's the agenda?", "Let's start, Karen."
       const request = withoutName(text);
+      // "Karen?" … "Are you still here, Karen?" is one request, answered once — not a
+      // greeting for the first and an answer for the second (2026-09-19 session).
+      this.awaitingRequest.delete(id);
       // "Hey, Karen." is how a question starts, not the question: wait for the rest.
       if (/[\p{L}\p{N}]/u.test(request) && !OPENER_ONLY.test(request)) this.onRequest(id, request, at);
       else this.awaitingRequest.set(id, { since: at, opener: /[\p{L}\p{N}]/u.test(request) ? request : "" });
@@ -834,8 +934,11 @@ export class Engine {
       const { opener } = this.awaitingRequest.get(id)!;
       this.awaitingRequest.delete(id);
       this.onRequest(id, `${opener} ${text.trim()}`.trim(), at);
+    } else {
+      addressed = false;
     }
     this.remember(id, text, at);
+    return addressed;
   }
 
   /** Karen opens the meeting: the agenda, then the first topic's question to whoever starts. */
@@ -1109,6 +1212,8 @@ export class Engine {
 }
 
 const KAREN = /\bkaren\b/i;
+/** Words a transcript needs to count as someone saying something (PersonView.lastSaidAt). */
+const SAID_WORDS = 3;
 /** Share of distinct words two lines have in common above which the second is a repeat. */
 const REPEAT_OVERLAP = 0.8;
 /** A greeting or filler with nothing after it: "Hey.", "Hi there,", "Okay, so". */
@@ -1128,6 +1233,10 @@ function withoutName(text: string): string {
 
 function spokenWords(line: string): string[] {
   return line.toLowerCase().match(/[\p{L}\p{N}']+/gu) ?? [];
+}
+
+function wordCount(text: string): number {
+  return spokenWords(text).length;
 }
 
 function firstName(name: string | undefined): string | undefined {

@@ -390,3 +390,163 @@ describe("requireStart: false (the cats-and-dogs demo)", () => {
     expect(engine.phase).toBe("gathering");
   });
 });
+
+describe("keeping up with the room, as in the 2026-09-19 cats-vs-dogs session", () => {
+  const VIT = "100000000000000001";
+  const ANA = "100000000000000002";
+  const MARC = "100000000000000003";
+  const WEATHER = "honestly the weather here is so humid and hot, and I saw helicopters over the beach today";
+
+  function room(compose: (user: string) => string | null = () => null) {
+    const config = loadConfig();
+    config.policy.defaults.offAgendaGraceSeconds = 5;
+    let now = 0;
+    let n = 0;
+    const sent: BrainFrame[] = [];
+    const prompts: string[] = [];
+    const classified: string[] = [];
+    const llm = {
+      composes: true,
+      classify: async (req: { window: string }) => {
+        classified.push(req.window);
+        return /weather|helicopters|beach/.test(req.window)
+          ? { verdict: "offAgenda" as const, summary: "the weather" }
+          : { verdict: "current" as const };
+      },
+      compose: async (req: { user: string }) => (prompts.push(req.user), compose(req.user) ?? `Line ${n++}, noted.`),
+    };
+    const engine = new Engine({
+      config: () => config,
+      clock: () => now,
+      wire: { connected: true, send: (f) => (sent.push(f), true) },
+      store: new MemoryStore(),
+      llm,
+      tts: new SilentTts(),
+      fallbackAgenda: null,
+    });
+    const agenda = loadAgendaFile(resolve(FIXTURES, "agenda.demo.json"));
+    agenda.policy = { ...agenda.policy, minSecondsBetweenInterventions: 12 };
+    engine.handle({ type: "ready", channelId: "c", participants: agenda.attendees.map(({ discordId, name }) => ({ discordId, name })), atMs: 0 });
+    engine.handle({ type: "session.started", sessionId: "s", title: "Sync", agenda, atMs: 0 });
+    const tick = async (at: number) => {
+      now = at;
+      const iv = engine.tick();
+      await engine.idle();
+      return iv;
+    };
+    const say = async (id: string, text: string, at: number) => {
+      now = at;
+      engine.handle({ type: "transcript", discordId: id, text, final: true, utteranceId: `u${n++}`, atMs: at });
+      await engine.idle();
+    };
+    const talking = (id: string, at: number) => engine.handle({ type: "speaking.start", discordId: id, atMs: at });
+    const quiet = (id: string, at: number) => engine.handle({ type: "speaking.end", discordId: id, atMs: at });
+    /** ears: Karen's line finished playing. */
+    const spoken = (at: number) => {
+      now = at;
+      const line = sent.findLast((f) => f.type === "speak");
+      if (line?.type === "speak") engine.handle({ type: "spoken", utteranceId: line.utteranceId, atMs: at });
+    };
+    const lines = () => sent.flatMap((f) => (f.type === "speak" ? [f.text] : []));
+    const start = async () => {
+      await say(VIT, "Karen, let's start the meeting.", 1_000);
+      expect((await tick(1_000))?.kind).toBe("startMeeting");
+    };
+    return { engine, sent, prompts, classified, tick, say, talking, quiet, spoken, lines, start };
+  }
+
+  it("a tangent started while Karen is talking is caught then, not once she has finished", async () => {
+    const { engine, classified, tick, say, talking, spoken, start } = room();
+    await start(); // Karen is speaking the opening line
+    talking(ANA, 2_000);
+    await say(ANA, WEATHER, 6_000);
+    expect(classified).toHaveLength(1);
+    expect(engine.snapshot().episodes[0]?.episode.offSince).toBe(6_000);
+    spoken(8_000);
+    // Grace (5 s) ran from 6 s; the gap between interventions (12 s from 1 s) is what holds it.
+    expect(await tick(12_750)).toBeNull();
+    expect(await tick(13_000)).toMatchObject({ kind: "offAgenda", targetId: ANA });
+  });
+
+  it("the grace period counts from the first words of the drift, not from the verdict", async () => {
+    const { engine, tick, say, talking, spoken, start } = room();
+    await start();
+    spoken(2_000);
+    talking(ANA, 3_000);
+    await say(ANA, "so about where we are, I think", 7_000); // too few words to judge
+    await say(ANA, WEATHER, 12_000);
+    expect(engine.snapshot().episodes[0]?.episode.offSince).toBe(7_000);
+    expect(await tick(13_000)).toMatchObject({ kind: "offAgenda", targetId: ANA });
+  });
+
+  it("holds the redirect once someone else has taken the room on", async () => {
+    const { engine, tick, say, talking, quiet, spoken, start } = room();
+    await start();
+    spoken(2_000);
+    talking(ANA, 3_000);
+    await say(ANA, WEATHER, 7_000);
+    talking(MARC, 8_000);
+    await say(MARC, "Back to status: payments slipped a week, push is on track.", 10_000);
+    quiet(MARC, 10_500);
+    // Ana still makes noise, but "Ana, …" would now land on Marc's point.
+    expect(await tick(14_000)).toBeNull();
+    expect(engine.snapshot().episodes).toHaveLength(1);
+    // She carries on with the tangent: now the redirect is hers.
+    await say(ANA, "and the helicopters were so loud all day", 15_000);
+    expect(await tick(15_000)).toMatchObject({ kind: "offAgenda", targetId: ANA });
+  });
+
+  it("what someone says under Karen's redirect is not a fresh tangent", async () => {
+    const { engine, tick, say, talking, spoken, start } = room();
+    await start();
+    spoken(2_000);
+    talking(ANA, 3_000);
+    await say(ANA, WEATHER, 7_000);
+    expect(await tick(15_000)).toMatchObject({ kind: "offAgenda" });
+    await say(ANA, "and the beach was packed, the weather is just too hot for me", 16_000);
+    expect(engine.snapshot().episodes).toHaveLength(1);
+    spoken(20_000);
+    expect(engine.snapshot().episodes).toHaveLength(0);
+  });
+
+  it("talking to Karen is not drifting, and her answer is ready the moment she finishes", async () => {
+    const { engine, prompts, classified, tick, say, talking, spoken, start } = room((user) =>
+      user.includes("recognize") ? "Yes, Marc, I hear you." : null,
+    );
+    await start();
+    spoken(2_000);
+    talking(ANA, 3_000);
+    await say(ANA, WEATHER, 7_000);
+    expect(await tick(15_000)).toMatchObject({ kind: "offAgenda" }); // Karen is speaking to Ana
+    talking(MARC, 15_500);
+    await say(MARC, "This is not Ana, Karen. Can you recognize a different person?", 19_000);
+    expect(classified).toHaveLength(1); // only Ana's tangent
+    expect(await tick(19_000)).toBeNull(); // still speaking
+    expect(prompts.at(-1)).toContain("recognize"); // ...but the answer is already written
+    const composed = prompts.length;
+    spoken(21_000);
+    const answer = await tick(21_000);
+    expect(answer).toMatchObject({ kind: "addressed", targetId: MARC });
+    expect(prompts).toHaveLength(composed);
+    expect(engine.history.at(-1)).toMatchObject({ line: "Yes, Marc, I hear you.", source: "cache" });
+  });
+
+  it("'Karen?' then 'Are you still here, Karen?' is one question, answered once", async () => {
+    const { engine, tick, say } = room();
+    await say(VIT, "Karen?", 1_000);
+    expect(await tick(1_000)).toBeNull();
+    await say(VIT, "Are you still here, Karen?", 3_000);
+    expect((await tick(3_000))?.vars.request).toBe("Are you still here?");
+    for (let t = 3_250; t <= 12_000; t += 250) expect(await tick(t)).toBeNull();
+    expect(engine.history.filter((h) => h.kind === "addressed")).toHaveLength(1);
+  });
+
+  it("a line past compose.maxWords is asked for once more, shorter", async () => {
+    const long = "Thanks for the weather report, Artem, saved that for the small talk folder. Now, back to the real debate: what does a dog do that no cat could?";
+    const { prompts, say, tick, lines } = room((user) => (user.includes("Too long") ? "Artem, weather parked. What can a dog do that no cat could?" : long));
+    await say(VIT, "Karen, tell us something.", 1_000);
+    await tick(1_000);
+    expect(prompts[1]).toMatch(/is 28 words\. Say the same thing in at most\s+22 words/);
+    expect(lines()).toEqual(["Artem, weather parked. What can a dog do that no cat could?"]);
+  });
+});

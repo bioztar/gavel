@@ -22,6 +22,7 @@ const PersonState = z.object({
   windowMs: z.number().nonnegative(),
   holding: z.boolean(),
   holdingSince: z.number().nullable(),
+  lastSaidAt: z.number().nullable().default(null),
 });
 export type _PersonIsPersonView = Assert<PersonView, z.infer<typeof PersonState>>;
 

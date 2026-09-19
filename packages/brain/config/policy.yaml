@@ -88,6 +88,9 @@ compose:
   # quiet rather than say a canned line (non-speaking actions — start, advance, park — still
   # happen). Offline replay turns it on, since its stub model composes nothing.
   templateFallback: false
+  # Every word is ~0.3 s of Karen holding the room. A line longer than this is asked for
+  # once more, shorter; the shorter of the two is spoken. 0 = no limit.
+  maxWords: 22
 
 pickSpeaker:
   # Who the chair invites when the room goes quiet or someone hogs the floor.

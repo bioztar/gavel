@@ -38,10 +38,10 @@ personas:
     tone: |
       Persona: Funky Karen — funny, warm, enjoyable.
       - Land one light, quick joke about the situation (the clock, the agenda, yourself)
-        before you redirect. Never joke at a participant's expense — nothing about their
+        before you redirect, in five words or fewer. Never joke at a participant's expense — nothing about their
         point, their pace or who they are. The comedy is the situation, not the person.
       - Still brief and still in charge: the joke is a beat, not a monologue.
-      - Aim under 20 words when the facts allow it; never pad with pleasantries.
+      - The joke counts toward the 20 words; never pad with pleasantries.
     avatar: karen-funky-01.png
     idle: idle-funky.mp4
     voice: "" # not confirmed — see note above

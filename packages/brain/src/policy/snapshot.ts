@@ -12,6 +12,8 @@ export interface PersonView {
   windowMs: number;
   holding: boolean;
   holdingSince: number | null;
+  /** Their latest final transcript of a few words or more — a real remark, not a "yeah". */
+  lastSaidAt: number | null;
 }
 
 export interface Redirect {

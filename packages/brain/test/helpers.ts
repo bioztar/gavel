@@ -20,6 +20,7 @@ export function person(id: string, over: Partial<PersonView> = {}): PersonView {
     windowMs: 0,
     holding: false,
     holdingSince: null,
+    lastSaidAt: null,
     ...over,
   };
 }

@@ -47,6 +47,19 @@ describe("offAgenda", () => {
     expect(iv?.parks?.map((p) => p.discordId)).toEqual(["ana", "marc"]);
   });
 
+  it("holds a redirect once someone else has moved the room on, as in the 2026-09-19 session", () => {
+    const ep = [{ id: "marc", episode: episode(now - 25_000) }];
+    const people = (anaSaidAt: number) => [
+      person("vit"),
+      person("ana", { holding: true, lastSaidAt: anaSaidAt }),
+      person("marc", { holding: true, lastSaidAt: now - 8_000 }),
+    ];
+    // Ana spoke up after Marc's last remark: "Marc, …" now would land on her turn.
+    expect(evaluate(snap({ people: people(now - 3_000), episodes: ep }))).toBeNull();
+    // Ana's words came before Marc's: he is still the one drifting.
+    expect(evaluate(snap({ people: people(now - 12_000), episodes: ep }))).toMatchObject({ kind: "offAgenda", targetId: "marc" });
+  });
+
   it("respects the gap between interventions and never talks over itself", () => {
     const ep = [{ id: "marc", episode: episode(now - 30_000) }];
     expect(evaluate(snap({ people: talking, episodes: ep, lastInterventionAt: now - 10_000 }))).toBeNull();

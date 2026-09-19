@@ -18,6 +18,7 @@ export interface Classification {
 }
 
 export interface Episode {
+  /** When the drift began: the first words not yet judged on the agenda, not the verdict. */
   offSince: number;
   verdict: "otherTopic" | "offAgenda";
   topicId: string | null;
@@ -28,13 +29,23 @@ export interface Episode {
 interface Speaker {
   words: string[];
   newWords: number;
+  /** The new words the call in flight is judging: handed back if it fails. */
+  judging: number;
   lastClassifiedAt: number;
+  failedAt: number | null;
   inFlight: boolean;
   episode: Episode | null;
   lastSummary: string | null;
+  /** First words of the run not yet judged "current" — where an episode's grace starts. */
+  runSince: number | null;
+  /** First words that arrived while a call was in flight: the next run, if that call says "current". */
+  afterBegin: number | null;
 }
 
 type RelevanceCfg = PolicyConfig["relevance"];
+
+/** After a failed call, wait this long before trying the same words again. */
+const RETRY_AFTER_FAILURE_MS = 1_000;
 
 export class RelevanceTracker {
   private speakers = new Map<string, Speaker>();
@@ -45,15 +56,29 @@ export class RelevanceTracker {
   private get(id: string): Speaker {
     let s = this.speakers.get(id);
     if (!s) {
-      s = { words: [], newWords: 0, lastClassifiedAt: 0, inFlight: false, episode: null, lastSummary: null };
+      s = {
+        words: [],
+        newWords: 0,
+        judging: 0,
+        lastClassifiedAt: 0,
+        failedAt: null,
+        inFlight: false,
+        episode: null,
+        lastSummary: null,
+        runSince: null,
+        afterBegin: null,
+      };
       this.speakers.set(id, s);
     }
     return s;
   }
 
-  addTranscript(id: string, text: string): void {
+  addTranscript(id: string, text: string, at: number): void {
     const s = this.get(id);
     const words = text.split(/\s+/).filter(Boolean);
+    if (!words.length) return;
+    s.runSince ??= at;
+    if (s.inFlight) s.afterBegin ??= at;
     s.words.push(...words);
     const keep = this.cfg().windowWords * 2;
     if (s.words.length > keep) s.words.splice(0, s.words.length - keep);
@@ -72,6 +97,7 @@ export class RelevanceTracker {
     const s = this.get(id);
     const cfg = this.cfg();
     if (s.inFlight || s.newWords < cfg.minNewWords || heldMs < cfg.minFloorSeconds * 1000) return false;
+    if (s.failedAt !== null && now - s.failedAt < RETRY_AFTER_FAILURE_MS) return false;
     if (s.episode && now - s.lastClassifiedAt < cfg.recheckSeconds * 1000) return false;
     return true;
   }
@@ -80,8 +106,10 @@ export class RelevanceTracker {
   begin(id: string, now: number, topicId: string | null): { key: string; cached: Classification | null } {
     const s = this.get(id);
     s.inFlight = true;
+    s.judging = s.newWords;
     s.newWords = 0;
     s.lastClassifiedAt = now;
+    s.afterBegin = null;
     const key = `${topicId ?? "-"}|${normalize(this.window(id))}`;
     return { key, cached: this.cache.get(key) ?? null };
   }
@@ -93,12 +121,22 @@ export class RelevanceTracker {
   finish(id: string, now: number, key: string, result: Classification | null): "opened" | "closed" | null {
     const s = this.get(id);
     s.inFlight = false;
-    if (!result) return null;
+    if (!result) {
+      // A timeout or a bad reply judged nothing: the words are still due on the next tick,
+      // not after another minNewWords (2026-09-19 replay: a 4 s timeout swallowed a tangent).
+      s.newWords += s.judging;
+      s.lastClassifiedAt = 0;
+      s.failedAt = now;
+      return null;
+    }
+    s.failedAt = null;
     this.remember(key, result);
     if (result.summary) s.lastSummary = result.summary;
     if (result.verdict === "current") {
       const had = s.episode !== null;
       s.episode = null;
+      // Whatever they said while the call was out starts the next run.
+      s.runSince = s.afterBegin;
       return had ? "closed" : null;
     }
     if (result.verdict === "unclear") return null;
@@ -108,7 +146,7 @@ export class RelevanceTracker {
       return null;
     }
     s.episode = {
-      offSince: now,
+      offSince: s.runSince ?? now,
       verdict: result.verdict,
       topicId: result.topicId ?? null,
       summary: result.summary?.trim() || "that",
@@ -136,6 +174,9 @@ export class RelevanceTracker {
     s.episode = null;
     s.words = [];
     s.newWords = 0;
+    s.judging = 0;
+    s.runSince = null;
+    s.afterBegin = null;
   }
 
   /** A new topic changes what "on the agenda" means: start everyone fresh. */
@@ -144,6 +185,9 @@ export class RelevanceTracker {
       s.episode = null;
       s.words = [];
       s.newWords = 0;
+      s.judging = 0;
+      s.runSince = null;
+      s.afterBegin = null;
     }
   }
 

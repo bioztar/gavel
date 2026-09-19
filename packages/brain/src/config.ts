@@ -92,6 +92,7 @@ export const PolicyConfig = z.object({
     precompose: z.boolean(),
     lineCacheSeconds: z.number(),
     templateFallback: z.boolean().default(false),
+    maxWords: z.number().int().nonnegative().default(22),
   }),
   pickSpeaker: z.object({
     order: z.array(z.enum(["mustHear", "owner", "leastOnTopic"])),
@@ -131,6 +132,9 @@ export const ChairPrompts = z.object({
   // Added to the user message when the first try repeated a line Karen already said.
   // Placeholder: said.
   avoidRepeat: z.string(),
+  // Added to the user message when the line ran past policy compose.maxWords.
+  // Placeholders: words (its length), maxWords, line.
+  tooLong: z.string(),
   fallbackQuestion: z.string(),
   implicitTopic: z.object({ title: z.string(), goal: z.string(), questions: z.array(z.string()) }),
   kinds: z.object(Object.fromEntries(INTERVENTION_KINDS.map((k) => [k, Kind])) as Record<

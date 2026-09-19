@@ -44,13 +44,16 @@ in this order, with at most one per tick:
 | Trigger | When | Does |
 |---|---|---|
 | **escalate** | Someone redirected is still talking `escalateAfterSeconds` after the chair finished | Firm redirect. With `allowMute`, it announces the mute out loud and then mutes for `muteSeconds`. The host is never muted |
-| **offAgenda** | The floor holder has been off the agenda for `offAgendaGraceSeconds` | **Parks** the point under their name in ears, then cuts in as priority speaker: acknowledge → "parked for later" → back to the topic with a question. When several people share the tangent, Karen addresses the room and parks it for everyone involved. A jump to a *later* agenda item gets "we'll get there" instead, and nothing is parked |
+| **offAgenda** | The floor holder has been off the agenda for `offAgendaGraceSeconds`, counted from the first words of the drift, and nobody else has taken the room on since their last remark | **Parks** the point under their name in ears, then cuts in as priority speaker: acknowledge → "parked for later" → back to the topic with a question. When several people share the tangent, Karen addresses the room and parks it for everyone involved. A jump to a *later* agenda item gets "we'll get there" instead, and nothing is parked |
 | **floorHog** | Over `floorShareThreshold` of the recent window, with others quiet | Thanks them, recaps, and hands the floor to someone by name |
 | **topicOverrun** | Topic at budget × `topicOverrunFactor` | Moves on. After the last topic it wraps up and reads the parking lot back |
 | **silence** | Nobody has spoken for `silenceSeconds` | Invites a specific person with one of the topic's questions: mustHear first, then the owner, then whoever has spoken least on this topic. If everyone has spoken, it runs a quick round |
 
 The chair never talks over itself, and keeps `minSecondsBetweenInterventions` between
-interventions (escalation is exempt, since it follows up on a redirect). The practice
+interventions (escalation is exempt, since it follows up on a redirect). While she talks,
+the room is still classified, so a tangent started under her line is caught then. Words
+said to Karen are never counted as drift. Words said while she is redirecting someone are
+not a new tangent for that person. Their carrying on is escalate's call. The practice
 behind the phrasing: parking lot, bank-and-thank, targeted questions, round robin, and
 never embarrassing anyone.
 
@@ -100,10 +103,13 @@ extraction: **33 model calls, 16.7k input and 1.9k output tokens, $0.0027.**
   user tail, so the cached prefix is untouched. The token figures above predate it.
 - **Rationed classifier.** It runs only after ≥ 12 new words from someone who has held the
   floor for ≥ 3 s, with one call in flight per speaker. It re-checks an open episode only
-  every 8 s, and identical windows reuse the verdict.
-- **Cheap lines.** Capped at 70 output tokens. The off-agenda redirect is composed while
-  the grace period runs, so cutting in costs only TTS (~1.2 s), and identical lines reuse
-  their TTS audio.
+  every 8 s, and identical windows reuse the verdict. A failed or timed-out call hands its
+  words back and is retried a second later.
+- **Short, cheap lines.** Capped at 70 output tokens. A line over `compose.maxWords` (22) is
+  asked for once more, shorter, since every word is ~0.3 s of Karen holding the room. The
+  off-agenda redirect is composed while the grace period runs, and an answer to someone who
+  spoke to Karen mid-line is composed while she is still talking. Either way, cutting in
+  costs only TTS (~1.2 s), and identical lines reuse their TTS audio.
 
 Model bake-off notes are in `config/models.yaml`. Reasoning models (Nemotron-Lightning,
 DeepSeek-V4-Flash, GLM-5.3-Flash) spend their whole token budget thinking; avoid them for
