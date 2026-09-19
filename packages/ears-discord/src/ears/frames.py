@@ -12,7 +12,7 @@ import time
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from pydantic.alias_generators import to_camel
 
 
@@ -125,6 +125,18 @@ class SessionEnded(Frame):
     session_id: str
 
 
+# --- ears → brain: additive, moderation ---------------------------------------------
+# The outcome of a brain `mute` / `unmute`, and of the auto-unmute ears runs itself.
+
+
+class Moderation(Frame):
+    type: Literal["moderation"] = "moderation"
+    action: Literal["muted", "unmuted", "failed"]
+    discord_id: str
+    until: int | None = None  # epoch ms the mute lifts, on "muted"
+    error: str | None = None
+
+
 EarsFrame = (
     Ready
     | SessionStarted
@@ -137,6 +149,7 @@ EarsFrame = (
     | TurnStart
     | TurnTick
     | TurnEnd
+    | Moderation
 )
 
 
@@ -148,13 +161,36 @@ class Speak(Frame):
     utterance_id: str
     audio: str  # base64
     format: str | None = None
+    # additive: jump the queue, cut off non-priority playback, duck the room.
+    priority: bool = False
 
 
 class Stop(Frame):
     type: Literal["stop"] = "stop"
 
 
-def parse_brain_frame(raw: str | bytes) -> Speak | Stop | None:
+# additive: server-mute a participant. ears owns the unmute timer, so a brain that
+# dies mid-mute never leaves anyone muted.
+MAX_MUTE_SECONDS = 60
+
+
+class Mute(Frame):
+    type: Literal["mute"] = "mute"
+    discord_id: str
+    seconds: float = Field(gt=0)
+    reason: str | None = None
+
+
+class Unmute(Frame):
+    type: Literal["unmute"] = "unmute"
+    discord_id: str
+
+
+BrainFrame = Speak | Stop | Mute | Unmute
+_BRAIN_FRAMES: dict[str, type[Frame]] = {"speak": Speak, "mute": Mute, "unmute": Unmute}
+
+
+def parse_brain_frame(raw: str | bytes) -> BrainFrame | None:
     """A frame from the brain, or None for anything malformed or unknown."""
     try:
         msg = json.loads(raw)
@@ -162,14 +198,16 @@ def parse_brain_frame(raw: str | bytes) -> Speak | Stop | None:
         return None
     if not isinstance(msg, dict):
         return None
+    kind = msg.get("type")
+    if kind == "stop":
+        return Stop()
+    model = _BRAIN_FRAMES.get(kind) if isinstance(kind, str) else None
+    if model is None:
+        return None
     try:
-        if msg.get("type") == "speak":
-            return Speak.model_validate(msg)
-        if msg.get("type") == "stop":
-            return Stop()
+        return model.model_validate(msg)  # type: ignore[return-value]
     except ValidationError:
         return None
-    return None
 
 
 def iso(ts: float) -> str:

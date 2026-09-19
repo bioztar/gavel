@@ -123,6 +123,39 @@ sentence is.
 | `session.started` | A run of a meeting begins — from the ears console, or on joining voice. Also re-sent on connect | `sessionId`, `meetingId`, `title`, `context`, `agenda` (§1 shape with `sessionId` filled, or `null`) |
 | `session.ended` | Console ended it, or a new one started | `sessionId` |
 
+### Additive — moderation (brain → ears, and back)
+
+The chair's hands in the call. ears decides nothing: it does what it is told, and owns
+only the timer that lifts a mute, so a brain that dies mid-mute never leaves anyone muted.
+
+| `type` | Direction | Fields | Does |
+|---|---|---|---|
+| `speak` | brain → ears | + `priority` (bool, default false) | Jumps the queue, cuts off a non-priority line (it gets `spoken.interrupted`), plays as Discord's priority speaker so the room is ducked |
+| `mute` | brain → ears | `discordId`, `seconds` (ears caps at 60), `reason?` | Server-mutes them; ears unmutes after `seconds`, on `session.ended`, and on shutdown |
+| `unmute` | brain → ears | `discordId` | Lifts a mute early. ears only ever unmutes people it muted |
+| `moderation` | ears → brain | `action` (`muted` \| `unmuted` \| `failed`), `discordId`, `until?` (epoch ms), `error?` | The outcome of the above |
+
+The Discord bot needs **Mute Members** and **Priority Speaker** for these.
+
+### Additive — ears is the one store (REST, `http://127.0.0.1:8787`)
+
+The brain keeps nothing on disk. What it decides goes into ears' Postgres, next to the
+transcripts; Mastra's own storage uses the same database in a `mastra` schema.
+
+| Route | Body / query | For |
+|---|---|---|
+| `POST /api/memories` | `discordId`, `name?`, `kind` (`parked` \| `note`), `summary`, `quote?`, `topicId?`, `sessionId?` | A point parked for later, per person — survives the session |
+| `GET /api/memories` | `?discordId=` (repeatable) `&status=open` `&sessionId=` | What is still open for the people in the call |
+| `PATCH /api/memories/{id}` | `status` | Resolve it |
+| `POST /api/interventions` | `sessionId`, `kind`, `targetId?`, `addresseeId?`, `topicId?`, `line`, `source` (`llm` \| `template` \| `cache`), `actions[]`, `composeMs?`, `ttsMs?` | What the chair said, and why |
+| `POST /api/llm-calls` | `sessionId`, `agent`, `model`, `inputTokens`, `outputTokens`, `cachedTokens`, `latencyMs`, `costUsd`, `cacheHit` | Token accounting; returns the session's running totals |
+| `GET /api/sessions/{id\|current}/usage` | — | Totals for a session |
+
+### Additive — policy
+
+`policy` also takes `offAgendaGraceSeconds` (20), `allowMute` (false),
+`escalateAfterSeconds` (10) and `muteSeconds` (15). Absent means the default.
+
 `session.started.agenda` is optional for the brain to use: it is whatever the host typed
 into the ears console (`http://localhost:8787/console`). A brain that loads its agenda
 from a file can ignore it.

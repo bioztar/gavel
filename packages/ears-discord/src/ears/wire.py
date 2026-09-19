@@ -14,6 +14,14 @@
     POST /api/say                   {"text": ...} → SLNG TTS → played into the call
     POST /api/stop                  stop playback, drop the queue
 
+    The brain's store — ears is the one database:
+    POST  /api/memories             a parked point / note about a person → the row
+    GET   /api/memories             ?discordId=…(repeatable)&status=open&sessionId=…
+    PATCH /api/memories/{id}        {"status": "resolved" | "open"}
+    POST  /api/interventions        what the chair said and why
+    POST  /api/llm-calls            tokens + cost of one model call → running session totals
+    GET   /api/sessions/{id|current}/usage
+
 Each connection gets its own send queue, so a slow client never stalls the call
 loop or reorders frames.
 """
@@ -25,12 +33,13 @@ import contextlib
 import json
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
+from .frames import Frame
 from .logging import get_logger
 from .meetings import Meeting, MeetingIn
 from .tts import TtsError
@@ -96,6 +105,45 @@ class StartSession(BaseModel):
 
 class Say(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
+
+
+class MemoryIn(Frame):
+    discord_id: str
+    name: str | None = None
+    kind: Literal["parked", "note"] = "parked"
+    summary: str = Field(min_length=1, max_length=500)
+    quote: str | None = Field(default=None, max_length=2000)
+    topic_id: str | None = None
+    session_id: str | None = None
+
+
+class MemoryStatus(Frame):
+    status: Literal["open", "resolved"]
+
+
+class InterventionIn(Frame):
+    session_id: str | None = None
+    kind: str = Field(min_length=1, max_length=32)
+    target_id: str | None = None
+    addressee_id: str | None = None
+    topic_id: str | None = None
+    line: str
+    source: Literal["llm", "template", "cache"]
+    actions: list[str] = Field(default_factory=list)
+    compose_ms: int | None = None
+    tts_ms: int | None = None
+
+
+class LlmCallIn(Frame):
+    session_id: str | None = None
+    agent: str = Field(min_length=1, max_length=32)
+    model: str = Field(min_length=1, max_length=128)
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cached_tokens: int = 0
+    latency_ms: int = 0
+    cost_usd: float = 0.0
+    cache_hit: bool = False
 
 
 def _uuid(value: str) -> uuid.UUID:
@@ -228,5 +276,44 @@ def create_api(ears: Ears) -> FastAPI:
     async def stop() -> dict[str, bool]:
         ears.stop_playback()
         return {"ok": True}
+
+    # --- the brain's store ------------------------------------------------------------------
+
+    @api.post("/api/memories")
+    async def add_memory(body: MemoryIn) -> dict[str, Any]:
+        return await ears.add_memory(body.model_dump())
+
+    @api.get("/api/memories")
+    async def list_memories(
+        discord_id: Annotated[list[str] | None, Query(alias="discordId")] = None,
+        status: Literal["open", "resolved"] | None = None,
+        session_id: Annotated[str | None, Query(alias="sessionId")] = None,
+    ) -> list[dict[str, Any]]:
+        return await ears.store.list_memories(discord_id, status, session_id)
+
+    @api.patch("/api/memories/{memory_id}")
+    async def set_memory_status(memory_id: str, body: MemoryStatus) -> dict[str, Any]:
+        _uuid(memory_id)
+        memory = await ears.set_memory_status(memory_id, body.status)
+        if memory is None:
+            raise HTTPException(404, "no such memory")
+        return memory
+
+    @api.post("/api/interventions")
+    async def add_intervention(body: InterventionIn) -> dict[str, bool]:
+        ears.record_intervention(body.model_dump())
+        return {"ok": True}
+
+    @api.post("/api/llm-calls")
+    async def add_llm_call(body: LlmCallIn) -> dict[str, float]:
+        return ears.record_llm_call(body.model_dump())
+
+    @api.get("/api/sessions/{session_id}/usage")
+    async def usage(session_id: str) -> dict[str, float]:
+        if session_id == "current":
+            if ears.session_id is None:
+                raise HTTPException(404, "no active session")
+            session_id = ears.session_id
+        return await ears.store.usage(session_id)
 
     return api

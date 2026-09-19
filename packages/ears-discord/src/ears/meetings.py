@@ -30,13 +30,19 @@ class Topic(Frame):
     questions: list[str] = Field(default_factory=list)
 
 
-DEFAULT_POLICY: dict[str, float] = {
+DEFAULT_POLICY: dict[str, float | bool] = {
     "floorShareThreshold": 0.6,
     "floorWindowSeconds": 120,
     "floorMinSpeakingSeconds": 45,
     "topicOverrunFactor": 1.2,
     "silenceSeconds": 15,
     "minSecondsBetweenInterventions": 45,
+    # The chair's moderation (brain): how long someone may drift off the agenda before
+    # it parks the point and steers back, and whether it may escalate to a short mute.
+    "offAgendaGraceSeconds": 20,
+    "allowMute": False,
+    "escalateAfterSeconds": 10,
+    "muteSeconds": 15,
 }
 
 

@@ -26,7 +26,10 @@ from .bus import Bus
 from .db.models import TranscriptChunk, Turn
 from .db.store import Store, parse_iso
 from .frames import (
+    MAX_MUTE_SECONDS,
     EarsFrame,
+    Moderation,
+    Mute,
     Participant,
     Participants,
     Ready,
@@ -39,6 +42,7 @@ from .frames import (
     Stop,
     Transcript,
     TurnEnd,
+    Unmute,
     iso,
     parse_brain_frame,
     stamp,
@@ -69,6 +73,7 @@ class _Utterance:
     utterance_id: str
     audio: bytes
     source: str  # "brain" | "console"
+    priority: bool = False
 
 
 class Ears:
@@ -104,6 +109,8 @@ class Ears:
         self._playback: deque[_Utterance] = deque()
         self._playing: _Utterance | None = None
         self._interrupted = False
+        # People ears server-muted, and the timer that lifts it. ears only ever unmutes these.
+        self._muted: dict[str, asyncio.TimerHandle] = {}
         # Streaming STT (default) replaces the segmenter + HTTP path.
         self.stream: StreamingStt | None = None
         if settings.stt_mode == "stream" and settings.stt_enabled:
@@ -191,6 +198,7 @@ class Ears:
     def end_session(self) -> None:
         if self.session_id is None:
             return
+        self._unmute_all()
         self._close_open_speech()
         self.emit(SessionEnded(session_id=self.session_id))
         self.store.end_session()
@@ -222,6 +230,7 @@ class Ears:
 
     def on_left(self) -> None:
         # The session stays open: the bot may be back in a moment.
+        self._unmute_all()
         self._close_open_speech()
         self.debug("voice.left", channelId=self.channel_id)
         self.channel_id = None
@@ -444,7 +453,18 @@ class Ears:
                     Spoken(utterance_id=frame.utterance_id, error="audio is not valid base64")
                 )
                 return
-            self.enqueue(_Utterance(frame.utterance_id, audio, "brain"))
+            self.enqueue(_Utterance(frame.utterance_id, audio, "brain", frame.priority))
+        elif isinstance(frame, Mute):
+            self._spawn(self._mute(frame.discord_id, frame.seconds, frame.reason))
+        elif isinstance(frame, Unmute):
+            if frame.discord_id in self._muted:
+                self._spawn(self._unmute(frame.discord_id))
+            else:
+                self.emit(
+                    Moderation(
+                        action="failed", discord_id=frame.discord_id, error="not muted by gavel"
+                    )
+                )
 
     async def say(self, text: str) -> dict[str, Any]:
         """Console say-box: SLNG TTS, then the same playback path as the brain's `speak`."""
@@ -468,14 +488,25 @@ class Ears:
         return {"utteranceId": uid, "ttsMs": result.latency_ms}
 
     def enqueue(self, item: _Utterance) -> None:
-        self._playback.append(item)
+        if item.priority:
+            # Ahead of everything queued; cut off whatever non-priority line is playing.
+            self._playback.appendleft(item)
+        else:
+            self._playback.append(item)
         self.debug(
             "speak.queued",
             utteranceId=item.utterance_id,
             source=item.source,
             bytes=len(item.audio),
             queued=len(self._playback),
+            priority=item.priority,
         )
+        playing = self._playing
+        if item.priority and playing is not None and not playing.priority and self.voice:
+            self.debug("speak.preempted", utteranceId=playing.utterance_id)
+            self._interrupted = True
+            self.voice.stop_playback()
+            return
         self._play_next()
 
     def stop_playback(self) -> None:
@@ -490,12 +521,17 @@ class Ears:
         if self._playing is not None or not self._playback:
             return
         item = self._playback.popleft()
-        if self.voice is None or not self.voice.play(item.audio, self._on_played):
+        if self.voice is None or not self.voice.play(item.audio, self._on_played, item.priority):
             self.emit(Spoken(utterance_id=item.utterance_id, error="not in a voice channel"))
             self._play_next()
             return
         self._playing = item
-        self.debug("speak.playing", utteranceId=item.utterance_id, source=item.source)
+        self.debug(
+            "speak.playing",
+            utteranceId=item.utterance_id,
+            source=item.source,
+            priority=item.priority,
+        )
         logger.info("speak.playing", utterance_id=item.utterance_id, source=item.source)
 
     def _on_played(self, error: Exception | None) -> None:
@@ -511,6 +547,87 @@ class Ears:
             )
         self._play_next()
 
+    # --- the brain's store -----------------------------------------------------------------
+    # The brain writes what it decided through ears, so there is one database. Each write
+    # also lands in the console log.
+
+    async def add_memory(self, body: dict[str, Any]) -> dict[str, Any]:
+        memory = await self.store.add_memory(body)
+        self.debug("memory.added", memory=memory)
+        return memory
+
+    async def set_memory_status(self, memory_id: str, status: str) -> dict[str, Any] | None:
+        memory = await self.store.set_memory_status(memory_id, status)
+        if memory is not None:
+            self.debug("memory.updated", id=memory_id, status=status)
+        return memory
+
+    def record_intervention(self, body: dict[str, Any]) -> None:
+        self.store.intervention(body)
+        self.debug(
+            "chair.intervention",
+            intervention={k: v for k, v in body.items() if v is not None},
+        )
+
+    def record_llm_call(self, body: dict[str, Any]) -> dict[str, float]:
+        totals = self.store.llm_call(body)
+        self.debug(
+            "chair.llm",
+            agent=body["agent"],
+            model=body["model"],
+            inputTokens=body.get("input_tokens", 0),
+            outputTokens=body.get("output_tokens", 0),
+            latencyMs=body.get("latency_ms", 0),
+            cacheHit=body.get("cache_hit", False),
+            sessionCostUsd=round(totals["costUsd"], 6),
+        )
+        return totals
+
+    # --- moderation ------------------------------------------------------------------------
+
+    async def _mute(self, discord_id: str, seconds: float, reason: str | None) -> None:
+        seconds = min(seconds, MAX_MUTE_SECONDS)
+        if self.voice is None:
+            self.emit(
+                Moderation(action="failed", discord_id=discord_id, error="not in a voice channel")
+            )
+            return
+        try:
+            await self.voice.set_mute(discord_id, True, reason)
+        except Exception as exc:  # noqa: BLE001 - permissions, left the channel, API errors
+            logger.warning("moderation.mute_failed", discord_id=discord_id, error=str(exc))
+            self.emit(Moderation(action="failed", discord_id=discord_id, error=str(exc)[:300]))
+            return
+        previous = self._muted.pop(discord_id, None)
+        if previous is not None:
+            previous.cancel()
+        self._muted[discord_id] = asyncio.get_running_loop().call_later(
+            seconds, lambda: self._spawn(self._unmute(discord_id))
+        )
+        until = int((time.time() + seconds) * 1000)
+        self.emit(Moderation(action="muted", discord_id=discord_id, until=until))
+        logger.info("moderation.muted", discord_id=discord_id, seconds=seconds, reason=reason)
+
+    async def _unmute(self, discord_id: str) -> None:
+        handle = self._muted.pop(discord_id, None)
+        if handle is None:
+            return
+        handle.cancel()
+        if self.voice is None:
+            return
+        try:
+            await self.voice.set_mute(discord_id, False)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("moderation.unmute_failed", discord_id=discord_id, error=str(exc))
+            self.emit(Moderation(action="failed", discord_id=discord_id, error=str(exc)[:300]))
+            return
+        self.emit(Moderation(action="unmuted", discord_id=discord_id))
+        logger.info("moderation.unmuted", discord_id=discord_id)
+
+    def _unmute_all(self) -> None:
+        for discord_id in list(self._muted):
+            self._spawn(self._unmute(discord_id))
+
     # --- plumbing -----------------------------------------------------------------------------
 
     def _set_participants(self, participants: list[Participant]) -> None:
@@ -523,6 +640,7 @@ class Ears:
         task.add_done_callback(self._tasks.discard)
 
     async def shutdown(self) -> None:
+        await asyncio.gather(*(self._unmute(d) for d in list(self._muted)))
         self._close_open_speech()
         if self.stream is not None:
             await self.stream.close()

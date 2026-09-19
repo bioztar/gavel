@@ -13,6 +13,7 @@ from typing import Any, ClassVar
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -132,3 +133,74 @@ class TranscriptChunk(Base):
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     audio_ms: Mapped[int] = mapped_column(Integer)
     stt_ms: Mapped[int] = mapped_column(Integer)
+
+
+# --- written by the brain, through the REST API ----------------------------------------
+# ears is the one store: the brain keeps nothing on disk of its own.
+
+
+class Memory(Base):
+    """Something the chair remembers about a person — a parked off-agenda point, a note.
+
+    Outlives the session: open items come back at the next meeting with that person.
+    """
+
+    __tablename__ = "memories"
+    __table_args__ = (Index("ix_memories_discord_id_status", "discord_id", "status"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    discord_id: Mapped[str] = mapped_column(String(32))
+    name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    kind: Mapped[str] = mapped_column(String(16))  # "parked" | "note"
+    summary: Mapped[str] = mapped_column(Text)
+    quote: Mapped[str | None] = mapped_column(Text, nullable=True)
+    topic_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String(16), default="open")  # "open" | "resolved"
+    created_at: Mapped[datetime] = _ts(server_default=func.now())
+    resolved_at: Mapped[datetime | None] = _ts(nullable=True)
+
+
+class Intervention(Base):
+    """One time the chair spoke up: why, to whom, what it said, how long it took."""
+
+    __tablename__ = "interventions"
+    __table_args__ = (Index("ix_interventions_session_id_at", "session_id", "at"),)
+
+    id: Mapped[int] = mapped_column(BigId, primary_key=True, autoincrement=True)
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("sessions.id", ondelete="CASCADE"), nullable=True
+    )
+    kind: Mapped[str] = mapped_column(String(32))
+    target_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    addressee_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    topic_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    line: Mapped[str] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(16))  # "llm" | "template" | "cache"
+    actions: Mapped[list[str]] = mapped_column(JSONType)
+    compose_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    tts_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    at: Mapped[datetime] = _ts(server_default=func.now())
+
+
+class LlmCall(Base):
+    """Token and cost accounting for every model call the brain makes."""
+
+    __tablename__ = "llm_calls"
+    __table_args__ = (Index("ix_llm_calls_session_id_at", "session_id", "at"),)
+
+    id: Mapped[int] = mapped_column(BigId, primary_key=True, autoincrement=True)
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("sessions.id", ondelete="CASCADE"), nullable=True
+    )
+    agent: Mapped[str] = mapped_column(String(32))
+    model: Mapped[str] = mapped_column(String(128))
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    cached_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    cache_hit: Mapped[bool] = mapped_column(Boolean, default=False)
+    at: Mapped[datetime] = _ts(server_default=func.now())

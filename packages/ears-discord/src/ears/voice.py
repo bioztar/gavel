@@ -18,8 +18,11 @@ from collections import Counter
 from typing import Any, Protocol
 
 import discord
+from discord import player as _player
 from discord.channel import VocalGuildChannel
+from discord.enums import SpeakingState
 from discord.sinks import Sink
+from discord.voice.enums import OpCodes
 from discord.voice.receive import reader as _reader
 
 from .frames import Participant
@@ -70,6 +73,32 @@ def _decrypt_rtp(self: Any, packet: Any) -> bytes:
 
 
 _reader.PacketDecryptor.decrypt_rtp = _decrypt_rtp  # type: ignore[method-assign]
+
+
+# --- priority speaker -----------------------------------------------------------------
+# Discord ducks everyone else while a priority speaker talks. The flag rides on the
+# voice gateway's SPEAKING op (voice=1 | priority=4), which py-cord's player always
+# sends as plain `voice`; `SpeakingState` is an Enum, so the flags cannot be OR-ed
+# through it. While a client is marked `_gavel_priority`, send the raw bits instead.
+# Needs the Priority Speaker permission, silently ignored by Discord without it.
+
+PRIORITY_SPEAKING = int(SpeakingState.voice) | int(SpeakingState.priority)
+_original_speak = _player.AudioPlayer._speak
+
+
+def _speak(self: Any, speaking: SpeakingState) -> None:
+    client = self.client
+    if speaking is SpeakingState.voice and getattr(client, "_gavel_priority", False):
+        payload = {"op": int(OpCodes.speaking), "d": {"speaking": PRIORITY_SPEAKING, "delay": 0}}
+        try:
+            asyncio.run_coroutine_threadsafe(client.ws.send_as_json(payload), client.client.loop)
+        except Exception as exc:  # noqa: BLE001 - never break playback over the flag
+            logger.warning("voice.priority_failed", error=str(exc))
+        return
+    _original_speak(self, speaking)
+
+
+_player.AudioPlayer._speak = _speak  # type: ignore[method-assign]
 
 
 def take_receive_stats() -> dict[str, int]:
@@ -139,6 +168,7 @@ class Voice:
         self.client = discord.Client(intents=intents)
         self._vc: discord.VoiceClient | None = None
         self._channel: VocalGuildChannel | None = None
+        self._guild_id: int | None = None
         self._joining = False
         self._register()
 
@@ -171,11 +201,15 @@ class Voice:
     def participants(self) -> list[Participant]:
         return _humans(self._channel) if self._channel else []
 
-    def play(self, audio: bytes, done: Any) -> bool:
-        """Play encoded audio (wav/mp3/ogg — anything FFmpeg reads). `done(error)` runs on the loop."""
+    def play(self, audio: bytes, done: Any, priority: bool = False) -> bool:
+        """Play encoded audio (wav/mp3/ogg — anything FFmpeg reads). `done(error)` runs on the loop.
+
+        `priority` plays as Discord's priority speaker, ducking everyone else.
+        """
         vc = self._vc
         if vc is None or not vc.is_connected():
             return False
+        vc._gavel_priority = priority  # type: ignore[attr-defined]  # read by _speak above
         source = discord.FFmpegPCMAudio(io.BytesIO(audio), pipe=True)
 
         def after(error: Exception | None) -> None:
@@ -191,6 +225,20 @@ class Voice:
     def stop_playback(self) -> None:
         if self._vc is not None and self._vc.is_playing():
             self._vc.stop()
+
+    async def set_mute(self, discord_id: str, muted: bool, reason: str | None = None) -> None:
+        """Server-mute or unmute a member. Needs Mute Members; raises on failure.
+
+        A server mute is guild-wide and outlives the call, so the lookup goes through the
+        guild, not the channel: an unmute still works after the bot has left.
+        """
+        guild = self.client.get_guild(self._guild_id) if self._guild_id else None
+        if guild is None:
+            raise RuntimeError("not in a guild yet")
+        member = guild.get_member(int(discord_id)) or await guild.fetch_member(int(discord_id))
+        if muted and (member.voice is None or member.voice.channel is None):
+            raise RuntimeError("not in a voice channel")  # Discord rejects muting them
+        await member.edit(mute=muted, reason=reason or "gavel chair")
 
     # --- discord events ------------------------------------------------------------
 
@@ -279,6 +327,7 @@ class Voice:
             logger.info("voice.joining", guild=channel.guild.name, channel=channel.name)
             vc = await channel.connect(reconnect=True)
             self._vc, self._channel = vc, channel
+            self._guild_id = channel.guild.id
             self._start_listening()
             self._events.on_joined(str(channel.guild.id), str(channel.id), _humans(channel))
         except Exception as exc:

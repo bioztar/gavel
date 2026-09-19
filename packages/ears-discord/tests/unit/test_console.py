@@ -35,7 +35,7 @@ class FakeVoice:
     def __init__(self) -> None:
         self.played: list[bytes] = []
 
-    def play(self, audio: bytes, done: Any) -> bool:
+    def play(self, audio: bytes, done: Any, priority: bool = False) -> bool:
         self.played.append(audio)
         return True
 

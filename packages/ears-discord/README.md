@@ -25,8 +25,10 @@ Env (repo-root `.env`): `DISCORD_EARS_TOKEN`, `SLNG_API_KEY`. Optional:
 if either is down, ears logs it once and the brain still gets every frame.
 
 The bot must be invited with the **`bot`** scope, not just `applications.commands`:
-`https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot&permissions=36701184`
-(View Channel, Connect, Speak, Use Voice Activity). No privileged intents.
+`https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot&permissions=40895744`
+(View Channel, Connect, Speak, Use Voice Activity, Mute Members, Priority Speaker). No
+privileged intents. Without the last two the chair still talks, but `mute` comes back
+`failed` and priority lines do not duck the room.
 
 ## The console — `http://127.0.0.1:8787/console`
 
@@ -54,13 +56,24 @@ A no-auth operator page, served by ears itself:
 | `turn.start` / `.tick` / `.end` | speaking smoothed over pauses < `TURN_GAP_MS`; a tick every `TURN_TICK_MS` while someone holds the floor |
 | `transcript` | one streaming SLNG socket per Discord user, diarization on (`speaker` = voice within that user's audio — a room on one mic); names as keyterms. `STT_MODE=http` falls back to per-utterance chunks |
 | `spoken` | a `speak` finished playing, was `stop`ped (`interrupted`), or failed (`error`) |
+| `moderation` | a brain `mute` / `unmute` landed (`muted` with `until`, `unmuted`) or did not (`failed`, `error`); ears lifts every mute itself on its timer, on session end and on shutdown |
 
 Every frame goes to three places: the WebSocket at `/`, Redis
 (`XADD` + `PUBLISH gavel:ears:events`), and Postgres (`events`, plus `turns`,
 `transcripts`, `participants`, `sessions`). The brain can also send `speak` / `stop` via
 `PUBLISH gavel:ears:commands`.
 
-HTTP: `GET /health`, `GET /api/status`, `/api/meetings`, `/api/sessions`, `POST /api/say` — full list at the top of `src/ears/wire.py`, OpenAPI at `/docs`.
+The brain sends `speak` (with `priority: true` to jump the queue and duck the room as
+priority speaker), `stop`, `mute {discordId, seconds}` (capped at 60 s) and `unmute`.
+
+ears is also the brain's store — one Postgres for everything. The brain writes parked
+points and notes per person (`/api/memories`), what the chair said (`/api/interventions`)
+and every model call's tokens and cost (`/api/llm-calls`); each write shows up in the
+console log as `memory.*` / `chair.*`.
+
+HTTP: `GET /health`, `GET /api/status`, `/api/meetings`, `/api/sessions`, `POST /api/say`,
+`/api/memories`, `/api/interventions`, `/api/llm-calls` — full list at the top of
+`src/ears/wire.py`, OpenAPI at `/docs`.
 
 `just export-replay > ../contract/fixtures/replay.jsonl` turns the last recorded call into
 the brain's replay fixture (plan chunk E4).
