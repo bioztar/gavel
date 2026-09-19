@@ -2,8 +2,8 @@
 
 **Status:** live and validated
 **Host:** `uk-lon-1` (173.234.79.39) · **Domain:** https://gavel.pro7ocol.com
-**Deployed commit:** `a5db1f7` (`merge: chair/vonage — Vonage Video HLS broadcast + archive surface`)
-**Deployed at:** 2026-09-19 16:28 UTC · **Last validated:** 2026-09-19 16:29 UTC
+**Deployed commit:** `4061b23` (`fix(compose): pass CHAIR_VIDEO_URL to brain so the stage hook is live`)
+**Deployed at:** 2026-09-19 16:25 UTC · **Last validated:** 2026-09-19 16:25 UTC
 **Checkout on the box:** `/home/coder/DEV/gavel` · **Compose project:** `gavel`
 
 ---
