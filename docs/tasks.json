@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-19T13:07:56+00:00",
+  "updated": "2026-09-19T13:23:02+00:00",
   "freeze": "2026-09-20T11:00:00+02:00",
   "demos": "2026-09-20T14:00:00+02:00",
   "people": {
@@ -56,6 +56,11 @@
       "id": "calendar",
       "title": "calendar — invite → session → agenda",
       "package": "packages/calendar"
+    },
+    {
+      "id": "persona",
+      "title": "persona — formal Karen and funky Karen",
+      "package": "packages/brain/config + chair-video"
     }
   ],
   "tasks": [
@@ -508,7 +513,7 @@
       ],
       "status": "doing",
       "spine": false,
-      "note": "Crewmate generates four, Vitaly picks one. One still is reused for every utterance."
+      "note": "Vitaly picked chair-03 — she is Karen. Formal is her as generated; three funky variants in flight."
     },
     {
       "id": "F2",
@@ -651,6 +656,71 @@
       "status": "todo",
       "spine": false,
       "note": "GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET documented, never committed. First cut if time is short."
+    },
+    {
+      "id": "P1",
+      "lane": "persona",
+      "title": "personas.yaml — both Karens, tone, avatar, idle, voice",
+      "owner": "vitaly",
+      "effort": "30m",
+      "deps": [],
+      "status": "doing",
+      "spine": false,
+      "note": "One new file, the single definition. Formal is dry and a little passive-aggressive; funky is funny and warm."
+    },
+    {
+      "id": "P2",
+      "lane": "persona",
+      "title": "Template fallback lines per persona, 4+ per intervention type",
+      "owner": "vitaly",
+      "effort": "30m",
+      "deps": [
+        "P1"
+      ],
+      "status": "doing",
+      "spine": false,
+      "note": "Covers floor hog, overrun, at-risk, unheard mustHear, silence, off-agenda, escalation, wrap-up. No repeats in a six-minute demo."
+    },
+    {
+      "id": "P3",
+      "lane": "persona",
+      "title": "Wiring — tone in the stable prompt prefix, CHAIR_PERSONA + hot reload",
+      "owner": "vitaly",
+      "effort": "45m",
+      "deps": [
+        "P1"
+      ],
+      "status": "doing",
+      "spine": false,
+      "note": "Prefix stays stable so Nebius keeps ~85% cached input. Switching persona invalidates the cache briefly — expected."
+    },
+    {
+      "id": "P4",
+      "lane": "persona",
+      "title": "Replay proof — same fixture, both personas, transcripts side by side",
+      "owner": "vitaly",
+      "effort": "20m",
+      "deps": [
+        "P2",
+        "P3"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "The artefact for the demo: same meeting, same decisions, two different chairs."
+    },
+    {
+      "id": "F7",
+      "lane": "face",
+      "title": "persona on /speak-video and /idle, funky idle clip",
+      "owner": "vitaly",
+      "effort": "30m",
+      "deps": [
+        "F5",
+        "P1"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Unknown persona falls back to formal — a typo on stage must never silence the chair."
     }
   ],
   "credentials": [
