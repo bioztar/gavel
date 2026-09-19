@@ -178,3 +178,21 @@ The same frames are also on Redis (`XADD` / `PUBLISH gavel:ears:events`), and `s
 timestamps. `brain` replays it to develop the entire policy with no Discord, no voice
 channel and no second person. Commit it before either side starts, and keep it honest —
 if the real ears emit something the fixture does not, add it to the fixture.
+
+---
+
+## 4. Calendar → agenda (packages/calendar)
+
+`calendar` turns a real `.ics` invite into the §1 agenda shape and starts a session by
+calling `ears-discord`'s existing HTTP API (`POST /api/meetings` then `POST /api/sessions`)
+— it invents no second session concept and never touches `packages/ears-discord/`.
+
+| Method & path | Body | Response |
+|---|---|---|
+| `POST /invite` | multipart `file` (an `.ics`) or `text/calendar` body | `{sessionId, joinUrl}` |
+| `GET /m/{sessionId}` | — | HTML join page: title, agenda with budgets, attendees, a Join button |
+| `POST /m/{sessionId}/join` | — | Starts the session via `ears-discord` (idempotent) and shows it as started |
+
+A background scheduler calls the same start path automatically at the event's start time;
+clicking Join just does it early. See `packages/calendar/README.md` for the attendee
+email→`discordId` mapping (the one real seam between an invite and a Discord speaker).

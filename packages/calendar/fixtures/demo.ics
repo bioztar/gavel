@@ -1,0 +1,18 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//gavel//demo//EN
+BEGIN:VEVENT
+UID:hb26-demo@gavel.invalid
+DTSTAMP:20260919T090000Z
+DTSTART:20260920T140000Z
+DTEND:20260920T140500Z
+SUMMARY:Launch readiness
+ORGANIZER;CN=Vitaly:mailto:vitaly@example.invalid
+ATTENDEE;CN=Vitaly;ROLE=CHAIR:mailto:vitaly@example.invalid
+ATTENDEE;CN=Ana:mailto:ana@example.invalid
+ATTENDEE;CN=Marc:mailto:marc@example.invalid
+DESCRIPTION:Decide the launch date and name an owner for each blocker\n\nAg
+ enda:\n- Where we actually are — 2m (owner: Ana)\n- The date - 2m (owner:
+  Vitaly)\n- Blocker owners (1 min)
+END:VEVENT
+END:VCALENDAR
