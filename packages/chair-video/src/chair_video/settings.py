@@ -32,9 +32,13 @@ class Settings(BaseSettings):
     # --- fal -----------------------------------------------------------
     fal_key: str = ""
     fal_base_url: str = "https://queue.fal.run"
-    # Winner of the measured latency table (see README). Kept overridable so a
-    # faster model found later is a config change, not a redeploy.
-    lipsync_model: str = "fal-ai/longcat-single-avatar/image-audio-to-video"
+    # Winner of the measured latency table (see README): the only two models
+    # that completed reliably both take video_url (re-sync an existing clip),
+    # not image_url. veed/lipsync/v2 was fastest of the two that worked, so
+    # /speak-video re-syncs the persona's idle loop rather than animating a
+    # still. Kept overridable so a faster model found later is a config
+    # change, not a redeploy.
+    lipsync_model: str = "veed/lipsync/v2"
     avatar_model: str = "fal-ai/flux/schnell"
 
     # --- service ---------------------------------------------------------
@@ -44,9 +48,34 @@ class Settings(BaseSettings):
     fal_poll_timeout_s: float = 120.0
     fal_poll_interval_s: float = 1.0
 
-    # The chair's committed portrait and idle loop, served by GET /idle.
-    avatar_image_path: str = "avatars/chair-01.png"
-    idle_video_path: str = ""
+    # Persona -> asset mapping. `packages/brain/config/personas.yaml` (owned by
+    # a different crewmate) is the source of truth for a persona's tone and
+    # template lines; this is the source of truth for which *file* a persona
+    # renders with, since that's this service's own concern. karen-funky-01
+    # is a placeholder pending Vitaly's pick among the three funky candidates
+    # in avatars/ — swap it here, nothing else needs to change.
+    avatar_image_by_persona: dict[str, str] = {
+        "formal": "avatars/karen-formal.png",
+        "funky": "avatars/karen-funky-01.png",
+    }
+    idle_video_by_persona: dict[str, str] = {
+        "formal": "avatars/idle-formal.mp4",
+        "funky": "avatars/idle-funky.mp4",
+    }
+    default_persona: str = "formal"
+
+    def avatar_image_path(self, persona: str) -> str:
+        return self.avatar_image_by_persona.get(persona, self.avatar_image_by_persona[self.default_persona])
+
+    def idle_video_path(self, persona: str) -> str:
+        return self.idle_video_by_persona.get(persona, self.idle_video_by_persona[self.default_persona])
+
+    def normalize_persona(self, persona: str | None) -> str:
+        """Unknown/missing persona falls back to formal rather than erroring —
+        on stage a typo must not silence the chair."""
+        if persona in self.avatar_image_by_persona:
+            return persona
+        return self.default_persona
 
     @property
     def fal_configured(self) -> bool:

@@ -10,8 +10,10 @@ import hashlib
 from typing import Any
 
 
-def audio_key(audio_bytes: bytes) -> str:
-    return hashlib.sha256(audio_bytes).hexdigest()
+def audio_key(audio_bytes: bytes, persona: str) -> str:
+    """Persona is part of the key — the same line spoken by formal and funky
+    Karen must not collide, or one persona's video answers for the other."""
+    return f"{persona}:{hashlib.sha256(audio_bytes).hexdigest()}"
 
 
 class SpeakVideoCache:
