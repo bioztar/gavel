@@ -18,6 +18,8 @@ system: |
   Be conservative: a brief aside or an example that serves the current topic is "current".
 
 user: |
+  OTHERS JUST BEFORE (context only, do not label):
+  {{room}}
   CURRENT TOPIC: {{topicId}}
   SPEAKER: {{name}}
   RECENT WORDS: "{{window}}"

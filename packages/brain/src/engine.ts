@@ -17,6 +17,7 @@ import { log } from "./log";
 import type { Intervention, PersonView, Redirect, Snapshot } from "./policy/snapshot";
 import { evaluate, redirectFor } from "./policy/triggers";
 import { type Notes, addNotes, boardNotes, noteKeys, parkedLine, totalNotes } from "./state/notes";
+import { Conversation } from "./state/conversation";
 import { type Classification, RelevanceTracker } from "./state/relevance";
 import { TalkLedger } from "./state/talk";
 import { render } from "./template";
@@ -88,6 +89,7 @@ export class Engine {
   private ledger: TalkLedger;
   private relevance: RelevanceTracker;
   private context = new ContextBlock();
+  private conversation = new Conversation();
 
   private pending: { utteranceId: string; at: number } | null = null;
   private composing = false;
@@ -164,6 +166,7 @@ export class Engine {
         this.ledger.end(frame.discordId, at);
         break;
       case "transcript":
+        if (frame.final !== false) this.conversation.add({ at, id: frame.discordId, name: this.nameOf(frame.discordId), text: frame.text });
         this.maybeAddressKaren(frame.discordId, frame.text, at, frame.utteranceId, frame.final);
         this.relevance.addTranscript(frame.discordId, frame.text);
         this.maybeClassify(frame.discordId);
@@ -202,6 +205,7 @@ export class Engine {
     this.directQueue = [];
     this.handledUtterances.clear();
     this.said = [];
+    this.conversation.reset();
     this.awaitingRequest.clear();
     this.recentWords.clear();
     this.facts = [];
@@ -399,9 +403,11 @@ export class Engine {
     }
     const agenda = this.agenda;
     const window = this.relevance.window(id);
+    const { seconds, relevanceWords } = this.cfg.policy.history;
+    const room = this.conversation.tail(now, { seconds, maxWords: relevanceWords, except: id }) || "(none)";
     const req = {
       system: `${this.cfg.relevance.system}\n${this.contextText()}`,
-      user: render(this.cfg.relevance.user, { topicId: topic?.id, name: this.nameOf(id), window }),
+      user: render(this.cfg.relevance.user, { topicId: topic?.id, name: this.nameOf(id), window, room }),
       window,
       topicId: topic?.id ?? null,
       topics: agenda.topics,
@@ -559,10 +565,11 @@ export class Engine {
           knownFacts: this.facts.join("; "),
           knownDecisions: this.decisions.join("; "),
           knownOpenItems: this.openItems.join("; "),
-          yourRecentLines: this.recentChairLines(3),
         }
       : iv.vars;
+    const { seconds, chairWords } = this.cfg.policy.history;
     const user = render(this.cfg.chair.user, {
+      conversation: this.conversation.tail(this.now(), { seconds, maxWords: chairWords }) || "(nothing said yet)",
       instruction: render(kind.instruction, enrichedVars),
       examples: kind.examples.map((e) => `- ${e}`).join("\n"),
       // Every fact is listed, empty ones as "(none)": a missing fact invites the model to invent it.
@@ -631,6 +638,7 @@ export class Engine {
     }
     if (iv.actions.includes("speak") && line) {
       this.said.push(line);
+      this.conversation.add({ at: this.now(), id: "karen", name: "Karen", text: line });
       out = await this.speak(line, iv.priority);
     }
     if (iv.actions.includes("mute") && iv.targetId && iv.muteSeconds) {
@@ -930,14 +938,6 @@ export class Engine {
       default:
         return "No meeting is set up yet.";
     }
-  }
-
-  private recentChairLines(n: number): string {
-    return this.history
-      .filter((h) => h.line)
-      .slice(-n)
-      .map((h) => h.line)
-      .join(" | ");
   }
 
   private missingAttendees(): string[] {

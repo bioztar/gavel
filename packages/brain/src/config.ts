@@ -80,6 +80,9 @@ export const PolicyConfig = z.object({
   addressed: z
     .object({ followUpSeconds: z.number(), settleSeconds: z.number().default(2), contextSeconds: z.number() })
     .default({ followUpSeconds: 6, settleSeconds: 2, contextSeconds: 20 }),
+  history: z
+    .object({ seconds: z.number().positive(), chairWords: z.number().int().nonnegative(), relevanceWords: z.number().int().nonnegative() })
+    .default({ seconds: 180, chairWords: 220, relevanceWords: 80 }),
   speak: z
     .object({ quietMs: z.number().int().nonnegative(), maxWaitMs: z.number().int().nonnegative(), priorityMaxWaitMs: z.number().int().nonnegative() })
     .default({ quietMs: 700, maxWaitMs: 8000, priorityMaxWaitMs: 3000 }),

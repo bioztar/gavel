@@ -55,6 +55,15 @@ addressed:
   # to the model too, from at most this far back.
   contextSeconds: 20
 
+# The channel's recent conversation — everyone's final transcripts and Karen's own lines,
+# by name — goes into the model calls, so Karen answers what was actually said.
+history:
+  seconds: 180          # nothing older than this
+  chairWords: 220       # each spoken-line call sees at most this many words of it
+  # The off-agenda classifier is the high-volume call: it sees only this much of what the
+  # others said (the speaker's own words go in separately). 0 = none.
+  relevanceWords: 80
+
 # Karen waits for a breath instead of talking over people. The line is composed and
 # synthesized at once; ears holds the audio and starts it the moment nobody has been heard for
 # quietMs. Past the max wait it plays anyway.

@@ -226,7 +226,8 @@ describe("talking to Karen, as in the 2026-09-19 demo transcript", () => {
     expect(iv2?.vars.agendaList).toMatch(/, and /);
     // Never served from the cache of an earlier answer.
     expect(prompts).toHaveLength(2);
-    expect(prompts[1]).toContain("yourRecentLines: Hi!");
+    // The room's conversation, Karen's own lines included, in the order it was said.
+    expect(prompts[1]).toContain("Vitaly: Hello, Karen.\nKaren: Hi!\nVitaly: What is this meeting about, Karen?");
   });
 
   it("'Karen,' then the request in the next chunk, with what came before as context", async () => {

@@ -1,6 +1,7 @@
 /**
  * The chair's model calls, through the Mastra agents (so they are traced), on Nebius.
- * Stateless: no memory threads, so the prompt never grows with the meeting.
+ * No memory threads: the engine puts a bounded tail of the channel conversation into each
+ * prompt itself (policy.yaml → history), so the prompt never grows with the meeting.
  */
 import type { Config } from "../config";
 import type { Classification } from "../state/relevance";

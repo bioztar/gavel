@@ -93,8 +93,11 @@ extraction: **33 model calls, 16.7k input and 1.9k output tokens, $0.0027.**
 - **Stable prefix.** Every call is `system prompt + session context block + short tail`.
   The context block (purpose, agenda, attendees) is built once per session and stays
   byte-identical, and Nebius reports ~340 of ~390 classifier input tokens as cached.
-- **Stateless calls.** No conversation history grows with the meeting; continuity lives in
-  the database.
+- **Bounded history.** No model-side memory threads. Each call gets the tail of the channel
+  conversation instead (everyone's final transcripts and Karen's own lines, by name): at most
+  `history.chairWords` for a spoken line and `history.relevanceWords` of the others' words
+  for the classifier, from the last `history.seconds` (config/policy.yaml). It sits in the
+  user tail, so the cached prefix is untouched. The token figures above predate it.
 - **Rationed classifier.** It runs only after ≥ 12 new words from someone who has held the
   floor for ≥ 3 s, with one call in flight per speaker. It re-checks an open episode only
   every 8 s, and identical windows reuse the verdict.
