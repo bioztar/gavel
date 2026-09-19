@@ -177,7 +177,10 @@ an additional command channel.
 `policy` also takes `offAgendaGraceSeconds` (20), `allowMute` (false),
 `escalateAfterSeconds` (10), `muteSeconds` (15) and `requireStart` (true — false: the
 chair opens the meeting herself once everyone is in the call, no "Karen, let's start the
-meeting"). Absent means the default.
+meeting") and `timed` (true — false: topics have no budgets and no order; the chair
+follows the room to whichever agenda item it takes up, never calls time on a topic or the
+meeting, and the brain's `/state` reports `timed: false` and each topic's `discussed`).
+Absent means the default.
 
 `session.started.agenda` is optional for the brain to use: it is whatever the host typed
 into the ears console (`http://localhost:8787/console`). A brain that loads its agenda

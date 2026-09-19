@@ -123,7 +123,8 @@ class Ears:
         self._playback: deque[_Utterance] = deque()
         self._playing: _Utterance | None = None
         self._interrupted = False
-        # Last time any human's voice reached us — packets stop when their client goes quiet.
+        # Last time a human was audibly speaking. Packet arrival alone is not enough: an open
+        # voice-activated mic keeps sending breath and room noise, and the room never pauses.
         self._last_voice_at = 0.0
         self._holding_since: float | None = None
         # Streamed lines still receiving chunks, queued or playing.
@@ -307,7 +308,6 @@ class Ears:
         self.emit(Participants(participants=participants))
 
     def on_speaking(self, discord_id: str, speaking: bool, at: float) -> None:
-        self._last_voice_at = max(self._last_voice_at, at)
         if speaking:
             self.emit(SpeakingStart(discord_id=discord_id))
             frames = self.turns.speaking_start(discord_id, at)
@@ -318,7 +318,8 @@ class Ears:
             self.emit(frame)
 
     def on_pcm(self, discord_id: str, pcm: bytes, at: float) -> None:
-        self._last_voice_at = max(self._last_voice_at, at)
+        if rms(pcm) >= self.settings.silence_rms:
+            self._last_voice_at = max(self._last_voice_at, at)
         if self.stream is not None:
             self.stream.feed(discord_id, pcm, at)
             return

@@ -158,6 +158,7 @@ def test_console_page_is_served() -> None:
     assert page.status_code == 200 and "ears console" in page.text
     assert "What Karen understands" in page.text
     assert 'id="m-require-start"' in page.text
+    assert 'id="m-timed"' in page.text
     assert "b-add-att" not in page.text and "b-import-voice" not in page.text
     assert client.get("/", follow_redirects=False).headers["location"] == "/console"
 

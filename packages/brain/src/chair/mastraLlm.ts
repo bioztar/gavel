@@ -40,7 +40,14 @@ export class MastraLlm implements Llm {
   constructor(
     private cfg: () => Config["models"],
     private onUsage: (u: Usage) => void,
+    /** The meeting this call is for: Langfuse groups each session's calls together. */
+    private sessionId: () => string | null = () => null,
   ) {}
+
+  private tracing(agent: Usage["agent"], kind?: string) {
+    const sessionId = this.sessionId();
+    return { metadata: { ...(sessionId ? { sessionId } : {}), agent, ...(kind ? { kind } : {}) }, tags: [agent, ...(kind ? [kind] : [])] };
+  }
 
   async classify(req: ClassifyRequest): Promise<Classification | null> {
     const p = this.cfg().profiles.fast;
@@ -48,7 +55,9 @@ export class MastraLlm implements Llm {
     const res = await relevanceAgent.generate(req.user, {
       instructions: req.system,
       modelSettings: { temperature: p.temperature, maxOutputTokens: p.maxOutputTokens },
+      providerOptions: { nebius: p.extraBody as never },
       abortSignal: AbortSignal.timeout(p.timeoutMs),
+      tracingOptions: this.tracing("relevance"),
       structuredOutput: {
         schema: Verdict,
         jsonPromptInjection: p.jsonPromptInjection,
@@ -66,7 +75,9 @@ export class MastraLlm implements Llm {
     const res = await chairAgent.generate(req.user, {
       instructions: req.system,
       modelSettings: { temperature: p.temperature, maxOutputTokens: p.maxOutputTokens },
+      providerOptions: { nebius: p.extraBody as never },
       abortSignal: AbortSignal.timeout(req.timeoutMs ?? p.timeoutMs),
+      tracingOptions: this.tracing("chair", req.kind),
     });
     this.report("chair", p.model, res.usage as UsageLike | undefined, started);
     return res.text?.trim() || null;
@@ -78,7 +89,9 @@ export class MastraLlm implements Llm {
     const res = await digestAgent.generate(req.user, {
       instructions: req.system,
       modelSettings: { temperature: p.temperature, maxOutputTokens: p.maxOutputTokens },
+      providerOptions: { nebius: p.extraBody as never },
       abortSignal: AbortSignal.timeout(p.timeoutMs),
+      tracingOptions: this.tracing("digest"),
       structuredOutput: {
         schema: Digested,
         jsonPromptInjection: p.jsonPromptInjection,

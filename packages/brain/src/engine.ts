@@ -105,6 +105,8 @@ export class Engine {
   private people = new Map<string, Participant>();
   private topicIndex = 0;
   private agendaCompleted = false;
+  /** Topics the meeting has been on so far — for an untimed meeting, where order is free. */
+  private discussed = new Set<string>();
   private topicStartedAt = 0;
   private sessionStartedAt = 0;
   private ledger: TalkLedger;
@@ -142,6 +144,17 @@ export class Engine {
   /** Bumped whenever a note is added; the digest is redone when it moves. */
   /** When everyone expected was first in the lobby, for requireStart: false. */
   private lobbyFullSince: number | null = null;
+  /**
+   * Came into the call after the start, not yet welcomed (policy.yaml → newcomer): when, and
+   * how many words they have said since.
+   */
+  private arrivals = new Map<string, { at: number; words: number }>();
+  /** Welcomed, or already joined the discussion by themselves: never welcomed (again) this session. */
+  private welcomed = new Set<string>();
+  /** A startMeeting is queued or under way: one opening per meeting, however it was asked for. */
+  private startQueued = false;
+  /** The last floor handover (floorHog): the floor window starts here at the earliest. */
+  private floorSince = 0;
   private notesVersion = 0;
   private digest: { notes: Notes; seen: Set<string>; version: number } | null = null;
   private digesting = false;
@@ -170,6 +183,7 @@ export class Engine {
     switch (frame.type) {
       case "ready":
       case "participants":
+        if (frame.type === "participants") this.noteArrivals(frame.participants.map((p) => p.discordId), at);
         this.people = new Map(frame.participants.map((p) => [p.discordId, p]));
         if (frame.type === "ready" && !this.agenda) this.startSession(null, null, this.deps.fallbackAgenda, at);
         break;
@@ -197,6 +211,7 @@ export class Engine {
         if (frame.final !== false) this.conversation.add({ at, id: frame.discordId, name: this.nameOf(frame.discordId), text: frame.text });
         // Interim segments are words said too: the talker is still talking.
         if (wordCount(frame.text) >= SAID_WORDS) this.lastSaidAt.set(frame.discordId, at);
+        if (frame.final !== false) this.noteNewcomerWords(frame.discordId, frame.text);
         if (this.maybeAddressKaren(frame.discordId, frame.text, at, frame.utteranceId, frame.final)) {
           // Talking to Karen is not drifting off the agenda: she answers them instead.
           this.endEpisode(frame.discordId, "addressed");
@@ -226,6 +241,7 @@ export class Engine {
     this.phase = this.agenda ? "gathering" : "idle";
     this.topicIndex = 0;
     this.agendaCompleted = false;
+    this.discussed.clear();
     this.topicStartedAt = at;
     this.sessionStartedAt = at;
     this.chairLastSpokeAt = 0;
@@ -249,6 +265,10 @@ export class Engine {
     this.decisions = [];
     this.openItems = [];
     this.lobbyFullSince = null;
+    this.startQueued = false;
+    this.floorSince = 0;
+    this.arrivals.clear();
+    this.welcomed.clear();
     this.notesVersion = 0;
     this.digest = null;
     this.digestAt = 0;
@@ -380,7 +400,10 @@ export class Engine {
     const policy = this.policy();
     const topic = this.topic();
     const gap = cfg.engine.floorGapMs;
-    const windowMs = policy.floorWindowSeconds * 1000;
+    // The floor is measured afresh from the last handover: what the talker said before it
+    // was already dealt with, and must not get the next person asked again and again.
+    const windowMs = Math.min(policy.floorWindowSeconds * 1000, now - this.floorSince);
+    const quietFrom = Math.max(this.topicStartedAt, this.chairLastSpokeAt, this.sessionStartedAt);
     const people: PersonView[] = [...this.people.values()].map((p) => {
       const talk = this.ledger.person(p.discordId, now, topic?.id ?? null, windowMs);
       return {
@@ -406,14 +429,17 @@ export class Engine {
       policy,
       engine: cfg.engine,
       pick: cfg.pickSpeaker,
+      newcomer: cfg.newcomer,
       topics: this.agenda?.topics ?? [],
       topicIndex: this.topicIndex,
       topic,
       topicStartedAt: this.topicStartedAt,
       people,
+      arrivals: [...this.arrivals].map(([id, a]) => ({ id, at: a.at })),
       chairBusy: this.pending !== null || this.composing,
       lastInterventionAt: this.lastInterventionAt,
-      silenceMs: this.ledger.silenceMs(now, Math.max(this.topicStartedAt, this.chairLastSpokeAt, this.sessionStartedAt)),
+      silenceMs: this.ledger.silenceMs(now, quietFrom),
+      roomSilenceMs: this.ledger.silenceMs(now, quietFrom, new Set(this.arrivals.keys())),
       episodes: this.relevance.episodes().map(([id, episode]) => ({ id, episode })),
       redirect: this.redirect,
       escalatedAt: this.escalatedAt,
@@ -469,6 +495,11 @@ export class Engine {
     if (result) this.absorbInsights(result);
     const change = this.relevance.finish(id, this.now(), key, result);
     if (result) log.debug("relevance", { who: this.nameOf(id), ...result, cached });
+    // Untimed: the room picks the order. Moving to another agenda item is not a tangent.
+    if (result?.verdict === "otherTopic" && !this.policy().timed) {
+      this.followTopic(result.topicId, id);
+      return;
+    }
     if (change === "opened") {
       const episode = this.relevance.episode(id)!;
       log.info("offagenda.opened", {
@@ -504,12 +535,15 @@ export class Engine {
 
   /**
    * "Another agenda item" only counts if it is still ahead of us. Jumping back to a finished
-   * topic, or to an id the agenda does not have, is drifting off the agenda.
+   * topic, or to an id the agenda does not have, is drifting off the agenda. In an untimed
+   * meeting any other agenda item counts, earlier or later.
    */
   private checkVerdict(c: Classification): Classification {
     if (c.verdict !== "otherTopic") return c;
     const at = this.agenda?.topics.findIndex((t) => t.id === c.topicId) ?? -1;
-    return at > this.topicIndex ? c : { ...c, verdict: "offAgenda", topicId: null };
+    if (!this.policy().timed && at === this.topicIndex) return { ...c, verdict: "current" };
+    const valid = this.policy().timed ? at > this.topicIndex : at >= 0;
+    return valid ? c : { ...c, verdict: "offAgenda", topicId: null };
   }
 
   // --- interventions ----------------------------------------------------------------------------
@@ -520,6 +554,11 @@ export class Engine {
     this.lastInterventionAt = now;
     if (iv.question && iv.topicId) (this.asked[iv.topicId] ??= []).push(iv.question);
     if (iv.addresseeId) this.lastPromptedId = iv.addresseeId;
+    if (iv.trigger === "floorHog") this.floorSince = now;
+    if (iv.trigger === "newcomer") {
+      for (const [id] of this.arrivals) this.welcomed.add(id);
+      this.arrivals.clear();
+    }
     if (iv.trigger === "escalate" && iv.targetId) {
       this.escalatedAt[iv.targetId] = now;
       this.redirect = null;
@@ -660,19 +699,33 @@ export class Engine {
         .filter(([k]) => k !== "quote")
         .map(([k, v]) => `${k}: ${v?.trim() || "(none)"}`)
         .join("\n"),
+      parked: this.parkedNote(iv),
       avoid: avoidRepeat ? render(this.cfg.chair.avoidRepeat, { said: this.said.join(" | ") }) : "",
     });
     const system = `${this.cfg.chair.system}\n${this.contextText()}`;
     const started = performance.now();
     let line: string | null;
     try {
-      const text = await this.deps.llm.compose({ system, user, timeoutMs });
+      const text = await this.deps.llm.compose({ system, user, timeoutMs, kind: iv.kind });
       line = text ? clean(text) : null;
     } catch (err) {
       log.warn("chair.compose_failed", { kind: iv.kind, error: String(err) });
       return null;
     }
     return line && this.shorter(iv, system, user, line, started, timeoutMs);
+  }
+
+  /**
+   * What is already on the parking lot, so Karen does not bring it back up (or joke about it)
+   * in a later line. The wrap-up reads the list out from its own facts instead.
+   */
+  private parkedNote(iv: Intervention): string {
+    if (iv.kind === "wrapUp") return "";
+    // The point this very line is parking is the subject of the line, not a thing to avoid.
+    const own = new Set([iv.park, ...(iv.parks ?? [])].map((p) => p?.summary));
+    const items = this.parked.filter((p) => !own.has(p.summary)).map((p) => `${p.name} on ${p.summary}`);
+    if (!items.length) return "";
+    return render(this.cfg.chair.parked, { parked: items.join("; ") });
   }
 
   /**
@@ -899,12 +952,31 @@ export class Engine {
     this.redirect = null;
     this.lastPromptedId = null;
     const topic = this.topic();
+    if (topic) this.discussed.add(topic.id);
     if (!topic) {
       this.agendaCompleted = true;
       this.phase = "finished";
       stageStop();
     }
     log.info("topic.advanced", { to: topic?.title ?? "(agenda done)" });
+  }
+
+  /** Untimed meeting: someone took the room to another agenda item, and the chair follows. */
+  private followTopic(topicId: string | null | undefined, by: string): void {
+    const index = this.agenda?.topics.findIndex((t) => t.id === topicId) ?? -1;
+    if (index < 0 || index === this.topicIndex) return;
+    const now = this.now();
+    for (const [id] of this.relevance.episodes()) this.dropRedirectLines(id);
+    this.dropRedirectLines(by);
+    this.ledger.splitAt(now);
+    this.topicIndex = index;
+    this.topicStartedAt = now;
+    this.relevance.resetAll();
+    this.redirect = null;
+    this.lastPromptedId = null;
+    const topic = this.topic()!;
+    this.discussed.add(topic.id);
+    log.info("topic.followed", { to: topic.title, by: this.nameOf(by) });
   }
 
   async recall(discordIds?: string[]): Promise<Memory[]> {
@@ -933,6 +1005,8 @@ export class Engine {
     // and not in startSession() — the lobby can sit for a long time, and a fal
     // session bills from the second it opens.
     stageStart(this.cfg.persona.id);
+    const topic = this.topic();
+    if (topic) this.discussed.add(topic.id);
     this.topicStartedAt = now;
     this.sessionStartedAt = now;
     // Lobby chatter must not count toward meeting talk time or relevance.
@@ -971,6 +1045,9 @@ export class Engine {
 
   /** Karen opens the meeting: the agenda, then the first topic's question to whoever starts. */
   private queueStart(id: string): void {
+    // The start is composed across several ticks; asking again meanwhile must not open twice.
+    if (this.startQueued) return;
+    this.startQueued = true;
     const starter = this.startingPerson(id);
     const topic = this.topic();
     const question = topic?.questions[0] ?? render(this.cfg.chair.fallbackQuestion, {
@@ -998,6 +1075,28 @@ export class Engine {
   }
 
   /**
+   * Who came into the call once the meeting was under way — to be welcomed at the next pause.
+   * ears sends the whole list on any voice change (a mute too), so only a new id is an arrival.
+   * Before the start there is nothing to welcome anyone into: the opening covers them.
+   */
+  private noteArrivals(ids: string[], at: number): void {
+    const present = new Set(ids);
+    for (const id of this.arrivals.keys()) if (!present.has(id)) this.arrivals.delete(id);
+    if (this.phase !== "active") return;
+    for (const id of ids) if (!this.people.has(id) && !this.welcomed.has(id)) this.arrivals.set(id, { at, words: 0 });
+  }
+
+  /** Past newcomer.joinedWords a newcomer has joined the discussion by themselves: no welcome. */
+  private noteNewcomerWords(id: string, text: string): void {
+    const a = this.arrivals.get(id);
+    if (!a) return;
+    a.words += wordCount(text);
+    if (a.words <= this.cfg.policy.newcomer.joinedWords) return;
+    this.arrivals.delete(id);
+    this.welcomed.add(id);
+  }
+
+  /**
    * A meeting with `requireStart: false` needs no "Karen, let's start": she opens it herself
    * once everyone expected is in the call and has been for engine.autoStartDelayMs.
    */
@@ -1007,7 +1106,7 @@ export class Engine {
       this.lobbyFullSince = null;
       return;
     }
-    if (this.directQueue.some((iv) => iv.kind === "startMeeting") || this.pending) return;
+    if (this.startQueued || this.pending) return;
     this.lobbyFullSince ??= now;
     if (now - this.lobbyFullSince < this.cfg.policy.engine.autoStartDelayMs) return;
     log.info("meeting.auto_start", { sessionId: this.sessionId });
@@ -1089,6 +1188,7 @@ export class Engine {
         return `Not started yet; people are joining.${waiting}`;
       }
       case "active":
+        if (!this.policy().timed) return `In progress, now on: ${this.topic()?.title ?? ""}. Topics go in any order, with no time limits.`;
         return `In progress, on topic ${this.topicIndex + 1} of ${topics.length}: ${this.topic()?.title ?? ""}.`;
       case "finished":
         return "The agenda is finished.";
@@ -1197,6 +1297,7 @@ export class Engine {
       phase: this.phase,
       readyToStart: this.phase === "gathering" && this.missingAttendees().length === 0,
       requireStart: this.policy().requireStart,
+      timed: this.policy().timed,
       missingAttendees: this.missingAttendees(),
       agendaFinished: this.agendaCompleted,
       topic: s.topic && {
@@ -1206,7 +1307,14 @@ export class Engine {
         budgetSeconds: s.topic.budgetSeconds,
         elapsedSeconds: Math.round((s.now - s.topicStartedAt) / 1000),
       },
-      topics: s.topics.map((t, i) => ({ id: t.id, title: t.title, budgetSeconds: t.budgetSeconds, done: i < s.topicIndex })),
+      topics: s.topics.map((t, i) => ({
+        id: t.id,
+        title: t.title,
+        budgetSeconds: t.budgetSeconds,
+        // Untimed: nothing is ever "done" by being passed; the room can come back to it.
+        done: s.policy.timed && i < s.topicIndex,
+        discussed: this.discussed.has(t.id),
+      })),
       people: s.people.map((p) => ({
         id: p.id,
         name: p.name,

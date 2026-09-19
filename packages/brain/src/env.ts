@@ -15,5 +15,11 @@ export const env = {
   earsHttpUrl: blank(process.env.EARS_HTTP_URL) ?? "http://127.0.0.1:8787",
   stageHost: blank(process.env.STAGE_HOST) ?? "127.0.0.1",
   stagePort: Number(blank(process.env.STAGE_PORT) ?? 8788),
+  // Langfuse tracing (src/mastra/index.ts): on when both keys are set.
+  langfuse: {
+    publicKey: blank(process.env.LANGFUSE_PUBLIC_KEY),
+    secretKey: blank(process.env.LANGFUSE_SECRET_KEY),
+    baseUrl: blank(process.env.LANGFUSE_BASE_URL),
+  },
   agendaFile: blank(process.env.AGENDA_FILE) ?? resolve(PACKAGE_DIR, "../contract/fixtures/agenda.demo.json"),
 };

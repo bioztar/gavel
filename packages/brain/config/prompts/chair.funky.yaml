@@ -67,6 +67,13 @@ kinds:
       - "{{name}}, the floor is yours, no pressure, some pressure. {{question?}}"
       - "{{name}}, your turn — the silence was getting loud. {{question?}}"
 
+  newcomer:
+    templates:
+      - "{{names}}, perfect timing! We're on {{topicTitle}}. {{name}}, your take? {{question?}}"
+      - "Welcome, {{names}}, grab a seat. {{topicTitle}} is on the table. {{name}}: {{question?}}"
+      - "Fresh ears! Hi {{names}}. We're on {{topicTitle}}. {{name}}, what do you think? {{question?}}"
+      - "{{names}}, you made it! {{topicTitle}} needs you. {{name}}: {{question?}}"
+
   roundRobin:
     templates:
       - "Speed round, one sentence, no filibusters: {{names}}. {{question?}}"

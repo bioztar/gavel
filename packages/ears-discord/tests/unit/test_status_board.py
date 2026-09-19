@@ -59,6 +59,7 @@ def test_render_active_meeting() -> None:
     assert f["✅ Decisions"] == "• Launch on 3 October."
     assert f["🅿️ Parking lot"] == "• **Vitaly** — office move"
     assert "❓ Still open" not in f  # empty sections are left out
+    assert "📌 Key facts" not in f  # facts stay in the console, not the live message
 
 
 def test_render_overrun_lobby_and_raw_notes() -> None:
@@ -76,19 +77,46 @@ def test_render_overrun_lobby_and_raw_notes() -> None:
     raw = render(
         {
             "phase": "active",
-            "understanding": {"facts": ["A"], "offTopics": [{"name": "Ana", "summary": "b"}]},
+            "understanding": {"decisions": ["A"], "offTopics": [{"name": "Ana", "summary": "b"}]},
         }
     )
-    assert fields(raw)["📌 Key facts"] == "• A"
+    assert fields(raw)["✅ Decisions"] == "• A"
+
+
+def test_render_untimed_meeting() -> None:
+    state = {
+        **ACTIVE,
+        "timed": False,
+        "topic": {"index": 2, "title": "Hiring", "budgetSeconds": 300, "elapsedSeconds": 900},
+        "topics": [
+            {"title": "Status", "budgetSeconds": 90, "done": False, "discussed": True},
+            {"title": "The date", "budgetSeconds": 120, "done": False, "discussed": False},
+            {"title": "Hiring", "budgetSeconds": 300, "done": False, "discussed": True},
+        ],
+    }
+    embed = render(state, now=0)
+    # No clock, no bar, no "topic N of M", and never over time however long it runs.
+    assert embed["description"].splitlines()[:2] == [
+        "🟢 **In progress** · no time limits",
+        "Now on **Hiring**",
+    ]
+    assert "/" not in embed["description"] and "▰" not in embed["description"]
+    assert embed["color"] == 0x2ECC71
+    assert fields(embed)["🗂️ Agenda · any order"].splitlines() == [
+        "☑️ Status",
+        "▫️ The date",
+        "▶️ **Hiring**",
+    ]
+    assert "🗂️ Agenda" not in fields(embed)
 
 
 def test_long_lists_keep_the_newest_within_discord_limits() -> None:
-    facts = [f"Fact number {i} with a bit of padding to take up room." for i in range(60)]
-    embed = render({**ACTIVE, "digest": {**ACTIVE["digest"], "facts": facts}})
-    value = fields(embed)["📌 Key facts"]
+    decisions = [f"Decision number {i} with a bit of padding to take up room." for i in range(60)]
+    embed = render({**ACTIVE, "digest": {**ACTIVE["digest"], "decisions": decisions}})
+    value = fields(embed)["✅ Decisions"]
     assert len(value) <= FIELD_LIMIT
     assert value.startswith("*…") and value.endswith(
-        "Fact number 59 with a bit of padding to take up room."
+        "Decision number 59 with a bit of padding to take up room."
     )
 
 

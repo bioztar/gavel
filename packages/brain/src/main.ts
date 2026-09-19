@@ -36,7 +36,7 @@ const tts: Tts = env.slngApiKey ? new SlngTts(() => config.models.tts, env.slngA
 // Open the streaming TTS socket now, so the chair's first line doesn't pay for it.
 tts.warm?.();
 let engine: Engine;
-const llm = env.nebiusApiKey ? new MastraLlm(() => config.models, (u) => engine.recordUsage(u)) : new StubLlm();
+const llm = env.nebiusApiKey ? new MastraLlm(() => config.models, (u) => engine.recordUsage(u), () => engine.sessionId) : new StubLlm();
 
 engine = new Engine({
   config: () => config,

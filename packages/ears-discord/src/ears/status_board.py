@@ -67,8 +67,11 @@ def render(state: dict[str, Any], now: float | None = None) -> dict[str, Any]:
     """The brain's view as a Discord embed (plain dict, `discord.Embed.from_dict` shape)."""
     phase = state.get("phase") or "idle"
     topic = state.get("topic")
+    # An untimed meeting: no budgets, no order — no clock, no bar, never over time.
+    timed = state.get("timed") is not False
     overrun = bool(
-        phase == "active"
+        timed
+        and phase == "active"
         and topic
         and topic.get("budgetSeconds")
         and topic.get("elapsedSeconds", 0) > topic["budgetSeconds"]
@@ -81,9 +84,10 @@ def render(state: dict[str, Any], now: float | None = None) -> dict[str, Any]:
         lines.append(f"*{_clip(state['purpose'], 200)}*")
 
     fields: list[dict[str, Any]] = []
-    agenda = _agenda(state, phase)
+    agenda = _agenda(state, phase) if timed else _open_agenda(state, phase)
     if agenda:
-        fields.append({"name": "🗂️ Agenda", "value": agenda, "inline": True})
+        name = "🗂️ Agenda" if timed else "🗂️ Agenda · any order"
+        fields.append({"name": name, "value": agenda, "inline": True})
     floor = _floor(state.get("people") or [])
     if floor:
         fields.append({"name": "🎙️ Talk time", "value": floor, "inline": True})
@@ -91,7 +95,6 @@ def render(state: dict[str, Any], now: float | None = None) -> dict[str, Any]:
     notes = _notes(state)
     sections = [
         ("✅ Decisions", notes["decisions"]),
-        ("📌 Key facts", notes["facts"]),
         ("❓ Still open", notes["openItems"]),
         ("🅿️ Parking lot", [f"**{p['name']}** — {p['summary']}" for p in notes["parked"]]),
     ]
@@ -131,6 +134,8 @@ def _status_line(state: dict[str, Any], phase: str) -> str:
         topic = state.get("topic")
         if not topic:
             return "🟢 **In progress**"
+        if state.get("timed") is False:
+            return f"🟢 **In progress** · no time limits\nNow on **{_clip(topic.get('title') or '', 120)}**"
         total = len(state.get("topics") or []) or 1
         elapsed = int(topic.get("elapsedSeconds") or 0)
         budget = int(topic.get("budgetSeconds") or 0)
@@ -161,6 +166,21 @@ def _agenda(state: dict[str, Any], phase: str) -> str:
     return _fit(rows)
 
 
+def _open_agenda(state: dict[str, Any], phase: str) -> str:
+    """Untimed: the topics as the room reaches them — where it is now, and where it has been."""
+    current = (state.get("topic") or {}).get("index")
+    rows = []
+    for i, t in enumerate(state.get("topics") or []):
+        name = _clip(t.get("title") or "", 60)
+        if phase == "active" and i == current:
+            rows.append(f"▶️ **{name}**")
+        elif t.get("discussed") or phase == "finished":
+            rows.append(f"☑️ {name}")
+        else:
+            rows.append(f"▫️ {name}")
+    return _fit(rows)
+
+
 def _floor(people: list[dict[str, Any]]) -> str:
     total = sum(p.get("totalSeconds") or 0 for p in people)
     if total <= 0:
@@ -178,11 +198,10 @@ def _floor(people: list[dict[str, Any]]) -> str:
 def _notes(state: dict[str, Any]) -> dict[str, list[Any]]:
     digest = state.get("digest")
     if isinstance(digest, dict):
-        return {k: list(digest.get(k) or []) for k in ("facts", "decisions", "openItems", "parked")}
+        return {k: list(digest.get(k) or []) for k in ("decisions", "openItems", "parked")}
     # A brain without the digest: the raw notes, as the console shows them.
     u = state.get("understanding") or {}
     return {
-        "facts": list(u.get("facts") or []),
         "decisions": list(u.get("decisions") or []),
         "openItems": list(u.get("openItems") or []),
         "parked": list(u.get("offTopics") or state.get("parked") or []),

@@ -34,8 +34,8 @@ traces, and an offline replay. The next critical task is the real end-to-end cal
   agenda completion, parking lot), and use a say-box through SLNG TTS.
 - **Meeting start is explicit.** A session is a lobby until expected attendees are present
   and somebody says “Karen, let's start the meeting.” No timer starts it accidentally.
-- **Model bake-off:** Qwen remains the default. Gemma was faster but violated constrained
-  wrap-up behavior. The final Qwen replay used 33 calls and about $0.0027.
+- **Model bake-off:** DeepSeek-V4.1-Flash, thinking off, runs every call. It kept the chair's
+  rules best (no parked point brought back up, no reused joke) at ~1 s a call.
 
 Run it with `just setup && just run` in `packages/ears-discord`
 ([README](../packages/ears-discord/README.md)). Test server: https://discord.gg/qR6RwKuAh.

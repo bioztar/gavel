@@ -104,7 +104,7 @@ engine = new Engine({
   clock,
   wire,
   store,
-  llm: useModel ? new MastraLlm(() => config.models, (u) => engine.recordUsage(u)) : new StubLlm(),
+  llm: useModel ? new MastraLlm(() => config.models, (u) => engine.recordUsage(u), () => engine.sessionId) : new StubLlm(),
   tts: values.speak && env.slngApiKey ? new SlngTts(() => config.models.tts, env.slngApiKey) : new SilentTts(),
   fallbackAgenda: loadAgendaFile(values.agenda ?? env.agendaFile),
   runner: async (e, iv) => {

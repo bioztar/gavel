@@ -62,8 +62,9 @@ A no-auth operator page, served by ears itself:
 Everything in *What Karen understands*, as one embed in the meeting voice channel's own
 text chat, edited in place every `DISCORD_STATUS_INTERVAL_SECONDS` (5) when something
 changed: phase and current topic with a time bar (red once over budget), the agenda,
-talk-time share, then decisions, key facts, what is still open, and the parking lot. One
-message per session; a deleted one is posted again. The notes are the brain's `digest` —
+talk-time share, then decisions, what is still open, and the parking lot. An untimed
+meeting (`timed: false`) shows no clock or bar: the agenda marks where the room is now and
+which topics it has already been on. One message per session; a deleted one is posted again. The notes are the brain's `digest` —
 merged and deduplicated there (see the brain README). Per server, in the console's server
 card: on/off, and the voice channel's chat or any text channel — with a warning when Karen
 lacks Send Messages / Embed Links there. Stored in Postgres (`discord_status`).

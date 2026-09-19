@@ -17,6 +17,8 @@ export interface ComposeRequest {
   user: string;
   /** Overrides the normal profile's timeout (someone asked Karen directly and is waiting). */
   timeoutMs?: number;
+  /** The intervention kind, for tracing. */
+  kind?: string;
 }
 
 export interface DigestRequest {

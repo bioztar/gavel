@@ -46,6 +46,9 @@ DEFAULT_POLICY: dict[str, float | bool] = {
     # False: the chair opens the meeting herself once everyone is in the call, instead of
     # waiting for "Karen, let's start the meeting".
     "requireStart": True,
+    # False: no time budgets and no set order — topics are taken as the room gets to them,
+    # and neither a topic nor the meeting runs over.
+    "timed": True,
 }
 
 
@@ -59,7 +62,10 @@ class Agenda(Frame):
     @model_validator(mode="after")
     def _total(self) -> Agenda:
         # The contract says budgets "should sum to roughly" the total; default it to the sum.
-        if not self.total_seconds:
+        # An untimed meeting has no length at all.
+        if self.policy.get("timed") is False:
+            object.__setattr__(self, "total_seconds", 0)
+        elif not self.total_seconds:
             object.__setattr__(self, "total_seconds", sum(t.budget_seconds for t in self.topics))
         return self
 

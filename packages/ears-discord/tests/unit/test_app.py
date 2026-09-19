@@ -172,13 +172,22 @@ def test_priority_speak_does_not_cut_another_priority_line() -> None:
 def test_gated_speak_waits_for_a_pause() -> None:
     ears, voice, _ = _wired()
     now = time.time()
-    ears.on_pcm("2", b"\x01\x00" * 1920, now)  # someone is mid-sentence
+    ears.on_pcm("2", b"\x00\x10" * 1920, now)  # someone is mid-sentence
     ears.command(
         f'{{"type":"speak","utteranceId":"g1","audio":"{AUDIO}","quietMs":600,"maxWaitMs":8000}}'
     )
     assert voice.played == []  # held while they talk
     ears._last_voice_at = now - 1.0  # a second of quiet
     ears._play_next()  # what the clock does each tick
+    assert len(voice.played) == 1
+
+
+def test_room_noise_is_not_someone_talking() -> None:
+    ears, voice, _ = _wired()
+    ears.on_pcm("2", b"\x01\x00" * 1920, time.time())  # an open mic, nobody speaking
+    ears.command(
+        f'{{"type":"speak","utteranceId":"g1","audio":"{AUDIO}","quietMs":600,"maxWaitMs":8000}}'
+    )
     assert len(voice.played) == 1
 
 
@@ -197,7 +206,7 @@ def test_gated_speak_plays_anyway_after_max_wait() -> None:
 def test_gated_priority_line_does_not_cut_karen_before_the_pause() -> None:
     ears, _, sent = _wired()
     ears.command(f'{{"type":"speak","utteranceId":"u1","audio":"{AUDIO}"}}')
-    ears.on_pcm("2", b"\x01\x00" * 1920, time.time())
+    ears.on_pcm("2", b"\x00\x10" * 1920, time.time())
     ears.command(
         f'{{"type":"speak","utteranceId":"p1","audio":"{AUDIO}","priority":true,'
         f'"quietMs":600,"maxWaitMs":3000}}'

@@ -186,6 +186,8 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; margi
 
       <label class="row" style="color:var(--text);font-size:12px"><input type="checkbox" id="m-require-start" style="width:auto;margin:0 6px 0 0" checked>
         Wait for “Karen, let's start the meeting” — off: Karen opens it herself once everyone is in the call</label>
+      <label class="row" style="color:var(--text);font-size:12px"><input type="checkbox" id="m-timed" style="width:auto;margin:0 6px 0 0" checked>
+        Timed agenda — topics in order, each with a time budget. Off: any order, no time limits</label>
       <details><summary>Policy (interrupt thresholds)</summary><div class="grid2" id="policy"></div></details>
       <details><summary>Agenda JSON — import / export</summary>
         <textarea id="m-json" rows="8" class="mono" placeholder="Paste an agenda.json (contract shape) and press Import"></textarea>
@@ -381,7 +383,7 @@ function renderBrain() {
   $("brain-phase").textContent = b.agendaFinished ? "agenda finished" : b.phase;
   const lobby = b.phase === "gathering"
     ? (b.readyToStart ? (b.requireStart === false ? "Everyone is here. Karen is opening the meeting…" : `Everyone is here. Say “Karen, let's start the meeting.”`) : `Waiting for ${b.missingAttendees.join(", ")}.`)
-    : b.agendaFinished ? "The full agenda is complete." : b.topic ? `Current: ${b.topic.title} · ${clock(b.topic.elapsedSeconds * 1000)}` : "No active topic.";
+    : b.agendaFinished ? "The full agenda is complete." : b.topic ? `Current: ${b.topic.title}${b.timed === false ? " · any order, no time limits" : ` · ${clock(b.topic.elapsedSeconds * 1000)}`}` : "No active topic.";
   $("brain-state").innerHTML = `<div class="row"><strong class="grow">${esc(b.title || b.purpose || "Meeting")}</strong><span class="phase">${esc(b.phase)}</span></div>
     <div class="muted" style="margin:3px 0 6px">${esc(lobby)}</div>
     ${(b.topics || []).map((t, i) => `<div class="agenda-row ${t.done ? "done" : b.topic?.index === i ? "current" : ""}"><span>${t.done ? "✓" : i + 1}</span><span>${esc(t.title)}</span></div>`).join("")}`;
@@ -426,7 +428,7 @@ function readForm() {
   current.context = $("m-context").value;
   current.agenda.purpose = $("m-purpose").value;
   current.agenda.attendees = []; // Each session gets its roster from the voice channel.
-  current.agenda.totalSeconds = current.agenda.topics.reduce((a, t) => a + (+t.budgetSeconds || 0), 0);
+  current.agenda.totalSeconds = isTimed() ? current.agenda.topics.reduce((a, t) => a + (+t.budgetSeconds || 0), 0) : 0;
   return { title: current.title, context: current.context, agenda: current.agenda };
 }
 function attendeeOptions(selected) {
@@ -436,15 +438,20 @@ function attendeeOptions(selected) {
   return `<option value="">—</option>${missing}` + people
     .map((a) => `<option value="${esc(a.discordId)}" ${a.discordId === selected ? "selected" : ""}>${esc(a.name)}</option>`).join("");
 }
-function renderTopics() {
+function isTimed() { return current.agenda.policy.timed !== false; }
+function renderTotal() {
   const total = current.agenda.topics.reduce((a, t) => a + (+t.budgetSeconds || 0), 0);
-  $("total").textContent = total ? `· ${clock(total * 1000)} total` : "";
+  $("total").textContent = !isTimed() ? "· any order, no time limits" : total ? `· ${clock(total * 1000)} total` : "";
+}
+function renderTopics() {
+  const timed = isTimed();
+  renderTotal();
   $("topics").innerHTML = current.agenda.topics.map((t, i) => `
     <div class="card">
       <div class="row"><span class="muted mono">${esc(t.id)}</span>
         <input class="grow" data-t="${i}" data-f="title" value="${esc(t.title)}" placeholder="topic">
-        <input data-t="${i}" data-f="budgetSeconds" type="number" min="0" step="15" value="${t.budgetSeconds}" style="width:72px" title="budget, seconds">
-        <span class="muted">s</span>
+        ${timed ? `<input data-t="${i}" data-f="budgetSeconds" type="number" min="0" step="15" value="${t.budgetSeconds}" style="width:72px" title="budget, seconds">
+        <span class="muted">s</span>` : ""}
         <button class="small" data-up="${i}" title="move up">↑</button>
         <button class="small danger" data-del-t="${i}">✕</button></div>
       <input data-t="${i}" data-f="goal" value="${esc(t.goal)}" placeholder="goal — what done looks like">
@@ -459,6 +466,7 @@ function renderTopics() {
 function renderPolicy() {
   const p = current.agenda.policy;
   $("m-require-start").checked = p.requireStart !== false;
+  $("m-timed").checked = p.timed !== false;
   $("policy").innerHTML = Object.keys(POLICY_DEFAULTS).map((k) => `
     <div><label>${k}</label><input type="number" step="any" data-p="${k}" value="${p[k] ?? POLICY_DEFAULTS[k]}"></div>`).join("");
 }
@@ -467,7 +475,7 @@ document.addEventListener("input", (e) => {
   if (!current) return;
   if (d.t !== undefined) {
     const t = current.agenda.topics[+d.t];
-    if (d.f === "budgetSeconds") { t.budgetSeconds = +el.value || 0; const total = current.agenda.topics.reduce((a, x) => a + (+x.budgetSeconds || 0), 0); $("total").textContent = total ? `· ${clock(total * 1000)} total` : ""; }
+    if (d.f === "budgetSeconds") { t.budgetSeconds = +el.value || 0; renderTotal(); }
     else if (d.f === "questions") t.questions = el.value.split("\n").map((q) => q.trim()).filter(Boolean);
     else if (d.f === "owner") t.owner = el.value || null;
     else t[d.f] = el.value;
@@ -476,6 +484,7 @@ document.addEventListener("input", (e) => {
     t.mustHear = el.checked ? [...new Set([...t.mustHear, el.value])] : t.mustHear.filter((x) => x !== el.value);
   } else if (d.p !== undefined) current.agenda.policy[d.p] = +el.value;
   else if (el.id === "m-require-start") current.agenda.policy.requireStart = el.checked;
+  else if (el.id === "m-timed") { current.agenda.policy.timed = el.checked; renderTopics(); }
 });
 document.addEventListener("click", (e) => {
   const d = e.target.dataset;

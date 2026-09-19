@@ -21,6 +21,9 @@ const Profile = z.object({
   // little later beats a canned line now.
   directTimeoutMs: z.number().int().positive().optional(),
   jsonPromptInjection: z.boolean().default(false),
+  // Sent as-is in the request body, e.g. `chat_template_kwargs: { thinking: false }` to keep a
+  // hybrid reasoning model from spending the whole budget thinking.
+  extraBody: z.record(z.string(), z.unknown()).default({}),
 });
 
 export const ModelsConfig = z.object({
@@ -51,10 +54,11 @@ export const Policy = z.object({
   escalateAfterSeconds: z.number(),
   muteSeconds: z.number(),
   requireStart: z.boolean().default(true),
+  timed: z.boolean().default(true),
 });
 export type Policy = z.infer<typeof Policy>;
 
-export const TRIGGERS = ["escalate", "offAgenda", "floorHog", "topicOverrun", "silence"] as const;
+export const TRIGGERS = ["escalate", "offAgenda", "floorHog", "topicOverrun", "newcomer", "silence"] as const;
 export type TriggerName = (typeof TRIGGERS)[number];
 
 export const PolicyConfig = z.object({
@@ -87,13 +91,22 @@ export const PolicyConfig = z.object({
     .default({ seconds: 180, chairWords: 220, relevanceWords: 80 }),
   speak: z
     .object({ quietMs: z.number().int().nonnegative(), maxWaitMs: z.number().int().nonnegative(), priorityMaxWaitMs: z.number().int().nonnegative() })
-    .default({ quietMs: 700, maxWaitMs: 8000, priorityMaxWaitMs: 3000 }),
+    .default({ quietMs: 700, maxWaitMs: 2000, priorityMaxWaitMs: 0 }),
   compose: z.object({
     precompose: z.boolean(),
     lineCacheSeconds: z.number(),
     templateFallback: z.boolean().default(false),
     maxWords: z.number().int().nonnegative().default(22),
   }),
+  newcomer: z
+    .object({
+      enabled: z.boolean(),
+      settleSeconds: z.number().nonnegative(),
+      quietSeconds: z.number().nonnegative(),
+      withinSeconds: z.number().positive(),
+      joinedWords: z.number().int().nonnegative().default(20),
+    })
+    .default({ enabled: true, settleSeconds: 1, quietSeconds: 4, withinSeconds: 90, joinedWords: 20 }),
   pickSpeaker: z.object({
     order: z.array(z.enum(["mustHear", "owner", "leastOnTopic"])),
     avoidLastSpeaker: z.boolean(),
@@ -117,6 +130,7 @@ export const INTERVENTION_KINDS = [
   "wrapUp",
   "silence",
   "roundRobin",
+  "newcomer",
 ] as const;
 export type InterventionKind = (typeof INTERVENTION_KINDS)[number];
 
@@ -132,6 +146,8 @@ export const ChairPrompts = z.object({
   // Added to the user message when the first try repeated a line Karen already said.
   // Placeholder: said.
   avoidRepeat: z.string(),
+  // Added to the user message once anything is on the parking lot. Placeholder: parked.
+  parked: z.string().default(""),
   // Added to the user message when the line ran past policy compose.maxWords.
   // Placeholders: words (its length), maxWords, line.
   tooLong: z.string(),

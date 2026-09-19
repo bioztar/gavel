@@ -47,15 +47,20 @@ in this order, with at most one per tick:
 | **offAgenda** | The floor holder has been off the agenda for `offAgendaGraceSeconds`, counted from the first words of the drift, and nobody else has taken the room on since their last remark | **Parks** the point under their name in ears, then cuts in as priority speaker: acknowledge → "parked for later" → back to the topic with a question. When several people share the tangent, Karen addresses the room and parks it for everyone involved. A jump to a *later* agenda item gets "we'll get there" instead, and nothing is parked |
 | **floorHog** | Over `floorShareThreshold` of the recent window, with others quiet | Thanks them, recaps, and hands the floor to someone by name |
 | **topicOverrun** | Topic at budget × `topicOverrunFactor` | Moves on. After the last topic it wraps up and reads the parking lot back |
+| **newcomer** | Someone came into the call after the start, and nobody but the newcomers (Karen included) has talked for `newcomer.quietSeconds` — their own hello does not break the quiet | Welcomes them by name and asks their take on the question the room is on. People arriving together are welcomed together. Anyone who has said more than `newcomer.joinedWords` words, or is still unwelcomed after `newcomer.withinSeconds`, is left alone. Each person is welcomed once per meeting |
 | **silence** | Nobody has spoken for `silenceSeconds` | Invites a specific person with one of the topic's questions: mustHear first, then the owner, then whoever has spoken least on this topic. If everyone has spoken, it runs a quick round |
 
 The chair never talks over itself, and keeps `minSecondsBetweenInterventions` between
-interventions (escalation is exempt, since it follows up on a redirect). While she talks,
+interventions (escalation is exempt, since it follows up on a redirect, and so is a welcome,
+which only ever fills a pause). While she talks,
 the room is still classified, so a tangent started under her line is caught then. Words
 said to Karen are never counted as drift. Words said while she is redirecting someone are
 not a new tangent for that person. Their carrying on is escalate's call. The practice
 behind the phrasing: parking lot, bank-and-thank, targeted questions, round robin, and
 never embarrassing anyone.
+
+Once something is parked, every later line is told what is on the parking lot and to leave
+it alone, so Karen does not bring a parked tangent back up (or joke about it) unless asked.
 
 **Memory.** Parked points go into ears' `memories` table under the person who raised them
 and stay open across meetings. At the next session's start the chair loads the open ones
@@ -111,10 +116,10 @@ extraction: **33 model calls, 16.7k input and 1.9k output tokens, $0.0027.**
   spoke to Karen mid-line is composed while she is still talking. Either way, cutting in
   costs only TTS (~1.2 s), and identical lines reuse their TTS audio.
 
-Model bake-off notes are in `config/models.yaml`. Reasoning models (Nemotron-Lightning,
-DeepSeek-V4-Flash, GLM-5.3-Flash) spend their whole token budget thinking; avoid them for
-these calls. Gemma was faster in the full replay but broke the constrained wrap-up, so the
-Qwen pair remains the default.
+Model bake-off notes are in `config/models.yaml`. Every profile runs DeepSeek-V4.1-Flash with
+thinking turned off (`extraBody` in the profile): it kept the rules best (no parked point
+brought back up, no reused joke) at ~1 s a call. Pure reasoning models (Kimi, MiniMax, GLM,
+Nemotron-Lightning) spend their whole token budget thinking on these short calls; avoid them.
 
 ## Layout
 

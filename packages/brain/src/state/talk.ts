@@ -107,10 +107,12 @@ export class TalkLedger {
     return this.lastStarter;
   }
 
-  /** ms since anyone last spoke (0 while someone is speaking). */
-  silenceMs(now: number, since: number): number {
-    if (this.open.size) return 0;
-    return now - Math.max(this.lastAnyEnd, since);
+  /** ms since anyone — but those in `except` — last spoke (0 while someone is speaking). */
+  silenceMs(now: number, since: number, except: ReadonlySet<string> = new Set()): number {
+    if ([...this.open.keys()].some((id) => !except.has(id))) return 0;
+    let last = except.size ? 0 : this.lastAnyEnd;
+    if (except.size) for (const [id, end] of this.lastEnd) if (!except.has(id)) last = Math.max(last, end);
+    return now - Math.max(last, since);
   }
 
   person(id: string, now: number, topicId: string | null, windowMs: number): PersonTalk {

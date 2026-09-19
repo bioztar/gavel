@@ -65,6 +65,13 @@ kinds:
       - "{{name}}, you're due a turn on {{notHeardOn}}. {{question?}}"
       - "{{name}}, the floor is open. {{question?}}"
 
+  newcomer:
+    templates:
+      - "Welcome, {{names}}! We're on {{topicTitle}}. {{name}}, what's your take? {{question?}}"
+      - "Good to have you, {{names}}. We are discussing {{topicTitle}}. {{name}}: {{question?}}"
+      - "Welcome, {{names}}. The topic is {{topicTitle}}. {{name}}, your view? {{question?}}"
+      - "{{names}}, welcome. We're on {{topicTitle}}. {{name}}, we'd value your view. {{question?}}"
+
   roundRobin:
     templates:
       - "Quick round, one sentence each: {{names}}. {{question?}}"

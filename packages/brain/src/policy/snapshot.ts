@@ -29,15 +29,20 @@ export interface Snapshot {
   policy: Policy;
   engine: PolicyConfig["engine"];
   pick: PolicyConfig["pickSpeaker"];
+  newcomer: PolicyConfig["newcomer"];
   topics: Topic[];
   topicIndex: number;
   topic: Topic | null;
   topicStartedAt: number;
   /** Present humans, in the call now. */
   people: PersonView[];
+  /** Who came into the call after the meeting started, not yet welcomed. */
+  arrivals: Array<{ id: string; at: number }>;
   chairBusy: boolean;
   lastInterventionAt: number | null;
   silenceMs: number;
+  /** silenceMs, not counting the arrivals' own talk (a hello, "can you hear me?"). */
+  roomSilenceMs: number;
   episodes: Array<{ id: string; episode: Episode }>;
   redirect: Redirect | null;
   escalatedAt: Record<string, number>;

@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # (packages/brain/config/models.yaml, `profiles.fast`) — reused here rather
 # than re-run, since this is the same kind of call. `NEBIUS_MODEL` in `.env`
 # is unset on purpose; this is pinned in code, not settings.
-MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507"
+MODEL = "deepseek-ai/DeepSeek-V4.1-Flash"
 
 _SYSTEM_PROMPT = """You turn a short, spoken-style meeting brief into strict JSON. \
 Reply with ONLY a JSON object — no prose, no markdown code fences — matching exactly \
@@ -92,6 +92,8 @@ class NebiusClient:
         body = {
             "model": MODEL,
             "temperature": 0,
+            # Hybrid reasoning model: answer directly instead of thinking first.
+            "chat_template_kwargs": {"thinking": False},
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": brief},

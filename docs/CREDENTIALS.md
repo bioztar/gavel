@@ -64,10 +64,10 @@ Silver sponsor, Token Factory.
 
 - **API key** → `NEBIUS_API_KEY`
 - Models live in `packages/brain/config/models.yaml`; `BRAIN_MODEL_FAST` and
-  `BRAIN_MODEL_NORMAL` override them for an A/B run. The selected defaults are
-  `Qwen/Qwen3-30B-A3B-Instruct-2507` for relevance/notes and
-  `Qwen/Qwen3-235B-A22B-Instruct-2507` for spoken lines.
-- The recorded bake-off kept Qwen: Gemma was faster but broke the constrained wrap-up.
+  `BRAIN_MODEL_NORMAL` override them for an A/B run. The default is
+  `deepseek-ai/DeepSeek-V4.1-Flash` (thinking off) for relevance, notes and spoken lines;
+  the calendar's brief parser uses it too.
+- The bake-off (2026-09-19) is recorded in models.yaml. Qwen is not used.
 - Their track wants Token Factory used "meaningfully, contributing to core
   functionality" — generating what the chair says qualifies; make sure the README says so.
 

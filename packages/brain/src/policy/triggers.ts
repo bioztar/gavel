@@ -15,8 +15,9 @@ export function evaluate(s: Snapshot): Intervention | null {
   // The chair never talks over itself.
   if (s.chairBusy) return null;
   for (const name of s.engine.triggerOrder) {
-    // Escalation follows up a redirect already made, so it is exempt from the gap.
-    if (name !== "escalate" && inCooldown(s)) continue;
+    // Escalation follows up a redirect already made, and a welcome only fills a pause that
+    // would be stale by the end of the gap, so both are exempt from it.
+    if (name !== "escalate" && name !== "newcomer" && inCooldown(s)) continue;
     const hit = TRIGGERS[name](s);
     if (hit) return hit;
   }
@@ -32,6 +33,7 @@ const TRIGGERS: Record<Snapshot["engine"]["triggerOrder"][number], (s: Snapshot)
   offAgenda,
   floorHog,
   topicOverrun,
+  newcomer,
   silence,
 };
 
@@ -210,7 +212,8 @@ function floorHog(s: Snapshot): Intervention | null {
 /** The topic ran past budget × factor: move on — or, after the last one, wrap up. */
 function topicOverrun(s: Snapshot): Intervention | null {
   const t = s.topic;
-  if (!t || !t.budgetSeconds) return null;
+  // An untimed meeting has no budgets to run over, and no next topic to move to.
+  if (!s.policy.timed || !t || !t.budgetSeconds) return null;
   if (s.now - s.topicStartedAt < t.budgetSeconds * s.policy.topicOverrunFactor * S) return null;
   const next = s.topics[s.topicIndex + 1];
   if (!next) {
@@ -236,6 +239,39 @@ function topicOverrun(s: Snapshot): Intervention | null {
     actions: ["speak", "advance"],
     priority: false,
     question: nextQ,
+  };
+}
+
+/**
+ * Someone came in after the meeting started and the room has gone quiet: welcome them and ask
+ * for their take on the question the room is on. Anyone arriving together is welcomed together;
+ * the first of them is asked. The newcomers' own talk does not break the quiet: their hello and
+ * "can you hear me?" are what the welcome answers (2026-09-19: Vitaly's open mic never left a
+ * 4 s gap, so he was never greeted).
+ */
+function newcomer(s: Snapshot): Intervention | null {
+  const c = s.newcomer;
+  if (!c.enabled || !s.topic) return null;
+  const arriving = new Set(s.arrivals.map((a) => a.id));
+  if (s.people.some((p) => p.holding && !arriving.has(p.id)) || s.roomSilenceMs < c.quietSeconds * S) return null;
+  const due = s.arrivals
+    .filter((a) => s.now - a.at >= c.settleSeconds * S && s.now - a.at <= c.withinSeconds * S)
+    .sort((a, b) => a.at - b.at)
+    .flatMap((a) => person(s, a.id) ?? []);
+  const first = due[0];
+  if (!first) return null;
+  // The question the room is already on; a fresh one only if nothing has been asked yet.
+  const current = s.asked[s.topic.id]?.at(-1);
+  const question = current ?? nextQuestion(s, s.topic);
+  return {
+    trigger: "newcomer",
+    kind: "newcomer",
+    topicId: topicId(s),
+    addresseeId: first.id,
+    vars: { ...base(s, first), names: joinNames(due.map((p) => p.name)), question },
+    actions: ["speak"],
+    priority: false,
+    question: current ? undefined : question,
   };
 }
 

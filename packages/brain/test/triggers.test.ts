@@ -149,6 +149,42 @@ describe("topicOverrun", () => {
   });
 });
 
+describe("newcomer", () => {
+  const now = 1_000_000;
+  const joined = (at: number, ...ids: string[]) => ids.map((id) => ({ id, at }));
+
+  it("welcomes someone who came in, once the room has gone quiet, with the question the room is on", () => {
+    const iv = evaluate(snap({ arrivals: joined(now - 5_000, "marc"), silenceMs: 4_000, asked: { t1: ["What slipped?"] } }));
+    expect(iv).toMatchObject({ trigger: "newcomer", kind: "newcomer", addresseeId: "marc", priority: false, question: undefined });
+    expect(iv?.vars).toMatchObject({ name: "Marc", names: "Marc", topicTitle: "Status", question: "What slipped?" });
+  });
+
+  it("never talks over anyone, and gives the room a moment first", () => {
+    const talking = [person("vit", { holding: true }), person("ana"), person("marc")];
+    expect(evaluate(snap({ arrivals: joined(now - 5_000, "marc"), silenceMs: 10_000, people: talking }))).toBeNull();
+    expect(evaluate(snap({ arrivals: joined(now - 5_000, "marc"), silenceMs: 3_000 }))).toBeNull();
+  });
+
+  it("does not count the newcomer's own hello against the quiet", () => {
+    const hello = [person("vit"), person("ana"), person("marc", { holding: true })];
+    const iv = evaluate(snap({ arrivals: joined(now - 1_000, "marc"), people: hello, silenceMs: 0, roomSilenceMs: 4_000 }));
+    expect(iv).toMatchObject({ kind: "newcomer", addresseeId: "marc" });
+    expect(evaluate(snap({ arrivals: joined(now - 1_000, "marc"), people: hello, silenceMs: 0, roomSilenceMs: 3_000 }))).toBeNull();
+  });
+
+  it("waits for their audio to connect, and lets the moment go once it has passed", () => {
+    expect(evaluate(snap({ arrivals: joined(now - 500, "marc"), silenceMs: 10_000 }))).toBeNull();
+    expect(evaluate(snap({ arrivals: joined(now - 91_000, "marc"), silenceMs: 10_000 }))).toBeNull();
+  });
+
+  it("fills a pause even right after another line, and welcomes people who came in together", () => {
+    const iv = evaluate(snap({ arrivals: [...joined(now - 6_000, "ana"), ...joined(now - 8_000, "marc")], silenceMs: 5_000, lastInterventionAt: now - 10_000 }));
+    expect(iv).toMatchObject({ kind: "newcomer", addresseeId: "marc" });
+    expect(iv?.vars.names).toBe("Marc and Ana");
+    expect(iv?.question).toBe("What slipped?"); // nothing asked yet: a fresh question
+  });
+});
+
 describe("pickSpeaker", () => {
   it("order: mustHear, then owner, then least on topic; avoids the last speaker and last prompted", () => {
     expect(pickSpeaker(snap())?.person.id).toBe("marc");

@@ -316,7 +316,7 @@
       ],
       "status": "done",
       "spine": false,
-      "note": "Qwen3-235B line (fast profile Qwen3-30B classifier), 2.5 s timeout → YAML template. Pre-composed during grace."
+      "note": "DeepSeek-V4.1-Flash line and classifier (thinking off), 2.5 s timeout → YAML template. Pre-composed during grace."
     },
     {
       "id": "B7",

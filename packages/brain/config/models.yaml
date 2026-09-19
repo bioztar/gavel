@@ -6,17 +6,21 @@
 profiles:
   # High volume: labels a speaker's last words against the agenda. Cheap, fast, terse.
   fast:
-    model: Qwen/Qwen3-30B-A3B-Instruct-2507
+    model: deepseek-ai/DeepSeek-V4.1-Flash
     temperature: 0
     maxOutputTokens: 160
     timeoutMs: 4000
+    # A hybrid reasoning model: with thinking on it spends ~2 s and the whole budget thinking.
+    extraBody: { chat_template_kwargs: { thinking: false } }
     # Nebius models are not flagged for native structured output in Mastra's catalog:
     # put the JSON instructions in the prompt instead of relying on response_format.
     jsonPromptInjection: true
 
   # The chair's spoken line. One or two short sentences, so output is tiny.
   normal:
-    model: Qwen/Qwen3-235B-A22B-Instruct-2507
+    model: deepseek-ai/DeepSeek-V4.1-Flash
+    # A hybrid reasoning model: with thinking on it spends ~2 s and the whole budget thinking.
+    extraBody: { chat_template_kwargs: { thinking: false } }
     temperature: 0.6
     maxOutputTokens: 70
     # A live interruption cannot wait: past this the YAML template is spoken instead.
@@ -27,29 +31,37 @@ profiles:
   # Merges the running notes (facts, decisions, open items, parked) into a deduplicated list
   # for the status board. Off the live path, runs only when the notes change.
   digest:
-    model: Qwen/Qwen3-30B-A3B-Instruct-2507
+    model: deepseek-ai/DeepSeek-V4.1-Flash
     temperature: 0
     maxOutputTokens: 700
     timeoutMs: 15000
+    # A hybrid reasoning model: with thinking on it spends ~2 s and the whole budget thinking.
+    extraBody: { chat_template_kwargs: { thinking: false } }
     jsonPromptInjection: true
 
 # USD per 1M tokens (Nebius catalog, Sept 2026). Used for the cost log in ears' llm_calls.
 #
-# Bake-off 2026-09-19, relevance.yaml prompt, 3 labelled cases, from Barcelona:
-#   Qwen/Qwen3-30B-A3B-Instruct-2507    3/3  0.6-1.0 s  ~28 out tokens   <- fast
-#   google/gemma-3-27b-it               3/3  0.8-1.3 s  ~37 out tokens   (fast alternative)
-#   Qwen/Qwen3-235B-A22B-Instruct-2507  3/3  0.7-2.2 s  ~31 out tokens   <- normal (better phrasing)
-#   nvidia/Nemotron-3_5-Lightning, deepseek-ai/DeepSeek-V4-Flash-0731, zai-org/GLM-5.3-Flash:
-#     reasoning models — they spend the whole token budget thinking and return no JSON. Avoid
-#     for these short, latency-bound calls.
-# Full replay with note extraction, 2026-09-19: Gemma averaged faster spoken-line calls
-# (~0.4-0.9 s versus Qwen's ~0.5-1.2 s), but ignored the constrained wrap-up and spoke as
-# if Karen would send a follow-up. Keep Qwen as the default; Gemma remains an env-override A/B.
+# Bake-off 2026-09-19 (evening), from Barcelona, on prompts rebuilt from a live session: a
+# floor-hog handover with three points already parked, a greeting right after Karen's opening
+# joke, an off-agenda redirect, and the relevance classifier. Qwen is not used.
+#   deepseek-ai/DeepSeek-V4.1-Flash (thinking off)  line 0.9-1.2 s, class ~1.1 s   <- all profiles
+#     Kept every rule: never raised a parked point, no second clock joke, clean JSON.
+#   deepseek-ai/DeepSeek-V4-Pro (thinking off)       line 0.8-1.4 s. Funnier, but once repeated
+#     its previous line word for word. 6x the price.
+#   NousResearch/Hermes-4-405B                       line 0.7-1.0 s. Solid, but made a second
+#     clock joke and labels offAgenda with a topicId.
+#   google/gemma-3-27b-it                            fastest (~0.5 s), drops the question; wraps
+#     JSON in code fences. Earlier replay: broke the constrained wrap-up.
+#   openai/gpt-oss-120b (reasoning_effort low)       ~0.6 s JSON, but returns empty lines at
+#     small token budgets.
+#   Kimi-K2.6 / K3, MiniMax-M3, GLM-5.3, Nemotron-Lightning: reasoning models, they spend the
+#     whole budget thinking on these short calls. Avoid.
 prices:
-  nvidia/Nemotron-3_5-Lightning: { input: 0.06, output: 0.24 }
-  Qwen/Qwen3-30B-A3B-Instruct-2507: { input: 0.10, output: 0.30 }
+  deepseek-ai/DeepSeek-V4.1-Flash: { input: 0.30, output: 1.20 }
+  deepseek-ai/DeepSeek-V4-Pro: { input: 1.75, output: 3.50 }
+  NousResearch/Hermes-4-405B: { input: 1.00, output: 3.00 }
   google/gemma-3-27b-it: { input: 0.10, output: 0.30 }
-  Qwen/Qwen3-235B-A22B-Instruct-2507: { input: 0.20, output: 0.60 }
+  nvidia/Nemotron-3_5-Lightning: { input: 0.06, output: 0.24 }
   deepseek-ai/DeepSeek-V4-Flash-0731: { input: 0.14, output: 0.28 }
   zai-org/GLM-5.3-Flash: { input: 0.15, output: 0.50 }
   openai/gpt-oss-120b: { input: 0.15, output: 0.60 }

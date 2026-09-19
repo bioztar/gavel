@@ -4,7 +4,7 @@
 # can be tuned from the ears console without touching this file.
 defaults:
   floorShareThreshold: 0.6        # share of speaking time in the window that counts as hogging
-  floorWindowSeconds: 120
+  floorWindowSeconds: 120         # ...measured afresh after each floor handover
   floorMinSpeakingSeconds: 45     # ...and at least this much speaking in the window
   topicOverrunFactor: 1.2         # announce the move at budget × this
   silenceSeconds: 15              # dead air inside a topic before the chair invites someone
@@ -14,11 +14,12 @@ defaults:
   escalateAfterSeconds: 10        # still talking this long after being redirected → escalate
   muteSeconds: 15
   requireStart: true              # wait for "Karen, let's start the meeting"; false: she opens it herself
+  timed: true                     # topic budgets and agenda order; false: any order, no time limits
 
 engine:
   tickMs: 250
   # Checked in this order; the first that fires wins the tick.
-  triggerOrder: [escalate, offAgenda, floorHog, topicOverrun, silence]
+  triggerOrder: [escalate, offAgenda, floorHog, topicOverrun, newcomer, silence]
   # Speaking pauses shorter than this still count as holding the floor (ears' TURN_GAP_MS).
   floorGapMs: 1500
   # One escalation per person per this long.
@@ -72,10 +73,11 @@ history:
 # quietMs. Past the max wait it plays anyway.
 speak:
   quietMs: 700
-  # Answers, silence prompts, topic moves: someone is usually just finishing.
-  maxWaitMs: 8000
-  # Redirects and floor handovers exist to interrupt a talker: give them a beat, then cut in.
-  priorityMaxWaitMs: 3000
+  # Answers, silence prompts, topic moves: someone is usually just finishing. Longer than this
+  # and the line is about something the room has already moved past.
+  maxWaitMs: 2000
+  # Redirects and floor handovers exist to interrupt a talker: cut in at once.
+  priorityMaxWaitMs: 0
 
 compose:
   # Pre-compose the redirect the moment an off-agenda episode opens, while the grace
@@ -91,6 +93,18 @@ compose:
   # Every word is ~0.3 s of Karen holding the room. A line longer than this is asked for
   # once more, shorter; the shorter of the two is spoken. 0 = no limit.
   maxWords: 22
+
+# Someone comes into the call once the meeting is under way: when the room goes quiet, Karen
+# welcomes them and asks their take on the question the room is on. Their own hello or "can you
+# hear me?" does not count against the quiet. Not bound by minSecondsBetweenInterventions: it
+# only ever fills a pause, and a welcome a minute late is no welcome.
+newcomer:
+  enabled: true
+  settleSeconds: 1       # after they join: a moment for their audio to connect
+  quietSeconds: 4        # nobody but the newcomers has talked (Karen included) for this long,
+                         # counting from before they came in
+  withinSeconds: 90      # not welcomed by then: the moment has passed
+  joinedWords: 20        # said more than this since joining: they are in the discussion, no welcome
 
 pickSpeaker:
   # Who the chair invites when the room goes quiet or someone hogs the floor.

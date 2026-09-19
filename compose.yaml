@@ -133,6 +133,11 @@ services:
       BRAIN_MODEL_FAST: ${BRAIN_MODEL_FAST:-}
       BRAIN_MODEL_NORMAL: ${BRAIN_MODEL_NORMAL:-}
       CHAIR_PERSONA: ${CHAIR_PERSONA:-funky}
+      # Langfuse tracing of every model call; off unless both keys are set.
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
+      LANGFUSE_TRACING_ENVIRONMENT: ${LANGFUSE_TRACING_ENVIRONMENT:-}
       EARS_WIRE_URL: ws://ears:8787
       EARS_HTTP_URL: http://ears:8787
       POSTGRES_DSN: postgresql://gavel:gavel@postgres:5432/gavel

@@ -383,11 +383,129 @@ describe("requireStart: false (the cats-and-dogs demo)", () => {
     expect(engine.phase).toBe("active");
   });
 
+  it("opens once, even while her opening line is still being written", async () => {
+    const config = loadConfig();
+    let now = 0;
+    let release: () => void = () => {};
+    const composed: string[] = [];
+    const spokenIds: string[] = [];
+    const engine = new Engine({
+      config: () => config,
+      clock: () => now,
+      wire: { connected: true, send: (f) => (f.type === "speak" && spokenIds.push(f.utteranceId), true) },
+      store: new MemoryStore(),
+      // A slow model: the opening is still composing across the next ticks.
+      llm: {
+        composes: true,
+        classify: async () => null,
+        compose: (req: { user: string }) =>
+          new Promise<string>((done) => (release = () => done(`Welcome ${composed.push(req.user)}.`))),
+      },
+      tts: new SilentTts(),
+      fallbackAgenda: null,
+    });
+    const agenda = loadAgendaFile(resolve(FIXTURES, "agenda.cats-dogs.json"));
+    const people = [{ discordId: "1", name: "Ana" }, { discordId: "2", name: "Marc" }];
+    engine.handle({ type: "ready", channelId: "c", participants: people, atMs: 0 });
+    engine.handle({ type: "session.started", sessionId: "s", title: "Demo", agenda: { ...agenda, attendees: people.map((p) => ({ ...p, role: "attendee" })) }, atMs: 0 });
+    for (now = 1_000; now <= 6_000; now += 250) engine.tick();
+    release();
+    await engine.idle();
+    for (now = 6_250; now <= 20_000; now += 250) {
+      // ears: each line has finished playing by the next tick.
+      for (const id of spokenIds.splice(0)) engine.handle({ type: "spoken", utteranceId: id, atMs: now });
+      engine.tick();
+      release();
+      await engine.idle();
+    }
+    expect(engine.history.filter((h) => h.kind === "startMeeting")).toHaveLength(1);
+  });
+
   it("by default she still waits to be asked", async () => {
     const { engine, tick } = lobbyOf("agenda.demo.json");
     expect(engine.view().requireStart).toBe(true);
     expect(await tick(60_000)).toBeNull();
     expect(engine.phase).toBe("gathering");
+  });
+});
+
+describe("timed: false — topics in any order, no time limits", () => {
+  const VIT = "100000000000000001";
+  const ANA = "100000000000000002";
+  const BLOCKERS = "so who actually owns the database migration blocker and the flaky payments tests right now";
+  const STATUS = "going back to where we actually are, the staging build is green and QA started this morning";
+
+  function meeting(timed: boolean) {
+    const config = loadConfig();
+    let now = 0;
+    let n = 0;
+    const llm = {
+      composes: true,
+      classify: async (req: { window: string }) =>
+        /blocker/.test(req.window) ? { verdict: "otherTopic" as const, topicId: "t3", summary: "blocker owners" }
+        : /staging/.test(req.window) ? { verdict: "otherTopic" as const, topicId: "t1", summary: "where we are" }
+        : { verdict: "current" as const },
+      compose: async () => `Line ${n++}, noted.`,
+    };
+    const engine = new Engine({
+      config: () => config,
+      clock: () => now,
+      wire: { connected: true, send: () => true },
+      store: new MemoryStore(),
+      llm,
+      tts: new SilentTts(),
+      fallbackAgenda: null,
+    });
+    const agenda = loadAgendaFile(resolve(FIXTURES, "agenda.demo.json"));
+    agenda.policy = { ...agenda.policy, timed, silenceSeconds: 10_000, offAgendaGraceSeconds: 5 };
+    engine.handle({ type: "ready", channelId: "c", participants: agenda.attendees.map(({ discordId, name }) => ({ discordId, name })), atMs: 0 });
+    engine.handle({ type: "session.started", sessionId: "s", title: "Sync", agenda, atMs: 0 });
+    const tick = async (at: number) => {
+      now = at;
+      const iv = engine.tick();
+      await engine.idle();
+      return iv;
+    };
+    const talk = async (id: string, text: string, from: number, to: number) => {
+      engine.handle({ type: "speaking.start", discordId: id, atMs: from });
+      now = to;
+      engine.handle({ type: "transcript", discordId: id, text, final: true, utteranceId: `u${n++}`, atMs: to });
+      await engine.idle();
+    };
+    const start = async () => {
+      await talk(VIT, "Karen, let's start the meeting.", 1_000, 1_000);
+      expect((await tick(1_000))?.kind).toBe("startMeeting");
+      engine.handle({ type: "speaking.end", discordId: VIT, atMs: 1_500 });
+    };
+    return { engine, tick, talk, start };
+  }
+
+  it("never calls time on a topic", async () => {
+    const timed = meeting(true);
+    await timed.start();
+    expect((await timed.tick(200_000))?.kind).toBe("topicOverrun");
+
+    const untimed = meeting(false);
+    await untimed.start();
+    expect(await untimed.tick(200_000)).toBeNull();
+    expect(untimed.engine.view()).toMatchObject({ timed: false, phase: "active", topic: { id: "t1" } });
+  });
+
+  it("follows the room to any agenda item, later or earlier, instead of redirecting", async () => {
+    const { engine, tick, talk, start } = meeting(false);
+    await start();
+    await talk(ANA, BLOCKERS, 10_000, 14_000);
+    expect(engine.view().topic?.id).toBe("t3");
+    expect(engine.snapshot().episodes).toEqual([]);
+    expect(await tick(30_000)).toBeNull(); // no "we'll get there" redirect
+
+    await talk(VIT, STATUS, 40_000, 44_000);
+    expect(engine.view().topic?.id).toBe("t1");
+    expect(engine.view().topics.map((t) => [t.id, t.done, t.discussed])).toEqual([
+      ["t1", false, true],
+      ["t2", false, false],
+      ["t3", false, true],
+    ]);
   });
 });
 
@@ -539,6 +657,99 @@ describe("keeping up with the room, as in the 2026-09-19 cats-vs-dogs session", 
     expect((await tick(3_000))?.vars.request).toBe("Are you still here?");
     for (let t = 3_250; t <= 12_000; t += 250) expect(await tick(t)).toBeNull();
     expect(engine.history.filter((h) => h.kind === "addressed")).toHaveLength(1);
+  });
+
+  it("once a tangent is parked, later lines are told to leave it alone", async () => {
+    const { prompts, tick, say, talking, spoken, start } = room();
+    await start();
+    spoken(2_000);
+    talking(ANA, 3_000);
+    await say(ANA, WEATHER, 7_000);
+    expect(await tick(15_000)).toMatchObject({ kind: "offAgenda" });
+    // The redirect itself is about the tangent: no "leave it alone" there.
+    expect(prompts.find((p) => p.includes("has drifted off the agenda"))).not.toContain("Already parked");
+    spoken(17_000);
+    await say(VIT, "Karen, where are we?", 30_000);
+    await tick(30_000);
+    expect(prompts.at(-1)).toMatch(/Already parked for later: \w+ on the weather\. That is dealt with/);
+  });
+
+  it("someone who comes in mid-meeting is welcomed at the next pause, and only once", async () => {
+    const { engine, tick, say, talking, quiet, spoken, start } = room();
+    const everyone = (extra: Array<{ discordId: string; name: string }> = []) => [
+      { discordId: VIT, name: "Vitaly" },
+      { discordId: ANA, name: "Ana" },
+      { discordId: MARC, name: "Marc" },
+      ...extra,
+    ];
+    const LEO = { discordId: "100000000000000009", name: "Leo" };
+    await start();
+    spoken(2_000);
+    // A mute toggle re-sends the same list: nobody arrived.
+    engine.handle({ type: "participants", participants: everyone(), atMs: 3_000 });
+    expect(engine.snapshot().arrivals).toEqual([]);
+    engine.handle({ type: "participants", participants: everyone([LEO]), atMs: 10_000 });
+    talking(ANA, 10_500);
+    await say(ANA, "Status is fine, payments slipped a week.", 11_000);
+    quiet(ANA, 11_000);
+    expect(await tick(14_000)).toBeNull(); // Ana only just stopped
+    const welcome = await tick(15_500);
+    expect(welcome).toMatchObject({ kind: "newcomer", addresseeId: LEO.discordId, vars: { names: "Leo" } });
+    spoken(18_000);
+    engine.handle({ type: "participants", participants: everyone(), atMs: 20_000 });
+    engine.handle({ type: "participants", participants: everyone([LEO]), atMs: 25_000 });
+    for (let t = 25_250; t <= 40_000; t += 250) expect((await tick(t))?.kind).not.toBe("newcomer");
+  });
+
+  it("a newcomer's own hello does not break the quiet: 3 s before they join and 1 s after is enough", async () => {
+    // 2026-09-19: Vitaly joined, said "Hey, can you hear me?" on an open mic that never left a
+    // 4 s gap, and was never greeted.
+    const { engine, tick, say, talking, spoken, start } = room();
+    const LEO = { discordId: "100000000000000009", name: "Leo" };
+    const everyone = [VIT, ANA, MARC].map((id, i) => ({ discordId: id, name: ["Vitaly", "Ana", "Marc"][i]! }));
+    await start();
+    spoken(2_000);
+    engine.handle({ type: "participants", participants: [...everyone, LEO], atMs: 5_000 });
+    talking(LEO.discordId, 5_200);
+    await say(LEO.discordId, "Hey. Hey. How's it going? Can you hear me?", 5_800);
+    expect(await tick(5_750)).toBeNull(); // the room has been quiet 3.75 s
+    expect(await tick(6_000)).toMatchObject({ kind: "newcomer", addresseeId: LEO.discordId });
+  });
+
+  it("no welcome for someone who has joined the discussion by themselves, or who came before the start", async () => {
+    const { engine, tick, say, spoken, start } = room();
+    const LEO = { discordId: "100000000000000009", name: "Leo" };
+    const everyone = [VIT, ANA, MARC].map((id, i) => ({ discordId: id, name: ["Vitaly", "Ana", "Marc"][i]! }));
+    engine.handle({ type: "participants", participants: [...everyone, LEO], atMs: 500 }); // lobby
+    await start();
+    spoken(2_000);
+    expect(engine.snapshot().arrivals).toEqual([]);
+    const MIA = { discordId: "100000000000000010", name: "Mia" };
+    engine.handle({ type: "participants", participants: [...everyone, LEO, MIA], atMs: 2_500 });
+    await say(MIA.discordId, "Hi all, sorry I'm late. On status: payments slipped a week because the vendor missed the sandbox, and push is still on track.", 3_000);
+    expect(engine.snapshot().arrivals).toEqual([]);
+    for (let t = 3_250; t <= 30_000; t += 250) expect((await tick(t))?.kind).not.toBe("newcomer");
+  });
+
+  it("after a floor handover the talker's earlier minutes do not hand the floor over again", async () => {
+    // 2026-09-19: floorHog asked Artem five times in two minutes while Vitaly's first stretch
+    // still filled the window.
+    const { tick, talking, spoken, start } = room();
+    await start();
+    spoken(2_000);
+    talking(VIT, 3_000);
+    let first: number | null = null;
+    for (let t = 3_250; t <= 60_000 && first === null; t += 250) if ((await tick(t))?.kind === "floorHog") first = t;
+    expect(first).not.toBeNull();
+    spoken(first! + 2_000);
+    const again: number[] = [];
+    for (let t = first! + 2_250; t <= first! + 120_000; t += 250) {
+      const iv = await tick(t);
+      if (iv) spoken(t + 2_000);
+      if (iv?.kind === "floorHog") again.push(t);
+    }
+    // Only once they have held most of the floor for floorMinSpeakingSeconds more.
+    expect(again[0]! - first!).toBeGreaterThanOrEqual(45_000);
   });
 
   it("a line past compose.maxWords is asked for once more, shorter", async () => {
