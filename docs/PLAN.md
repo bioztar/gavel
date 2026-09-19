@@ -92,7 +92,7 @@ one where the chair's face can be in the call.
 | B7 | SLNG TTS → `speak` frame over the wire | 1h | B6 |
 | B8 | Web stage — agenda, live talk-time bars, current topic, what the chair just said | 1.5h | B2, B4 |
 | B11 | Fire drill — hazard word in a transcript, chair breaks in, offers to alert emergency services, host confirms, SMS goes out. Demo number only | 1h | E6, V5, B6a |
-| B9 | fal live video of the chair on the stage, called as a Mastra tool | 1.5h | B8, B6a |
+| B9 | fal lip-sync video of the chair — driven by the TTS audio the chair is about to speak, called as a Mastra tool. Idle is a still frame | 1.5h | B8, B6a, B7 |
 | B10 | Tier 2 — consume `transcript`, topic-coverage detection, content-aware lines, minutes | 1.5h | E6 |
 
 B6 always has a template fallback. A model call inside a live interruption is a latency
@@ -204,6 +204,36 @@ call (Vonage Messages). Depth of API use, in one twenty-second beat.
 **Fallback if STT is not done by 21:00.** Keep the beat: a stage button plants the transcript
 line, everything downstream runs for real. Say so in the demo — a scripted input into a real
 pipeline is honest, a faked output is not.
+
+## The face, revised (fal)
+
+The fal mentor pointed at the **lip-sync** endpoint on the H3 Max family rather than
+continuous video generation. That is a better fit and a cheaper one, and it changes the
+shape of B9 and V3.
+
+The chair only needs a face **while it is speaking**. The pipeline becomes:
+
+```
+trigger fires -> Nebius line -> SLNG TTS audio -> fal lip-sync(portrait, that audio) -> clip
+                                      |                                                  |
+                                      +-> audio into the call ------------------- stage / Vonage video
+```
+
+- One still portrait of the chair, generated once at the start of the day and reused.
+- Between interventions the stage shows that still (or a two-second idle loop). No spend,
+  no latency, nothing to keep alive.
+- Lip-sync runs on the exact audio already produced for B7, so the face and the voice cannot
+  drift apart.
+
+**Latency is the open question.** Lip-sync is not instant, and the chair interrupting four
+seconds late is worse than a chair with no face. Measure it first thing after the key lands.
+If the round trip is slow: speak on time with the still frame up, and let the clip land on
+the stage a beat later as a replay. Never hold the audio back to wait for video.
+
+**Endpoint id to confirm with the mentor** — fal's lip-sync models sit under several
+families and the H3 Max variant is the one they suggested. Get the exact model id from them
+rather than guessing; ask at the same time whether a lip-sync clip per intervention counts
+for the MiniMax H3 Max Director track, which reads as aimed at livestream-style generation.
 
 ## Decisions
 

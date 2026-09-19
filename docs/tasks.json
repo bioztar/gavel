@@ -330,17 +330,17 @@
     {
       "id": "B9",
       "lane": "brain",
-      "title": "fal live video of the chair on the stage",
+      "title": "fal lip-sync face — driven by the chair's own TTS audio",
       "owner": "either",
       "effort": "1.5h",
       "deps": [
         "B8",
         "B6a",
-        "S1"
+        "B7"
       ],
       "status": "todo",
       "spine": false,
-      "note": "Called as a Mastra tool. First thing to cut."
+      "note": "Mentor suggested the lip-sync endpoint on H3 Max, not continuous generation. One still portrait + the TTS audio per intervention. Measure latency first; never hold the audio to wait for video."
     },
     {
       "id": "B10",
@@ -393,7 +393,7 @@
       ],
       "status": "todo",
       "spine": false,
-      "note": "The one place the chair has a face inside the call."
+      "note": "Same lip-sync clip, published as a video track into the Vonage call. The one place the chair has a face in-call."
     },
     {
       "id": "V5",
@@ -478,10 +478,10 @@
     },
     {
       "id": "fal",
-      "name": "fal API key",
+      "name": "fal API key — in .env only, never committed",
       "who": "fal mentor on site",
-      "blocks": "B9, V3 — the face",
-      "status": "todo"
+      "blocks": "B9, V3 — the face. Confirm the exact lip-sync model id with the mentor",
+      "status": "done"
     },
     {
       "id": "github",
