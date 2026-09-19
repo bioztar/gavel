@@ -443,17 +443,17 @@
     },
     {
       "id": "vonage",
-      "name": "Vonage app id, private key, session + token",
+      "name": "Vonage Video — app id + private key (API key in hand, secret still needed)",
       "who": "Vonage mentor on site",
       "blocks": "V1–V4, the gold track",
-      "status": "todo"
+      "status": "doing"
     },
     {
       "id": "vonage-sms",
       "name": "Vonage SMS — API key/secret + a sendable from-number",
       "who": "Vonage mentor on site",
       "blocks": "V5, B11 — the fire drill",
-      "status": "todo"
+      "status": "doing"
     },
     {
       "id": "slng",
