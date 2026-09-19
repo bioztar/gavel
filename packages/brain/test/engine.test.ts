@@ -88,3 +88,36 @@ describe("config", () => {
     expect(c.models.prices[c.models.profiles.normal.model]).toBeDefined();
   });
 });
+
+describe("a meeting with a purpose but no topics", () => {
+  it("runs as one implicit topic: invites the quiet, catches drift, never overruns", async () => {
+    const config = loadConfig();
+    let now = 0;
+    const sent: BrainFrame[] = [];
+    const engine = new Engine({
+      config: () => config,
+      clock: () => now,
+      wire: { connected: true, send: (f) => (sent.push(f), true) },
+      store: new MemoryStore(),
+      llm: new StubLlm(),
+      tts: new SilentTts(),
+      fallbackAgenda: null,
+    });
+    engine.handle({ type: "ready", channelId: "c", participants: [{ discordId: "a", name: "Artem" }], atMs: 0 });
+    engine.handle({
+      type: "session.started",
+      sessionId: "s",
+      title: "An AI meeting moderator demo",
+      context: "Talk about the moderator and how it works",
+      agenda: { purpose: "Present the AI moderator", topics: [], attendees: [], policy: {}, totalSeconds: 0 },
+      atMs: 0,
+    });
+    expect(engine.topic()).toMatchObject({ id: "main", title: "An AI meeting moderator demo", budgetSeconds: 0 });
+    for (now = 0; now <= 20_000; now += 250) {
+      engine.tick();
+      await engine.idle();
+    }
+    expect(engine.history.map((h) => h.kind)).toEqual(["silence"]);
+    expect(engine.history[0]?.line).toContain("Artem");
+  });
+});

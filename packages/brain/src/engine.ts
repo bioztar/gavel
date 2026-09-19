@@ -50,6 +50,7 @@ export class Engine {
   sessionId: string | null = null;
   agenda: Agenda | null = null;
   private title: string | null = null;
+  private meetingContext: string | null = null;
   private people = new Map<string, Participant>();
   private topicIndex = 0;
   private topicStartedAt = 0;
@@ -98,6 +99,7 @@ export class Engine {
         if (frame.type === "ready" && !this.agenda) this.startSession(null, null, this.deps.fallbackAgenda, at);
         break;
       case "session.started":
+        this.meetingContext = frame.context ?? null;
         this.startSession(frame.sessionId, frame.title ?? null, frame.agenda ?? this.deps.fallbackAgenda, at);
         break;
       case "session.ended":
@@ -134,7 +136,7 @@ export class Engine {
   private startSession(sessionId: string | null, title: string | null, agenda: Agenda | null, at: number): void {
     this.sessionId = sessionId;
     this.title = title;
-    this.agenda = agenda;
+    this.agenda = this.withImplicitTopic(agenda, title);
     this.topicIndex = 0;
     this.topicStartedAt = at;
     this.sessionStartedAt = at;
@@ -156,6 +158,33 @@ export class Engine {
       policy: this.policy(),
     });
     this.track(this.loadCarried());
+  }
+
+  /**
+   * A meeting with a purpose but no topics runs as one topic made from that purpose
+   * (config/prompts/chair.yaml → implicitTopic), so the chair still has something to hold
+   * the room to. No budget: it never runs over.
+   */
+  private withImplicitTopic(agenda: Agenda | null, title: string | null): Agenda | null {
+    if (!agenda || agenda.topics.length) return agenda;
+    const purpose = agenda.purpose || this.meetingContext || title || "";
+    if (!purpose && !title) {
+      log.warn("agenda.empty", { reason: "no topics, no purpose, no title — the chair has nothing to steer by" });
+      return agenda;
+    }
+    const tpl = this.cfg.chair.implicitTopic;
+    const vars = { title: title || purpose, purpose, context: this.meetingContext ?? "" };
+    const topic = {
+      id: "main",
+      title: render(tpl.title, vars),
+      goal: render(tpl.goal, vars),
+      budgetSeconds: 0,
+      owner: null,
+      mustHear: [],
+      questions: tpl.questions.map((q) => render(q, vars)),
+    };
+    log.warn("agenda.no_topics", { using: topic.title, goal: topic.goal });
+    return { ...agenda, topics: [topic] };
   }
 
   /** Open memories for everyone expected or present — brought up at the wrap-up. */
@@ -580,7 +609,7 @@ export class Engine {
       name: p.name,
       role: this.attendee(p.discordId)?.role ?? "attendee",
     }));
-    return this.context.get(this.agenda, people);
+    return this.context.get(this.agenda, people, this.meetingContext);
   }
 
   // --- the stage's view ---------------------------------------------------------------------------

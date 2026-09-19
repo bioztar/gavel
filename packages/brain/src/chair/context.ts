@@ -11,19 +11,21 @@ export class ContextBlock {
   private key = "";
   private text = "";
 
-  get(agenda: Agenda | null, people: Array<{ name: string; role: string }>): string {
+  get(agenda: Agenda | null, people: Array<{ name: string; role: string }>, context?: string | null): string {
     const names = people.map((p) => (p.role && p.role !== "attendee" ? `${p.name} (${p.role})` : p.name)).sort();
-    const key = JSON.stringify([agenda?.purpose, agenda?.topics.map((t) => [t.id, t.title, t.goal]), names]);
+    const key = JSON.stringify([agenda?.purpose, context, agenda?.topics.map((t) => [t.id, t.title, t.goal]), names]);
     if (key !== this.key) {
       this.key = key;
-      this.text = build(agenda, names);
+      this.text = build(agenda, names, context);
     }
     return this.text;
   }
 }
 
-function build(agenda: Agenda | null, names: string[]): string {
-  const lines = [`MEETING: ${agenda?.purpose || "(no stated purpose)"}`, "AGENDA:"];
+function build(agenda: Agenda | null, names: string[], context?: string | null): string {
+  const lines = [`MEETING: ${agenda?.purpose || "(no stated purpose)"}`];
+  if (context?.trim()) lines.push(`CONTEXT: ${context.trim()}`);
+  lines.push("AGENDA:");
   for (const t of agenda?.topics ?? []) lines.push(`- ${t.id} | ${t.title}${t.goal ? ` | ${t.goal}` : ""}`);
   lines.push(`ATTENDEES: ${names.join(", ") || "(unknown)"}`);
   return lines.join("\n");

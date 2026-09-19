@@ -134,3 +134,13 @@ kinds:
 
 # When a topic has no `questions` in the agenda, this opens it instead.
 fallbackQuestion: "What's your take on {{topicTitle}}?"
+
+# A meeting set up with a purpose but no agenda topics runs as one topic built from it —
+# so the chair still invites quiet people and catches drift away from the purpose. No
+# budget, so it never "runs over". Placeholders: title, purpose, context.
+implicitTopic:
+  title: "{{title}}"
+  goal: "{{purpose}}"
+  questions:
+    - "What would you most like to cover in {{title}}?"
+    - "Where do you see the biggest open question on this?"
