@@ -71,7 +71,7 @@ Silver sponsor.
   because that decides whether the face is worth building for the track or only for the
   demo.
 
-## 6. GitHub — blocks the colleague
+## 6. GitHub — blocks Artem
 
 - His **GitHub handle**, so he gets collaborator access on `bioztar/gavel`.
 

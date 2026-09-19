@@ -137,7 +137,7 @@ either never fires on stage or fires every eight seconds.
 Three workstreams and two people is the honest tension in this schedule. The resolution:
 **Discord and brain are the spine and start together; Vonage starts when the brain's
 offline loop is running** and is picked up by whoever is freer, or by a third agent if
-the colleague has one to spare. If it slips, it slips — the demo works on one surface.
+Artem has one to spare. If it slips, it slips — the demo works on one surface.
 
 ## Cut lines
 

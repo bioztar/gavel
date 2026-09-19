@@ -13,13 +13,13 @@
 
 ## Next steps (ordered)
 1. Vitaly: Discord app + token + test server (S2), then sponsor keys from mentors on site (S1).
-2. Get colleague's GitHub handle, add as collaborator, agree owners on the board (S3).
+2. Get Artem's GitHub handle, add as collaborator, agree owners on the board (S3).
 3. E1 spike — join voice, speaking events per user, play a WAV. One hour. Everything depends on it.
 4. B1/B2 in parallel — agenda state + talk-time machine, offline against `packages/contract/fixtures/replay.jsonl`.
 
 ## Blockers / needs human
 - All six credentials. Mentors are on site today only.
-- Owner assignment on the board: every task currently `vitaly` / `colleague` / `either` is provisional.
+- Owner assignment on the board: every task currently `vitaly` / `Artem` / `either` is provisional.
 
 ## Key files touched
 - docs/CONTRACT.md — the only thing both halves must agree on; change it together or not at all.

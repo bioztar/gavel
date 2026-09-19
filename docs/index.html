@@ -135,57 +135,437 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
   "freeze": "2026-09-20T11:00:00+02:00",
   "demos": "2026-09-20T14:00:00+02:00",
   "people": {
-    "vitaly": { "name": "Vitaly", "colour": "#2563eb" },
-    "colleague": { "name": "Colleague", "colour": "#7c3aed" },
-    "either": { "name": "Unassigned", "colour": "#6b7280" }
+    "vitaly": {
+      "name": "Vitaly",
+      "colour": "#2563eb"
+    },
+    "artem": {
+      "name": "Artem",
+      "colour": "#7c3aed"
+    },
+    "either": {
+      "name": "Unassigned",
+      "colour": "#6b7280"
+    }
   },
   "lanes": [
-    { "id": "shared", "title": "Shared — unblocks everything", "package": "—" },
-    { "id": "ears-discord", "title": "ears-discord — the Discord call", "package": "packages/ears-discord" },
-    { "id": "brain", "title": "brain — every decision", "package": "packages/brain" },
-    { "id": "ears-vonage", "title": "ears-vonage — the Vonage call", "package": "packages/ears-vonage" },
-    { "id": "concierge", "title": "concierge — parked", "package": "packages/concierge" }
+    {
+      "id": "shared",
+      "title": "Shared — unblocks everything",
+      "package": "—"
+    },
+    {
+      "id": "ears-discord",
+      "title": "ears-discord — the Discord call",
+      "package": "packages/ears-discord"
+    },
+    {
+      "id": "brain",
+      "title": "brain — every decision",
+      "package": "packages/brain"
+    },
+    {
+      "id": "ears-vonage",
+      "title": "ears-vonage — the Vonage call",
+      "package": "packages/ears-vonage"
+    },
+    {
+      "id": "concierge",
+      "title": "concierge — parked",
+      "package": "packages/concierge"
+    }
   ],
   "tasks": [
-    { "id": "S1", "lane": "shared", "title": "Collect sponsor keys — Vonage, SLNG, Nebius, fal", "owner": "vitaly", "effort": "45m", "deps": [], "status": "todo", "spine": true, "note": "Mentors are on site today only. Blocks three lanes." },
-    { "id": "S2", "lane": "shared", "title": "Discord app + bot token + test server", "owner": "vitaly", "effort": "20m", "deps": [], "status": "todo", "spine": true, "note": "Blocks E1, which blocks the Discord surface." },
-    { "id": "S3", "lane": "shared", "title": "Colleague gets repo access, both clone, agree the split", "owner": "vitaly", "effort": "10m", "deps": [], "status": "todo", "spine": true, "note": "Needs his GitHub handle." },
-    { "id": "S4", "lane": "shared", "title": "Integration checkpoint — real call, real interrupt", "owner": "either", "effort": "1h", "deps": ["E3", "B7"], "status": "todo", "spine": true, "note": "16:00. An actual run, not a status update." },
-    { "id": "S5", "lane": "shared", "title": "Dry run — four people, both surfaces, recorded", "owner": "either", "effort": "30m", "deps": ["S4"], "status": "todo", "spine": true, "note": "22:30. Recruit the four people early." },
-    { "id": "S6", "lane": "shared", "title": "READMEs, 60-second recording, submit", "owner": "vitaly", "effort": "1h", "deps": ["S5"], "status": "todo", "spine": true, "note": "Sunday 10:00–11:00. Freeze is 11:00 sharp." },
-
-    { "id": "E1", "lane": "ears-discord", "title": "SPIKE: join voice, speaking events per user, play a WAV", "owner": "colleague", "effort": "1h", "deps": ["S2"], "status": "todo", "spine": true, "note": "The only real unknown in the build. First thing. If it fails, the day changes shape." },
-    { "id": "E2", "lane": "ears-discord", "title": "WebSocket server, emits the contract frames", "owner": "colleague", "effort": "45m", "deps": ["E1"], "status": "todo", "spine": true, "note": "" },
-    { "id": "E3", "lane": "ears-discord", "title": "speak handler — accept base64 audio, play it, emit spoken", "owner": "colleague", "effort": "45m", "deps": ["E2"], "status": "todo", "spine": true, "note": "" },
-    { "id": "E4", "lane": "ears-discord", "title": "Record a real session to replay.jsonl", "owner": "colleague", "effort": "30m", "deps": ["E2"], "status": "todo", "spine": false, "note": "Replaces the hand-written fixture." },
-    { "id": "E5", "lane": "ears-discord", "title": "Tier 2 — per-speaker Opus decode, two simultaneous speakers", "owner": "colleague", "effort": "1.5h", "deps": ["E1"], "status": "todo", "spine": false, "note": "One decoder and jitter buffer per SSRC. Never one shared player." },
-    { "id": "E6", "lane": "ears-discord", "title": "Tier 2 — SLNG STT per utterance, transcript frames", "owner": "colleague", "effort": "1.5h", "deps": ["E5", "S1"], "status": "todo", "spine": false, "note": "" },
-
-    { "id": "B1", "lane": "brain", "title": "Load and validate the agenda, session state object", "owner": "vitaly", "effort": "45m", "deps": [], "status": "todo", "spine": true, "note": "" },
-    { "id": "B2", "lane": "brain", "title": "Talk-time state machine — rolling-window share per person", "owner": "vitaly", "effort": "1h", "deps": [], "status": "todo", "spine": true, "note": "Runs on speaking events plus a clock. No audio." },
-    { "id": "B3", "lane": "brain", "title": "Replay harness — run replay.jsonl through the machine", "owner": "vitaly", "effort": "45m", "deps": ["B2"], "status": "todo", "spine": false, "note": "The fastest feedback loop in the build. Build it early." },
-    { "id": "B4", "lane": "brain", "title": "Agenda clock — current topic, spent vs budget, topics at risk", "owner": "vitaly", "effort": "1h", "deps": ["B1"], "status": "todo", "spine": true, "note": "" },
-    { "id": "B5", "lane": "brain", "title": "Interrupt policy — the triggers. This is the product", "owner": "vitaly", "effort": "1.5h", "deps": ["B2", "B4"], "status": "todo", "spine": true, "note": "Deterministic. The model never decides whether to speak." },
-    { "id": "B6", "lane": "brain", "title": "Nebius — one sentence in the chair's voice, template fallback", "owner": "vitaly", "effort": "1h", "deps": ["B5", "S1"], "status": "todo", "spine": false, "note": "Always has a template fallback. On time beats clever." },
-    { "id": "B7", "lane": "brain", "title": "SLNG TTS, send speak frame over the wire", "owner": "vitaly", "effort": "1h", "deps": ["B6"], "status": "todo", "spine": true, "note": "Measure round-trip latency early. Over ~3s and the moment has passed." },
-    { "id": "B8", "lane": "brain", "title": "Web stage — agenda, live talk-time bars, what the chair said", "owner": "vitaly", "effort": "1.5h", "deps": ["B2", "B4"], "status": "todo", "spine": false, "note": "The visible half of the judged moment." },
-    { "id": "B9", "lane": "brain", "title": "fal live video of the chair on the stage", "owner": "either", "effort": "1.5h", "deps": ["B8", "S1"], "status": "todo", "spine": false, "note": "First thing to cut." },
-    { "id": "B10", "lane": "brain", "title": "Tier 2 — transcripts, topic coverage, content-aware lines", "owner": "either", "effort": "1.5h", "deps": ["E6"], "status": "todo", "spine": false, "note": "" },
-
-    { "id": "V1", "lane": "ears-vonage", "title": "Join session, subscribe to all, audio levels to speaking frames", "owner": "either", "effort": "1h", "deps": ["S1"], "status": "todo", "spine": false, "note": "Threshold ~0.2 with hysteresis. The hysteresis lives here, never in the brain." },
-    { "id": "V2", "lane": "ears-vonage", "title": "Publish the chair's voice — AudioContext as the audio source", "owner": "either", "effort": "1h", "deps": ["V1"], "status": "todo", "spine": false, "note": "Never init a publisher with audioSource:false — it can never gain audio after." },
-    { "id": "V3", "lane": "ears-vonage", "title": "Publish the chair's face — canvas captureStream, fal frames", "owner": "either", "effort": "1h", "deps": ["V1", "B9"], "status": "todo", "spine": false, "note": "The one place the chair has a face inside the call." },
-    { "id": "V4", "lane": "ears-vonage", "title": "Depth — session.signal pushes agenda and interventions, archiving", "owner": "either", "effort": "30m", "deps": ["V1"], "status": "todo", "spine": false, "note": "Cheap points on a track judged partly on depth of API use." },
-
-    { "id": "C1", "lane": "concierge", "title": "Discord bot that interviews attendees and writes agenda.json", "owner": "either", "effort": "6h", "deps": [], "status": "cut", "spine": false, "note": "Parked. Only if the spine is finished and stable with hours to spare." }
+    {
+      "id": "S1",
+      "lane": "shared",
+      "title": "Collect sponsor keys — Vonage, SLNG, Nebius, fal",
+      "owner": "vitaly",
+      "effort": "45m",
+      "deps": [],
+      "status": "todo",
+      "spine": true,
+      "note": "Mentors are on site today only. Blocks three lanes."
+    },
+    {
+      "id": "S2",
+      "lane": "shared",
+      "title": "Discord app + bot token + test server",
+      "owner": "vitaly",
+      "effort": "20m",
+      "deps": [],
+      "status": "todo",
+      "spine": true,
+      "note": "Blocks E1, which blocks the Discord surface."
+    },
+    {
+      "id": "S3",
+      "lane": "shared",
+      "title": "Artem gets repo access, both clone, agree the split",
+      "owner": "vitaly",
+      "effort": "10m",
+      "deps": [],
+      "status": "todo",
+      "spine": true,
+      "note": "Needs his GitHub handle."
+    },
+    {
+      "id": "S4",
+      "lane": "shared",
+      "title": "Integration checkpoint — real call, real interrupt",
+      "owner": "either",
+      "effort": "1h",
+      "deps": [
+        "E3",
+        "B7"
+      ],
+      "status": "todo",
+      "spine": true,
+      "note": "16:00. An actual run, not a status update."
+    },
+    {
+      "id": "S5",
+      "lane": "shared",
+      "title": "Dry run — four people, both surfaces, recorded",
+      "owner": "either",
+      "effort": "30m",
+      "deps": [
+        "S4"
+      ],
+      "status": "todo",
+      "spine": true,
+      "note": "22:30. Recruit the four people early."
+    },
+    {
+      "id": "S6",
+      "lane": "shared",
+      "title": "READMEs, 60-second recording, submit",
+      "owner": "vitaly",
+      "effort": "1h",
+      "deps": [
+        "S5"
+      ],
+      "status": "todo",
+      "spine": true,
+      "note": "Sunday 10:00–11:00. Freeze is 11:00 sharp."
+    },
+    {
+      "id": "E1",
+      "lane": "ears-discord",
+      "title": "SPIKE: join voice, speaking events per user, play a WAV",
+      "owner": "artem",
+      "effort": "1h",
+      "deps": [
+        "S2"
+      ],
+      "status": "todo",
+      "spine": true,
+      "note": "The only real unknown in the build. First thing. If it fails, the day changes shape."
+    },
+    {
+      "id": "E2",
+      "lane": "ears-discord",
+      "title": "WebSocket server, emits the contract frames",
+      "owner": "artem",
+      "effort": "45m",
+      "deps": [
+        "E1"
+      ],
+      "status": "todo",
+      "spine": true,
+      "note": ""
+    },
+    {
+      "id": "E3",
+      "lane": "ears-discord",
+      "title": "speak handler — accept base64 audio, play it, emit spoken",
+      "owner": "artem",
+      "effort": "45m",
+      "deps": [
+        "E2"
+      ],
+      "status": "todo",
+      "spine": true,
+      "note": ""
+    },
+    {
+      "id": "E4",
+      "lane": "ears-discord",
+      "title": "Record a real session to replay.jsonl",
+      "owner": "artem",
+      "effort": "30m",
+      "deps": [
+        "E2"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Replaces the hand-written fixture."
+    },
+    {
+      "id": "E5",
+      "lane": "ears-discord",
+      "title": "Tier 2 — per-speaker Opus decode, two simultaneous speakers",
+      "owner": "artem",
+      "effort": "1.5h",
+      "deps": [
+        "E1"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "One decoder and jitter buffer per SSRC. Never one shared player."
+    },
+    {
+      "id": "E6",
+      "lane": "ears-discord",
+      "title": "Tier 2 — SLNG STT per utterance, transcript frames",
+      "owner": "artem",
+      "effort": "1.5h",
+      "deps": [
+        "E5",
+        "S1"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": ""
+    },
+    {
+      "id": "B1",
+      "lane": "brain",
+      "title": "Load and validate the agenda, session state object",
+      "owner": "vitaly",
+      "effort": "45m",
+      "deps": [],
+      "status": "todo",
+      "spine": true,
+      "note": ""
+    },
+    {
+      "id": "B2",
+      "lane": "brain",
+      "title": "Talk-time state machine — rolling-window share per person",
+      "owner": "vitaly",
+      "effort": "1h",
+      "deps": [],
+      "status": "todo",
+      "spine": true,
+      "note": "Runs on speaking events plus a clock. No audio."
+    },
+    {
+      "id": "B3",
+      "lane": "brain",
+      "title": "Replay harness — run replay.jsonl through the machine",
+      "owner": "vitaly",
+      "effort": "45m",
+      "deps": [
+        "B2"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "The fastest feedback loop in the build. Build it early."
+    },
+    {
+      "id": "B4",
+      "lane": "brain",
+      "title": "Agenda clock — current topic, spent vs budget, topics at risk",
+      "owner": "vitaly",
+      "effort": "1h",
+      "deps": [
+        "B1"
+      ],
+      "status": "todo",
+      "spine": true,
+      "note": ""
+    },
+    {
+      "id": "B5",
+      "lane": "brain",
+      "title": "Interrupt policy — the triggers. This is the product",
+      "owner": "vitaly",
+      "effort": "1.5h",
+      "deps": [
+        "B2",
+        "B4"
+      ],
+      "status": "todo",
+      "spine": true,
+      "note": "Deterministic. The model never decides whether to speak."
+    },
+    {
+      "id": "B6",
+      "lane": "brain",
+      "title": "Nebius — one sentence in the chair's voice, template fallback",
+      "owner": "vitaly",
+      "effort": "1h",
+      "deps": [
+        "B5",
+        "S1"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Always has a template fallback. On time beats clever."
+    },
+    {
+      "id": "B7",
+      "lane": "brain",
+      "title": "SLNG TTS, send speak frame over the wire",
+      "owner": "vitaly",
+      "effort": "1h",
+      "deps": [
+        "B6"
+      ],
+      "status": "todo",
+      "spine": true,
+      "note": "Measure round-trip latency early. Over ~3s and the moment has passed."
+    },
+    {
+      "id": "B8",
+      "lane": "brain",
+      "title": "Web stage — agenda, live talk-time bars, what the chair said",
+      "owner": "vitaly",
+      "effort": "1.5h",
+      "deps": [
+        "B2",
+        "B4"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "The visible half of the judged moment."
+    },
+    {
+      "id": "B9",
+      "lane": "brain",
+      "title": "fal live video of the chair on the stage",
+      "owner": "either",
+      "effort": "1.5h",
+      "deps": [
+        "B8",
+        "S1"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "First thing to cut."
+    },
+    {
+      "id": "B10",
+      "lane": "brain",
+      "title": "Tier 2 — transcripts, topic coverage, content-aware lines",
+      "owner": "either",
+      "effort": "1.5h",
+      "deps": [
+        "E6"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": ""
+    },
+    {
+      "id": "V1",
+      "lane": "ears-vonage",
+      "title": "Join session, subscribe to all, audio levels to speaking frames",
+      "owner": "either",
+      "effort": "1h",
+      "deps": [
+        "S1"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Threshold ~0.2 with hysteresis. The hysteresis lives here, never in the brain."
+    },
+    {
+      "id": "V2",
+      "lane": "ears-vonage",
+      "title": "Publish the chair's voice — AudioContext as the audio source",
+      "owner": "either",
+      "effort": "1h",
+      "deps": [
+        "V1"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Never init a publisher with audioSource:false — it can never gain audio after."
+    },
+    {
+      "id": "V3",
+      "lane": "ears-vonage",
+      "title": "Publish the chair's face — canvas captureStream, fal frames",
+      "owner": "either",
+      "effort": "1h",
+      "deps": [
+        "V1",
+        "B9"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "The one place the chair has a face inside the call."
+    },
+    {
+      "id": "V4",
+      "lane": "ears-vonage",
+      "title": "Depth — session.signal pushes agenda and interventions, archiving",
+      "owner": "either",
+      "effort": "30m",
+      "deps": [
+        "V1"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Cheap points on a track judged partly on depth of API use."
+    },
+    {
+      "id": "C1",
+      "lane": "concierge",
+      "title": "Discord bot that interviews attendees and writes agenda.json",
+      "owner": "either",
+      "effort": "6h",
+      "deps": [],
+      "status": "cut",
+      "spine": false,
+      "note": "Parked. Only if the spine is finished and stable with hours to spare."
+    }
   ],
   "credentials": [
-    { "id": "discord", "name": "Discord bot token + test server", "who": "Vitaly", "blocks": "E1 → the whole Discord surface", "status": "todo" },
-    { "id": "vonage", "name": "Vonage app id, private key, session + token", "who": "Vonage mentor on site", "blocks": "V1–V4, the gold track", "status": "todo" },
-    { "id": "slng", "name": "SLNG API key + TTS/STT endpoints", "who": "SLNG mentor on site", "blocks": "B7 — the chair having a voice", "status": "todo" },
-    { "id": "nebius", "name": "Nebius key, base URL, model id", "who": "Nebius mentor on site", "blocks": "B6 — what the chair says", "status": "todo" },
-    { "id": "fal", "name": "fal API key", "who": "fal mentor on site", "blocks": "B9, V3 — the face", "status": "todo" },
-    { "id": "github", "name": "Colleague's GitHub handle", "who": "Vitaly", "blocks": "S3 — him cloning at all", "status": "todo" }
+    {
+      "id": "discord",
+      "name": "Discord bot token + test server",
+      "who": "Vitaly",
+      "blocks": "E1 → the whole Discord surface",
+      "status": "todo"
+    },
+    {
+      "id": "vonage",
+      "name": "Vonage app id, private key, session + token",
+      "who": "Vonage mentor on site",
+      "blocks": "V1–V4, the gold track",
+      "status": "todo"
+    },
+    {
+      "id": "slng",
+      "name": "SLNG API key + TTS/STT endpoints",
+      "who": "SLNG mentor on site",
+      "blocks": "B7 — the chair having a voice",
+      "status": "todo"
+    },
+    {
+      "id": "nebius",
+      "name": "Nebius key, base URL, model id",
+      "who": "Nebius mentor on site",
+      "blocks": "B6 — what the chair says",
+      "status": "todo"
+    },
+    {
+      "id": "fal",
+      "name": "fal API key",
+      "who": "fal mentor on site",
+      "blocks": "B9, V3 — the face",
+      "status": "todo"
+    },
+    {
+      "id": "github",
+      "name": "Artem's GitHub handle",
+      "who": "Vitaly",
+      "blocks": "S3 — him cloning at all",
+      "status": "todo"
+    }
   ],
   "cutOrder": [
     "Concierge — already parked",
