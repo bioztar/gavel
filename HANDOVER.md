@@ -1,57 +1,60 @@
-# HANDOVER — gavel — 2026-09-19 23:30
+# HANDOVER — gavel — 2026-09-20 00:05
 
-## State: demo-ready. Agenda gate, structured invite, full-screen deck and rewritten demo script are live on https://gavel.pro7ocol.com. Code freeze Sunday 11:00.
+## State: demo path is built, deployed and proven live. Code freeze in ~11h (Sun 11:00).
+
+The invite flow is three screens and holds one rule: **no agenda, no booking.**
+Everything below is live on `https://gavel.pro7ocol.com` and merged to `main` (`0771b26`).
 
 ## Done this session
-- **Agenda gate.** A brief with no agenda comes back with zero topic rows and Karen's
-  pushback, plus a `say it again` link back to `/compose` (the page is a POST result, so
-  Back offers "Confirm Form Resubmission"). Measured against the live Nebius parse: five
-  different agenda-less briefs, five empty `topics` arrays. Non-blocking by design — rows
-  still render if the LLM hiccups, so a bad parse can't kill the demo.
-- **The invite is the agenda, not the dictated text.** `invite_email.py` renders the parsed
-  topic table (owner, duration, type, who must be heard) as HTML + text. Proven by rendering
-  inside the deployed container from a real `build_agenda()` output: `dictated brief leaked:
-  False`.
-- **must-hear means *named*.** `llm.py` prompt now defines it; `_must_hear()` suppresses
-  `compose.py`'s owner fallback so a presentation doesn't tell its own presenter to speak up.
-- **Empty invitee box no longer 422s** — `attendees: str = Form("")`. Starlette reports an
-  empty text input as *missing*, not empty. Regression test proven red then green.
-- **Demo script rewritten** around one claim: Karen never writes your agenda, she refuses to
-  work without one, then holds you to it. Four beats (gate → invite → drift catch → floor
-  handover), four cold opens, a cut-lines block, a pitch-check rules table. Served at
-  `/demo-script`.
-- **Architecture deck** is now three full-screen slides at `/architecture`.
-- 88 calendar tests green, ruff clean. `a4f718e..db8fc97 main -> main`.
+- **Agenda gate.** A thin brief comes back as a refusal page — headline, one textarea,
+  one button. No topic grid, no send path. `render_gate_html` in `compose.py`.
+  `_rows_from_lines` is the insurance: if a typed agenda still parses to nothing, it
+  splits on newlines/`;` so the headline demo beat cannot dead-end.
+- **Enforcement gauge** (low/medium/high) on the confirm page. Levels live in
+  `schema.py:ENFORCEMENT_LEVELS`, merged *over* `settings.policy_overrides` — env
+  carries deployment facts, the gauge carries this meeting's intent. Pinned by
+  `test_enforcement_gauge_reaches_the_agenda_policy`.
+- **Karen can never mute Vitaly.** `policy.yaml` has `neverMuteRoles: [host]`, the
+  organizer always gets `role: host`, and mute only fires via `escalate`. The visible
+  delta at High is `handover: "hard"`, not the mute. Demo script says this out loud.
+- **UI rebuilt light** — near-white ground, system font stack, hairline tables, pill
+  buttons, segmented control, mobile breakpoint. Invite email matches the palette;
+  its table skeleton is untouched so mail clients still render it.
+- **Parser fix**: the brief opens "Karen, set up…" and she was being parsed in as an
+  attendee/owner. `llm.py` prompt now states the first known attendee is the dictator
+  ("me" = them) and the chair is never a participant. Owners now Artem/Vitaly/Vitaly.
+- Demo script (md + html) and the architecture roadmap slide updated — gate at 0:28,
+  gauge at 1:22, company-wide enterprise rules on the roadmap.
 
-## In flight / partially done
-- **chair-video director sync measurement** — `scripts/measure_director_sync.mjs` is
-  committed but the run never produced usable numbers: 5 of 6 utterances gave no detectable
-  onset, last run died on `page.waitForFunction: Timeout 20000ms exceeded` at
-  `measure_director_sync.mjs:219`. Not on the demo path; drop it if time is short.
-- **Compose page-1 invitee UX** (Vitaly's back-burner item): page one's box is now optional
-  and empty, which is the half that mattered. The "infer the invitees with an LLM, hard-code
-  the three addresses" half is *not* built — the three addresses still come from settings.
+## Proven live (not just locally)
+- Gate page: `200`, `name="agenda"` ×1, `topic_title_0` ×0, `/compose/send` ×0.
+- Gate cleared: `200`, `name="enforcement"` ×3, topics parsed, "Send the invite".
+- One **real** invite emailed to `vitaly@pro7ocol.com` at `enforcement=high` → `200`.
+- `uv run pytest -q` → exit 0, 91 tests. `uv run ruff check .` → clean.
+
+## Known, not bugs
+- After `docker compose up -d --build calendar`, Traefik serves `404` for a few
+  seconds while it re-resolves the new container. It clears itself. Do not go
+  hunting for a routing misconfiguration — `curl` the route again.
 
 ## Next steps (ordered)
-1. Rehearse §1 pre-flight end to end, including the thin brief at §4a (it must come back
-   with no topic rows) and the mailbox check on the HTML invite.
-2. **Send one real invite through Resend** to the three standing addresses. Everything so far
-   was proven by rendering in-container; `body["html"]` has never been proven on the wire.
-   This is the one gap in the demo path.
-3. After the hackathon: `scripts/set-console-auth.sh --off` to burn the console password,
-   rotate `VONAGE_API_KEY`.
+1. Rehearse the demo against the live site, script in hand.
+2. `/compose`, `/architecture`, `/demo-script` are publicly unauthenticated — Vitaly's
+   call whether that stands through the hackathon.
+3. After the hackathon: `scripts/set-console-auth.sh --off`, rotate `VONAGE_API_KEY`,
+   and decide on the two loose secret copies (`/home/coder/vonage_private.key`,
+   `/home/coder/DEV/gavel/.env.bak`). `.env.example` still does not mention `--off`.
+4. Back-burner, unbuilt: infer invitees with the LLM instead of the three hard-coded
+   addresses.
 
 ## Blockers / needs human
-- `/compose`, `/architecture`, `/demo-script` are publicly unauthenticated. Flagged before,
-  still Vitaly's call — fine for a hackathon, not after.
-- Two loose secret copies on disk await his decision: `/home/coder/vonage_private.key`,
-  `/home/coder/DEV/gavel/.env.bak`.
-- `.env.example` still doesn't mention `set-console-auth.sh --off`.
+- None for the demo path.
 
 ## Key files touched
-- `packages/calendar/src/gavel_calendar/llm.py` — must_hear definition in the system prompt
-- `packages/calendar/src/gavel_calendar/invite_email.py` — the structured invite; `_must_hear()`
-- `packages/calendar/src/gavel_calendar/compose.py` — no-agenda pushback + back link
-- `packages/calendar/src/gavel_calendar/app.py:133` — the `Form("")` fix
-- `docs/demo-script.md` / `.html` — the run sheet Vitaly reads on stage
-- `docs/architecture.md`, `docs/architecture.html` — §2b agenda gate, full-screen deck
+- `packages/calendar/src/gavel_calendar/compose.py` — the three screens, all the CSS
+- `packages/calendar/src/gavel_calendar/schema.py` — `ENFORCEMENT_LEVELS`, merge-order note
+- `packages/calendar/src/gavel_calendar/app.py` — `agenda: str = Form("")` (empty form
+  field is *missing* to Starlette unless it is defaulted)
+- `packages/calendar/src/gavel_calendar/llm.py` — who "me" is, and that the chair isn't a guest
+- `packages/calendar/src/gavel_calendar/invite_email.py` — palette only
+- `docs/demo-script.{md,html}`, `docs/architecture.html` — the two new beats
