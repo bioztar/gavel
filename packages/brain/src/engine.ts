@@ -20,6 +20,31 @@ import { type Classification, RelevanceTracker } from "./state/relevance";
 import { TalkLedger } from "./state/talk";
 import { render } from "./template";
 
+// chair-video is a separate package with no other consumer wired in yet
+// (mission scope is this one hook, nothing else in packages/brain) — reading
+// the env var directly here, rather than through ./config, keeps main.ts and
+// replay.ts untouched. Unset means no stage: the idle-loop/lip-sync path in
+// chair-video keeps working either way, this is additive.
+const CHAIR_VIDEO_URL = process.env.CHAIR_VIDEO_URL?.trim() || null;
+
+// Fire-and-forget: the projector stage is cosmetic next to actually being
+// heard in the Discord call, so a slow or down chair-video must never delay
+// or break the wire.send() below it. 2s is generous for a same-network
+// hackathon box; anything slower isn't worth waiting on.
+function pushToStage(audio: Buffer, format: string, personaId: string): void {
+  if (!CHAIR_VIDEO_URL) return;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 2000);
+  fetch(`${CHAIR_VIDEO_URL}/director/speak`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ audioBase64: audio.toString("base64"), format, persona: personaId }),
+    signal: controller.signal,
+  })
+    .catch((err: unknown) => log.warn("stage.push_failed", { error: String(err) }))
+    .finally(() => clearTimeout(timeoutId));
+}
+
 export type MeetingPhase = "idle" | "gathering" | "active" | "finished";
 
 export interface EngineDeps {
@@ -579,6 +604,7 @@ export class Engine {
     this.pending = { utteranceId, at: this.now() };
     try {
       const speech = await this.deps.tts.synthesize(text);
+      pushToStage(speech.audio, speech.format, this.cfg.persona.id);
       const sent = this.deps.wire.send({
         type: "speak",
         utteranceId,

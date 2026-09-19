@@ -48,11 +48,13 @@ def test_idle_defaults_to_formal(client: TestClient) -> None:
     assert r.headers["content-type"] == "video/mp4"
 
 
-def test_idle_unknown_persona_falls_back_to_formal(client: TestClient) -> None:
-    formal = client.get("/idle", params={"persona": "formal"})
+def test_idle_unknown_persona_falls_back_to_default(client: TestClient) -> None:
+    # Settings.default_persona is "funky" — an unknown persona must fall back to
+    # that, not to "formal" (this test used to assert the wrong one).
+    funky = client.get("/idle", params={"persona": "funky"})
     typo = client.get("/idle", params={"persona": "not-a-real-persona"})
     assert typo.status_code == 200
-    assert typo.content == formal.content
+    assert typo.content == funky.content
 
 
 def test_speak_video_requires_audio(client: TestClient) -> None:

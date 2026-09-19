@@ -32,14 +32,17 @@ def test_normalize_persona_known_values_pass_through() -> None:
 
 
 def test_normalize_persona_unknown_falls_back_to_default() -> None:
+    # Settings.default_persona is "funky" (see settings.py) — this used to
+    # assert "formal", which was wrong for the same reason test_app.py's
+    # idle-persona test was wrong.
     settings = Settings(fal_key="x")
-    assert settings.normalize_persona("typo") == "formal"
-    assert settings.normalize_persona(None) == "formal"
+    assert settings.normalize_persona("typo") == "funky"
+    assert settings.normalize_persona(None) == "funky"
 
 
 def test_idle_video_path_and_avatar_image_path_per_persona() -> None:
     settings = Settings(fal_key="x")
     assert settings.idle_video_path("funky") == "avatars/idle-funky.mp4"
     assert settings.avatar_image_path("formal") == "avatars/karen-formal.png"
-    # Unknown persona resolves via the default, never a KeyError.
-    assert settings.idle_video_path("typo") == settings.idle_video_path("formal")
+    # Unknown persona resolves via the default ("funky"), never a KeyError.
+    assert settings.idle_video_path("typo") == settings.idle_video_path("funky")

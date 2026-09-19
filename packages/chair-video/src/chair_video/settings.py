@@ -64,6 +64,38 @@ class Settings(BaseSettings):
     }
     default_persona: str = "funky"
 
+    # --- director (live WebRTC stream) ------------------------------------
+    # Confirmed against real fal in the Phase 0 spike (see README's Director
+    # section): transport is one-shot-SDP WebRTC to wma.fal.run, no LiveKit
+    # SDK required. This is the only host the browser proxy is allowed to
+    # forward to — narrower than "*.fal.run" on purpose, since the browser
+    # never needs anything else (audio upload happens server-side).
+    director_endpoint_id: str = "fal-ai/minimax-h3-max-director"
+    director_proxy_host: str = "wma.fal.run"
+    director_resolution: str = "480p"
+    director_aspect_ratio: str = "16:9"
+    # A short prompt per persona, sent once as the session's `configure`
+    # message. Not the chair's script — just what the model should look like.
+    director_prompt_by_persona: dict[str, str] = {
+        "formal": (
+            "A composed, professional woman chairing a meeting on camera: neutral office "
+            "backdrop, calm expression, direct eye contact, minimal movement between lines."
+        ),
+        "funky": (
+            "A warm, playful woman chairing a meeting on camera with a bright, energetic "
+            "smile, colorful casual backdrop, direct eye contact, animated between lines."
+        ),
+    }
+    # Three missed heartbeats (stage page pings every 5s) and /healthz stops
+    # claiming the chair is visible — Python cannot close the browser's own
+    # peer connection, so this only affects reporting, not billing.
+    director_heartbeat_timeout_s: float = 15.0
+    # fal's own session cap is ~15 minutes; self-stop a bit earlier so the
+    # manager controls the cut rather than being cut off mid-utterance. A
+    # meeting running past this gets a ~1s hiccup and a fresh session, never
+    # a leaked one.
+    director_max_session_s: float = 14 * 60.0
+
     def avatar_image_path(self, persona: str) -> str:
         return self.avatar_image_by_persona.get(persona, self.avatar_image_by_persona[self.default_persona])
 
