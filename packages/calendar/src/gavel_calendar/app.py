@@ -23,6 +23,7 @@ import asyncio
 import html
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
@@ -143,6 +144,20 @@ async def compose_send(request: Request) -> str:
 async def board() -> str:
     records = sorted(store.pending(), key=lambda r: r.start)
     return _render_board_page(records)
+
+
+@app.get("/architecture", response_class=HTMLResponse)
+async def architecture() -> str:
+    """The demo deck, served off the same host as everything else.
+
+    Mounted read-only from `docs/architecture.html` rather than baked into the
+    image, so a wording fix before the pitch needs no rebuild. Missing file is a
+    404 and never a 500 — the deck is not load-bearing for any meeting.
+    """
+    deck = Path("/app/architecture.html")
+    if not deck.is_file():
+        raise HTTPException(status_code=404, detail="architecture deck not mounted")
+    return deck.read_text(encoding="utf-8")
 
 
 @app.get("/m/{session_id}", response_class=HTMLResponse)
