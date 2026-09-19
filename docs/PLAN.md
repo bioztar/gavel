@@ -58,6 +58,26 @@ E5 is where the documented weirdness lives — per-SSRC packets separate fine bu
 speaker needs its own decoder and jitter buffer, and funnelling them through one player
 drops packets. It sits behind the spine deliberately.
 
+## ears-vonage — chunks
+
+The second call surface. Same wire, so the brain is untouched. It is a **browser tab**
+that joins the session as an ordinary participant — no headless Chrome, no deployment.
+
+| # | Chunk | Effort | Depends on |
+|---|---|---|---|
+| V1 | Join a session, subscribe to everyone, threshold `audioLevelUpdated` into `speaking.start/end` frames over the wire | 1h | contract |
+| V2 | Publish the chair's voice — `AudioContext` destination as the publisher's `audioSource`, fed by the brain's `speak` frames | 1h | V1 |
+| V3 | Publish the chair's face — canvas `captureStream()` as the video source, painted with fal frames | 1h | V1, B9 |
+| V4 | Depth: `session.signal()` pushes agenda + interventions to every participant's UI; enable archiving | 30m | V1 |
+
+Two things to respect at init, both documented gotchas: never initialise a publisher with
+`audioSource: false` (it can never gain audio afterwards), and `setVideoSource()` only
+works on camera publishers, so change the canvas rather than the source.
+
+This surface is *less* risky than Discord — audio levels and custom tracks are
+documented and supported, where Discord's voice receive is neither. It is also the only
+one where the chair's face can be in the call.
+
 ## brain — chunks
 
 | # | Chunk | Effort | Depends on |
@@ -99,31 +119,37 @@ either never fires on stage or fires every eight seconds.
 
 ## Schedule
 
-| Barcelona | ears | brain |
-|---|---|---|
-| 12:15–13:15 | **E1 spike — join, speaking events, playback** | B1 agenda + state, B2 talk-time |
-| 13:15–14:15 | E2 wire | B3 replay harness — full offline loop running |
-| 14:15–16:00 | E3 speak handler, E4 record fixture | B4 agenda clock, B5 policy |
-| 16:00–17:00 | **Integration: real voice → real interrupt.** Both people, one call | |
-| 17:00–18:30 | E5 per-speaker decode | B6 Nebius line, B7 TTS |
-| 18:30–19:30 | dinner | dinner |
-| 19:30–21:00 | E6 SLNG STT | B8 stage |
-| 21:00 | **CUT LINE — is the agent interrupting live, on stage, reliably?** If not, both people work on the spine until it is. Nothing else matters | |
-| 21:00–22:30 | E6 finish, feed B10 | B9 fal video, B10 transcript features |
-| 22:30–23:00 | Dry run with four people in a call. Record it | |
-| Sun 09:00–10:00 | Fix what the dry run broke | |
-| Sun 10:00–11:00 | READMEs, 60-second recording, submit | |
+| Barcelona | ears-discord | brain | ears-vonage |
+|---|---|---|---|
+| 12:15–13:15 | **E1 spike — join, speaking events, playback** | B1 agenda + state, B2 talk-time | credentials from the Vonage mentor |
+| 13:15–14:15 | E2 wire | B3 replay harness — offline loop running | V1 join + subscribe |
+| 14:15–16:00 | E3 speak handler, E4 record fixture | B4 agenda clock, B5 policy | V1 levels → frames |
+| 16:00–17:00 | **Integration checkpoint — real voice → real interrupt, on Discord.** Everyone, one call | | |
+| 17:00–18:30 | E5 per-speaker decode | B6 Nebius line, B7 TTS | V2 publish the chair's voice |
+| 18:30–19:30 | dinner | dinner | dinner |
+| 19:30–21:00 | E6 SLNG STT | B8 stage | V4 signal + archiving |
+| 21:00 | **CUT LINE — is the agent interrupting live and reliably on at least one surface?** If not, everyone works on the spine until it is. Nothing else matters | | |
+| 21:00–22:30 | E6 finish, feed B10 | B9 fal video | V3 the chair's face in the call |
+| 22:30–23:00 | Dry run, both surfaces, four people. Record it | | |
+| Sun 09:00–10:00 | Fix what the dry run broke | | |
+| Sun 10:00–11:00 | READMEs, 60-second recording, submit | | |
+
+Three workstreams and two people is the honest tension in this schedule. The resolution:
+**Discord and brain are the spine and start together; Vonage starts when the brain's
+offline loop is running** and is picked up by whoever is freer, or by a third agent if
+the colleague has one to spare. If it slips, it slips — the demo works on one surface.
 
 ## Cut lines
 
 Drop in this order:
 
 1. **Concierge** — already parked. The agenda is a prepared file.
-2. **fal video (B9)** — decoration. The stage without a face still shows the meters.
+2. **The chair's face (B9, V3)** — decoration. The stage without a face still shows the meters.
 3. **Transcript features (E5, E6, B10)** — the whole tier 2. The spine does not need them.
-4. **Nebius line (B6)** — fall back to templates. Keep Nebius in the agenda-drafting path
-   so the track still applies.
-5. Never cut: E1, E2, E3, B2, B4, B5, B7. That is the demo.
+4. **The second surface** — if Vonage is not working by 21:00, demo Discord alone and
+   show the seam in the README. One brain, two ears, is a slide as well as a fact.
+5. **Nebius line (B6)** — fall back to templates.
+6. Never cut: E1, E2, E3, B1, B2, B4, B5, B7. That is the demo.
 
 ## Risks
 
@@ -141,9 +167,9 @@ Drop in this order:
 |---|---|---|
 | **SLNG** | TTS for the chair's voice; STT per speaker if tier 2 lands | core |
 | **Nebius** | Token Factory for what the chair says | core |
-| **fal.ai** | Live-generated video on the stage | stretch |
+| **Vonage** (gold) | The chair joins a session as a real participant — custom audio and video tracks, signalling, archiving | core |
+| **fal.ai** | Live-generated video on the stage, and published into the Vonage call | stretch |
 | **Mastra** | Only if the Concierge gets built and hosted | parked |
 
-Parking the Concierge gives up the Mastra track, and Vonage's gold Video API track was
-already out of reach the moment the call surface became Discord. SLNG, Nebius and fal
-remain, and the overall prize does not care which sponsor track you entered.
+Building the second surface is what puts the gold track back on the table. Parking the
+Concierge still gives up Mastra. The overall prize does not care which track you entered.

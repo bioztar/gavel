@@ -58,8 +58,12 @@ this topic; the chair invites them if they have not.
 Two processes, a WebSocket on localhost. JSON frames, `{ "type": ..., ... }`.
 Sub-millisecond on one machine, and it means either half runs alone.
 
-**`ears` owns the Discord voice connection exclusively. `brain` never imports
-discord.js. `ears` never makes a decision.**
+**An `ears` package owns exactly one call connection and makes no decisions. `brain`
+makes every decision and imports no call SDK — not discord.js, not the Vonage SDK.**
+
+There are two ears implementations and they are interchangeable. `brain` is started
+pointing at one wire and cannot tell which surface is on the other end. Adding a third
+surface later is a third ears package and nothing else.
 
 ### ears → brain
 
@@ -72,10 +76,19 @@ discord.js. `ears` never makes a decision.**
 | `transcript` | Tier 2 — an utterance was transcribed | `discordId`, `text`, `startedAt`, `endedAt` |
 | `spoken` | Playback of a `speak` finished | `utteranceId` |
 
-`speaking.start` / `speaking.end` come from the voice gateway's speaking state and do
-**not** require decoding audio. That is deliberate: talk-time, monologue detection and
-the whole interrupt policy run on these two events plus a clock. Transcription is a
-later, separate capability.
+`speaking.start` / `speaking.end` need no audio decoding on either surface. That is
+deliberate — talk-time, monologue detection and the whole interrupt policy run on those
+two events plus a clock. Transcription is a later, separate capability.
+
+How each side produces them:
+
+| | source | note |
+|---|---|---|
+| Discord | the voice gateway's speaking state, per user | arrives as discrete start/stop |
+| Vonage | `subscriber.on('audioLevelUpdated')`, per subscriber, 0–1.0 | a continuous level — the ears package thresholds it (~0.2) with hysteresis and emits the discrete frames |
+
+The hysteresis lives in `ears-vonage`, never in the brain. The brain sees the same two
+frames from both surfaces and that is the entire point of the seam.
 
 ### brain → ears
 
