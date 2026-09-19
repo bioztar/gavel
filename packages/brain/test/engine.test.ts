@@ -214,7 +214,7 @@ describe("talking to Karen, as in the 2026-09-19 demo transcript", () => {
   });
 
   it("answers the question, not a bare '.', and tells the model where the meeting is", async () => {
-    const { prompts, say, tick } = lobby(() => "Hi!");
+    const { prompts, say, tick } = lobby((user) => (user.includes("meeting about") ? "Status, the date, owners." : "Hi!"));
     // A bare greeting waits for the rest of the question; nothing comes, so it is answered.
     expect(await say("Hello, Karen.", 1_000)).toBeNull();
     const iv = await tick(3_000);
@@ -258,6 +258,34 @@ describe("talking to Karen, as in the 2026-09-19 demo transcript", () => {
     await say("Karen,", 1_000);
     expect(await tick(6_500)).toBeNull();
     expect((await tick(7_000))?.kind).toBe("addressed");
+  });
+
+  it("never says the same line twice: asks once more, then stays quiet", async () => {
+    const { engine, prompts, sent, say } = lobby(() => "Why don't meetings get lost? They follow the agenda!");
+    await say("Karen, tell me a joke.", 1_000);
+    await say("Karen, another joke, please.", 20_000);
+    const spoken = sent.filter((f) => f.type === "speak" || f.type === "speak.start");
+    expect(spoken).toHaveLength(1);
+    expect(prompts).toHaveLength(3);
+    expect(prompts[2]).toContain("You already said these lines in this meeting: Why don't meetings");
+    expect(engine.history.at(-1)?.line).toBe("");
+  });
+
+  it("a second try with new words is spoken", async () => {
+    const lines = ["Thanks Ana, Marc, what's the one thing a dog does no cat could?", "Thanks Ana, Marc, what's the one thing a dog does that no cat ever could?", "Marc, your turn: dogs or cats?"];
+    const { sent, say } = lobby(() => lines.shift() ?? null);
+    await say("Karen, what now?", 1_000);
+    await say("Karen, and now?", 20_000);
+    const spoken = sent.flatMap((f) => (f.type === "speak" ? [f.text] : []));
+    expect(spoken).toEqual(["Thanks Ana, Marc, what's the one thing a dog does no cat could?", "Marc, your turn: dogs or cats?"]);
+  });
+
+  it("'Let's start the meeting, please.' then just 'Karen.' starts it", async () => {
+    const { engine, say, tick } = lobby();
+    await say("Let's start the meeting, please.", 1_000);
+    expect(await say("Karen.", 2_000)).toBeNull();
+    expect((await tick(4_500))?.kind).toBe("startMeeting");
+    expect(engine.phase).toBe("active");
   });
 
   it("with template fallback off, a model that gives nothing means Karen stays quiet", async () => {

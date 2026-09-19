@@ -69,7 +69,8 @@ compose:
   # Pre-compose the redirect the moment an off-agenda episode opens, while the grace
   # period runs, so the live cost at interruption time is only TTS.
   precompose: true
-  # A line for the same kind + person + topic is reused for this long instead of a new call.
+  # A pre-composed line for the same kind + person + topic is usable for this long. It is
+  # spoken at most once: Karen never says the same line twice in a meeting.
   lineCacheSeconds: 300
   # When the model is slow or down, speak the YAML template instead. Off: the chair stays
   # quiet rather than say a canned line (non-speaking actions — start, advance, park — still

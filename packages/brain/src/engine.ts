@@ -103,6 +103,8 @@ export class Engine {
   private precomposed = new Map<string, Precomposed>();
   private directQueue: Intervention[] = [];
   private handledUtterances = new Set<string>();
+  /** Every line Karen has spoken this session. She never says one twice. */
+  private said: string[] = [];
   /** People who said just "Karen," or "Hey, Karen." — their next words are the request. */
   private awaitingRequest = new Map<string, { since: number; opener: string }>();
   /** Each person's recent final transcripts, for context when they address Karen. */
@@ -199,6 +201,7 @@ export class Engine {
     this.precomposed.clear();
     this.directQueue = [];
     this.handledUtterances.clear();
+    this.said = [];
     this.awaitingRequest.clear();
     this.recentWords.clear();
     this.facts = [];
@@ -519,25 +522,34 @@ export class Engine {
     const fresh = ready && this.now() - ready.at < this.cfg.policy.compose.lineCacheSeconds * 1000;
     let line: string | null = null;
     let source: Composed["source"] = "llm";
+    // A pre-composed line is spoken at most once: the next intervention of the same kind for
+    // the same person composes afresh.
+    this.precomposed.delete(key);
     if (fresh) {
       line = await withTimeout(ready.promise, timeoutMs);
       source = "cache";
     }
-    if (!line) {
+    if (!line || this.alreadySaid(line)) {
       source = "llm";
-      const promise = this.generate(iv, timeoutMs);
-      if (!direct) this.precomposed.set(key, { at: this.now(), promise });
-      line = await withTimeout(promise, timeoutMs);
+      line = await withTimeout(this.generate(iv, timeoutMs), timeoutMs);
+    }
+    if (line && this.alreadySaid(line)) {
+      log.warn("chair.repeat", { kind: iv.kind, line, retry: true });
+      line = await withTimeout(this.generate(iv, timeoutMs, true), timeoutMs);
+      if (line && this.alreadySaid(line)) {
+        log.warn("chair.repeat", { kind: iv.kind, line, retry: false });
+        line = null;
+      }
     }
     if (!line && (this.cfg.policy.compose.templateFallback || !this.deps.llm.composes)) {
-      line = this.template(iv);
+      line = this.template(iv) || null;
       source = "template";
     }
-    if (!line) log.warn("chair.no_line", { kind: iv.kind, reason: "model gave nothing in time; template fallback is off" });
+    if (!line) log.warn("chair.no_line", { kind: iv.kind, reason: "no new line in time; template fallback is off" });
     return { line: line ?? "", source, composeMs: Math.round(performance.now() - started) };
   }
 
-  private async generate(iv: Intervention, timeoutMs?: number): Promise<string | null> {
+  private async generate(iv: Intervention, timeoutMs?: number, avoidRepeat = false): Promise<string | null> {
     const kind = this.cfg.chair.kinds[iv.kind];
     // Only an explicit question to Karen needs the live notes. Supplying them to routine
     // redirects and wrap-ups tempts smaller models to improvise extra commitments.
@@ -558,6 +570,7 @@ export class Engine {
         .filter(([k]) => k !== "quote")
         .map(([k, v]) => `${k}: ${v?.trim() || "(none)"}`)
         .join("\n"),
+      avoid: avoidRepeat ? render(this.cfg.chair.avoidRepeat, { said: this.said.join(" | ") }) : "",
     });
     try {
       const text = await this.deps.llm.compose({ system: `${this.cfg.chair.system}\n${this.contextText()}`, user, timeoutMs });
@@ -572,7 +585,8 @@ export class Engine {
    * The templates whose placeholders all have values, rotating by how many times this kind
    * has already fired this session — so a persona's four-plus variants don't repeat inside
    * one meeting. Deterministic: same history, same pick. Falls back to the last template
-   * (persona-agnostic) when none qualify.
+   * (persona-agnostic) when none qualify. A variant Karen has already said is skipped; when
+   * every one has been said, the line is empty and she stays quiet.
    */
   template(iv: Intervention): string {
     const templates = this.cfg.chair.kinds[iv.kind as InterventionKind].templates;
@@ -583,7 +597,26 @@ export class Engine {
     const seenBefore = this.history.filter((h) => h.kind === iv.kind).length - 1;
     // Spoken aloud, people are addressed by first name ("Artem", not "Artem Shambalev").
     const vars = { ...iv.vars, name: firstName(iv.vars.name), addresseeName: firstName(iv.vars.addresseeName) };
-    return render(pool[seenBefore % pool.length]!, vars);
+    for (let i = 0; i < pool.length; i++) {
+      const line = render(pool[(seenBefore + i) % pool.length]!, vars);
+      if (!this.alreadySaid(line)) return line;
+    }
+    return "";
+  }
+
+  /** The same words as a line already spoken this session, or nearly all of them. */
+  private alreadySaid(line: string): boolean {
+    const words = spokenWords(line);
+    if (!words.length) return false;
+    return this.said.some((earlier) => {
+      const before = spokenWords(earlier);
+      if (words.join(" ") === before.join(" ")) return true;
+      if (words.length < 5 || before.length < 5) return false;
+      const a = new Set(words);
+      const b = new Set(before);
+      const shared = [...a].filter((w) => b.has(w)).length;
+      return shared / (a.size + b.size - shared) >= REPEAT_OVERLAP;
+    });
   }
 
   /** Park, speak, mute, advance — whichever the intervention calls for, in that order. */
@@ -591,7 +624,15 @@ export class Engine {
     if (iv.actions.includes("park") && iv.park) await this.park(iv.park);
     if (iv.actions.includes("park")) for (const p of iv.parks ?? []) await this.park(p);
     let out: { ttsMs?: number; utteranceId?: string } = {};
-    if (iv.actions.includes("speak") && line) out = await this.speak(line, iv.priority);
+    // Whatever path the line took here, Karen does not say it twice.
+    if (line && this.alreadySaid(line)) {
+      log.warn("chair.repeat_suppressed", { kind: iv.kind, line });
+      line = "";
+    }
+    if (iv.actions.includes("speak") && line) {
+      this.said.push(line);
+      out = await this.speak(line, iv.priority);
+    }
     if (iv.actions.includes("mute") && iv.targetId && iv.muteSeconds) {
       this.mute(iv.targetId, iv.muteSeconds, `gavel: ${iv.kind}`);
     }
@@ -802,7 +843,8 @@ export class Engine {
 
   private onRequest(id: string, request: string, at: number): void {
     const who = this.nameOf(id);
-    const wantsStart = START.test(request);
+    // "Let's start the meeting, please." … "Karen." — the name alone points at what came before.
+    const wantsStart = START.test(request) || (!request && START.test(this.earlierWords(id, at)));
 
     if (wantsStart && this.phase === "gathering") {
       const missing = this.missingAttendees();
@@ -1040,6 +1082,8 @@ export class Engine {
 }
 
 const KAREN = /\bkaren\b/i;
+/** Share of distinct words two lines have in common above which the second is a repeat. */
+const REPEAT_OVERLAP = 0.8;
 /** A greeting or filler with nothing after it: "Hey.", "Hi there,", "Okay, so". */
 const OPENER_ONLY =
   /^(?:(?:hey|hi|hello|hiya|yo|there|ok|okay|so|um+|uh+|well|right|alright|all right|good (?:morning|afternoon|evening))[\s.,!?;:-]*)+$/i;
@@ -1053,6 +1097,10 @@ function withoutName(text: string): string {
     .replace(/^[\s.,!?;:-]+/, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function spokenWords(line: string): string[] {
+  return line.toLowerCase().match(/[\p{L}\p{N}']+/gu) ?? [];
 }
 
 function firstName(name: string | undefined): string | undefined {

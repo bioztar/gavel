@@ -123,6 +123,9 @@ const Kind = z.object({
 export const ChairPrompts = z.object({
   system: z.string(),
   user: z.string(),
+  // Added to the user message when the first try repeated a line Karen already said.
+  // Placeholder: said.
+  avoidRepeat: z.string(),
   fallbackQuestion: z.string(),
   implicitTopic: z.object({ title: z.string(), goal: z.string(), questions: z.array(z.string()) }),
   kinds: z.object(Object.fromEntries(INTERVENTION_KINDS.map((k) => [k, Kind])) as Record<

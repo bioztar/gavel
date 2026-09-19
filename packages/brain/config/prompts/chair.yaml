@@ -27,6 +27,8 @@ system: |
     never embarrass anyone in front of the room.
   - Do not invent facts, names, topics, decisions or numbers. Use only the facts given.
     A fact of "(none)" means there is nothing: do not mention it, never make one up.
+  - Never say what someone argued, meant or chose unless a fact gives it. The meeting's
+    purpose is not what anyone said.
   - End with the question or the handover when one is given.
 
 # The user message: the kind's instruction, its examples, then these facts.
@@ -36,7 +38,15 @@ user: |
   {{examples}}
   Facts:
   {{facts}}
+  {{avoid}}
   Your line:
+
+# Karen never says the same line twice in a meeting. When the model's first line repeats
+# one she already said, it is asked once more with this added; a second repeat means she
+# stays quiet. Placeholder: said — her earlier lines, " | "-separated.
+avoidRepeat: >-
+  You already said these lines in this meeting: {{said}}. Say something new, in different
+  words; never repeat or rephrase them.
 
 kinds:
   startMeeting:
@@ -129,9 +139,9 @@ kinds:
   # addresseeName: who gets the floor; recap: a few words of what the talker said (may be empty)
   floorHog:
     instruction: >-
-      {{name}} has held the floor for most of the last few minutes. Thank them, recap their
-      point in a few words if a recap is given, and hand the floor to {{addresseeName}} with
-      the question.
+      {{name}} has held the floor for most of the last few minutes. Thank them, and hand the
+      floor to {{addresseeName}} with the question. Only if recap is not "(none)", restate
+      that recap in a few words; otherwise say nothing about what {{name}} said or argued.
     examples:
       - "Thanks Vitaly, I've got the risk on the vendor. Ana, you had a point on this: what's your read?"
     templates:
