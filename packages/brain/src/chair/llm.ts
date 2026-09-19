@@ -1,5 +1,6 @@
 /** The two model calls the chair makes, behind one interface so replay can stub them. */
 import type { Topic } from "../contract/agenda";
+import type { Notes } from "../state/notes";
 import type { Classification } from "../state/relevance";
 
 export interface ClassifyRequest {
@@ -18,8 +19,13 @@ export interface ComposeRequest {
   timeoutMs?: number;
 }
 
+export interface DigestRequest {
+  system: string;
+  user: string;
+}
+
 export interface Usage {
-  agent: "relevance" | "chair";
+  agent: "relevance" | "chair" | "digest";
   model: string;
   inputTokens: number;
   outputTokens: number;
@@ -33,6 +39,8 @@ export interface Llm {
   readonly composes: boolean;
   classify(req: ClassifyRequest): Promise<Classification | null>;
   compose(req: ComposeRequest): Promise<string | null>;
+  /** Merges the running notes for the status board. Absent: the board shows them as kept. */
+  digest?(req: DigestRequest): Promise<Notes | null>;
 }
 
 /**

@@ -24,7 +24,7 @@ const Profile = z.object({
 });
 
 export const ModelsConfig = z.object({
-  profiles: z.object({ fast: Profile, normal: Profile }),
+  profiles: z.object({ fast: Profile, normal: Profile, digest: Profile }),
   prices: z.record(z.string(), z.object({ input: z.number(), output: z.number() })),
   tts: z.object({
     // stream: one warm WebSocket, audio forwarded to ears as it is synthesized.
@@ -74,6 +74,9 @@ export const PolicyConfig = z.object({
     recheckSeconds: z.number(),
     cacheSize: z.number().int().nonnegative(),
   }),
+  digest: z
+    .object({ minIntervalSeconds: z.number().nonnegative(), minItems: z.number().int().nonnegative() })
+    .default({ minIntervalSeconds: 20, minItems: 3 }),
   addressed: z
     .object({ followUpSeconds: z.number(), settleSeconds: z.number().default(2), contextSeconds: z.number() })
     .default({ followUpSeconds: 6, settleSeconds: 2, contextSeconds: 20 }),
@@ -130,6 +133,7 @@ export const ChairPrompts = z.object({
 export type ChairPrompts = z.infer<typeof ChairPrompts>;
 
 export const RelevancePrompts = z.object({ system: z.string(), user: z.string() });
+export const DigestPrompts = z.object({ system: z.string(), user: z.string() });
 
 // The chair's two voices (config/personas.yaml). `tone` is folded into `chair.system` — the
 // stable prompt prefix — never into a per-call suffix, so Nebius keeps caching it.
@@ -172,6 +176,7 @@ export interface Config {
   policy: PolicyConfig;
   chair: ChairPrompts;
   relevance: z.infer<typeof RelevancePrompts>;
+  digest: z.infer<typeof DigestPrompts>;
   persona: Persona;
 }
 
@@ -180,6 +185,7 @@ const FILES = {
   policy: ["policy.yaml", PolicyConfig],
   chair: ["prompts/chair.yaml", ChairPrompts],
   relevance: ["prompts/relevance.yaml", RelevancePrompts],
+  digest: ["prompts/digest.yaml", DigestPrompts],
   personas: ["personas.yaml", PersonasFile],
   chairFormal: ["prompts/chair.formal.yaml", ChairPersonaTemplates],
   chairFunky: ["prompts/chair.funky.yaml", ChairPersonaTemplates],
@@ -218,6 +224,7 @@ export function loadConfig(dir = process.env.BRAIN_CONFIG_DIR ?? DEFAULT_CONFIG_
     policy: read(...FILES.policy),
     chair,
     relevance: read(...FILES.relevance),
+    digest: read(...FILES.digest),
     persona,
   };
   // Env beats YAML for the model ids only — handy for a quick A/B without editing files.

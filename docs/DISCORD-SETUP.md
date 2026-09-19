@@ -59,10 +59,14 @@ The bot needs these permissions in the meeting channel:
 | Use Voice Activity | `1 << 25` | speaking without push-to-talk |
 | Mute Members | `1 << 22` | the brain's `mute` / `unmute` |
 | Priority Speaker | `1 << 8` | `priority: true` lines ducking the room |
+| Send Messages | `1 << 11` | the live meeting-status message in the channel's text chat |
+| Embed Links | `1 << 14` | ...which is an embed |
 
-Together these make **`40895744`**. Without Mute Members and Priority Speaker
-(**`36701184`**), Karen still listens and talks, but `mute` comes back `failed` and
-priority lines don't duck the room.
+Together these make **`40914176`**. Without Mute Members and Priority Speaker, Karen
+still listens and talks, but `mute` comes back `failed` and priority lines don't duck the
+room. Without Send Messages and Embed Links there is no status message (ears logs
+`status.failed` once). A bot invited with the old **`40895744`** needs the two new
+permissions granted on its role, or a re-invite with the new link.
 
 ## 4. The invite link
 
@@ -73,7 +77,7 @@ user joins the server, so ears never sees that server.
 ### Option A: build it
 
 ```
-https://discord.com/oauth2/authorize?client_id=1550818383845400670&scope=bot&permissions=40895744
+https://discord.com/oauth2/authorize?client_id=1550818383845400670&scope=bot&permissions=40914176
 ```
 
 Optional query parameters:

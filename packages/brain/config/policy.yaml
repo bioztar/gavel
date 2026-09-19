@@ -38,6 +38,12 @@ relevance:
   recheckSeconds: 8      # while an off-agenda episode is open, re-check at most this often
   cacheSize: 256         # identical (topic, window) pairs reuse the verdict
 
+# The status board's tidy notes (prompts/digest.yaml). One model call per change in the notes,
+# at most this often.
+digest:
+  minIntervalSeconds: 20
+  minItems: 3            # below this many notes there is nothing to merge
+
 # Someone talking to Karen directly.
 addressed:
   # "Karen," or "Hey, Karen." on its own: the next thing that person says within this long is

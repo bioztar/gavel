@@ -9,6 +9,7 @@ import { Mastra } from "@mastra/core/mastra";
 import { MastraStorageExporter, Observability } from "@mastra/observability";
 import { PostgresStore } from "@mastra/pg";
 import { chairAgent } from "./agents/chair";
+import { digestAgent } from "./agents/digest";
 import { operatorAgent } from "./agents/operator";
 import { relevanceAgent } from "./agents/relevance";
 import { interveneWorkflow } from "./workflows/intervene";
@@ -23,7 +24,7 @@ export function pgDsn(dsn = process.env.POSTGRES_DSN ?? DEFAULT_DSN): string {
 const withStorage = process.env.GAVEL_MASTRA_STORAGE !== "off";
 
 export const mastra = new Mastra({
-  agents: { chairAgent, relevanceAgent, operatorAgent },
+  agents: { chairAgent, relevanceAgent, digestAgent, operatorAgent },
   workflows: { interveneWorkflow },
   ...(withStorage
     ? {

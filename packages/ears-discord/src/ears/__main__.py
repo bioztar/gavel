@@ -15,6 +15,7 @@ from .bus import Bus
 from .db.store import Store
 from .logging import get_logger, setup_logging
 from .settings import get_settings
+from .status_board import StatusBoard
 from .stt import SlngStt
 from .tts import SlngTts
 from .wire import create_api
@@ -66,6 +67,9 @@ async def main() -> None:
             voice = Voice(settings, ears, await store.discord_channels())
             ears.voice = voice
             background.append(loop.create_task(_supervise("voice", voice.run())))
+            if settings.discord_status_enabled:
+                board = StatusBoard(settings, http, voice, ears.debug)
+                background.append(loop.create_task(_supervise("status", board.run())))
         else:
             logger.warning("voice.disabled", reason="DISCORD_EARS_TOKEN unset — wire only")
 

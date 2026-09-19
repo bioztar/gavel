@@ -29,9 +29,9 @@ are optional at runtime — if either is down, ears logs it once and the brain s
 every frame.
 
 The bot must be invited with the **`bot`** scope, not just `applications.commands`:
-`https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot&permissions=40895744`
-(View Channel, Connect, Speak, Use Voice Activity, Mute Members, Priority Speaker). No
-privileged intents. Without the last two the chair still talks, but `mute` comes back
+`https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot&permissions=40914176`
+(View Channel, Connect, Speak, Use Voice Activity, Mute Members, Priority Speaker, Send
+Messages, Embed Links). No privileged intents. Without the last two the chair still talks, but `mute` comes back
 `failed` and priority lines do not duck the room.
 Creating the app and sharing invite links: [docs/DISCORD-SETUP.md](../../docs/DISCORD-SETUP.md).
 
@@ -56,6 +56,18 @@ A no-auth operator page, served by ears itself:
   debug events (`stt.result` / `stt.skipped` / `tts.*` / `speak.*`). Click a row for JSON.
 - **Say-box** — type a line, SLNG TTS speaks it into the channel through the same
   playback path as the brain's `speak`. *Stop* cuts it off.
+
+## The status message — in Discord
+
+Everything in *What Karen understands*, as one embed in the meeting voice channel's own
+text chat, edited in place every `DISCORD_STATUS_INTERVAL_SECONDS` (5) when something
+changed: phase and current topic with a time bar (red once over budget), the agenda,
+talk-time share, then decisions, key facts, what is still open, and the parking lot. One
+message per session; a deleted one is posted again. The notes are the brain's `digest` —
+merged and deduplicated there (see the brain README). `DISCORD_STATUS_CHANNEL_ID` posts to
+another text channel instead; `DISCORD_STATUS_ENABLED=false` turns it off. The console log
+shows `status.posted` with the message link. `status_board.py`; only `voice.py` touches
+Discord.
 
 ## What comes out
 
@@ -104,6 +116,7 @@ the brain's replay fixture (plan chunk E4).
 | `stt.py`, `audio.py` | SLNG over HTTP; 48k stereo → 16k mono WAV |
 | `wire.py`, `console.html` | WebSockets (brain `/`, console `/live`), REST API, the console page |
 | `meetings.py`, `tts.py` | agenda schema; SLNG TTS for the say-box |
+| `status_board.py` | the live meeting-status message: brain `/state` → embed, edited in place |
 | `bus.py`, `db/` | Redis; Postgres (queued writer, alembic migrations) |
 
 ## Speech-to-text

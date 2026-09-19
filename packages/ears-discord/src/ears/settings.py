@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     discord_voice_channel_id: int | None = None
     # Stay briefly after the last person leaves, in case they reconnect or switch device.
     discord_leave_grace_seconds: float = 10.0
+    # The live meeting-status message (status_board.py). Unset channel: the meeting voice
+    # channel's own text chat. Needs Send Messages + Embed Links.
+    discord_status_enabled: bool = True
+    discord_status_channel_id: int | None = None
+    discord_status_interval_seconds: float = 5.0
     # py-cord does not find Homebrew's libopus on its own.
     opus_lib: str = "/opt/homebrew/lib/libopus.dylib"
 

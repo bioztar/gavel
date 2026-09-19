@@ -24,6 +24,15 @@ profiles:
     # Someone asked Karen directly (or to start) and is waiting for the answer.
     directTimeoutMs: 5000
 
+  # Merges the running notes (facts, decisions, open items, parked) into a deduplicated list
+  # for the status board. Off the live path, runs only when the notes change.
+  digest:
+    model: Qwen/Qwen3-30B-A3B-Instruct-2507
+    temperature: 0
+    maxOutputTokens: 700
+    timeoutMs: 15000
+    jsonPromptInjection: true
+
 # USD per 1M tokens (Nebius catalog, Sept 2026). Used for the cost log in ears' llm_calls.
 #
 # Bake-off 2026-09-19, relevance.yaml prompt, 3 labelled cases, from Barcelona:

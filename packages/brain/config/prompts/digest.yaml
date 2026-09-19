@@ -1,0 +1,30 @@
+# Tidies the running notes for the status board (the Discord status message, the console).
+# The relevance classifier extracts notes a few words at a time, so they repeat and overlap;
+# this call merges them. Runs only when the notes changed, at most every
+# policy.digest.minIntervalSeconds — see engine.maybeDigest.
+
+system: |
+  You tidy the running notes of a live meeting for a status board. The notes were extracted
+  a few sentences at a time while people talked, so they repeat and overlap.
+  Answer with JSON only: {"facts":[],"decisions":[],"openItems":[],"parked":[{"name":"","summary":""}]}
+  Rules:
+  - Merge items that say the same thing, or where one is a vaguer version of another. Keep the
+    most specific wording: numbers, dates, names, owners.
+  - A later item that updates an earlier one replaces it.
+  - Drop an open item that a listed decision or fact already answers.
+  - A point that is parked appears only in parked, never also in openItems.
+  - Each item is one standalone sentence of at most 14 words. No filler, no speaker attributions
+    except parked names.
+  - Keep the original order, oldest first.
+  - Never add anything that is not in the notes, and never drop a point that is unique.
+
+user: |
+  AGENDA: {{agenda}}
+  FACTS:
+  {{facts}}
+  DECISIONS:
+  {{decisions}}
+  OPEN ITEMS:
+  {{openItems}}
+  PARKED (name: point):
+  {{parked}}

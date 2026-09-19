@@ -5,8 +5,10 @@
 import type { Config } from "../config";
 import type { Classification } from "../state/relevance";
 import { z } from "zod";
-import type { ClassifyRequest, ComposeRequest, Llm, Usage } from "./llm";
+import type { Notes } from "../state/notes";
+import type { ClassifyRequest, ComposeRequest, DigestRequest, Llm, Usage } from "./llm";
 import { chairAgent } from "../mastra/agents/chair";
+import { digestAgent } from "../mastra/agents/digest";
 import { relevanceAgent } from "../mastra/agents/relevance";
 
 const Verdict = z.object({
@@ -16,6 +18,13 @@ const Verdict = z.object({
   facts: z.array(z.string()).default([]),
   decisions: z.array(z.string()).default([]),
   openItems: z.array(z.string()).default([]),
+});
+
+const Digested = z.object({
+  facts: z.array(z.string()).default([]),
+  decisions: z.array(z.string()).default([]),
+  openItems: z.array(z.string()).default([]),
+  parked: z.array(z.object({ name: z.string(), summary: z.string() })).default([]),
 });
 
 interface UsageLike {
@@ -60,6 +69,24 @@ export class MastraLlm implements Llm {
     });
     this.report("chair", p.model, res.usage as UsageLike | undefined, started);
     return res.text?.trim() || null;
+  }
+
+  async digest(req: DigestRequest): Promise<Notes | null> {
+    const p = this.cfg().profiles.digest;
+    const started = performance.now();
+    const res = await digestAgent.generate(req.user, {
+      instructions: req.system,
+      modelSettings: { temperature: p.temperature, maxOutputTokens: p.maxOutputTokens },
+      abortSignal: AbortSignal.timeout(p.timeoutMs),
+      structuredOutput: {
+        schema: Digested,
+        jsonPromptInjection: p.jsonPromptInjection,
+        errorStrategy: "fallback",
+        fallbackValue: null,
+      },
+    });
+    this.report("digest", p.model, res.usage as UsageLike | undefined, started);
+    return (res.object as Notes | null) ?? null;
   }
 
   private report(agent: Usage["agent"], model: string, usage: UsageLike | undefined, started: number): void {

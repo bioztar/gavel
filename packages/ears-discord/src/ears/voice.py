@@ -265,6 +265,31 @@ class Voice:
         if self._channel is None and channel is not None and _humans(channel):
             await self._join(channel)
 
+    # --- the status message (status_board.py) -----------------------------------------
+
+    @property
+    def status_channel_id(self) -> str | None:
+        if self._settings.discord_status_channel_id is not None:
+            return str(self._settings.discord_status_channel_id)
+        return self.channel_id  # a voice channel has its own text chat
+
+    async def send_embed(self, channel_id: str, embed: dict[str, Any]) -> tuple[str, str]:
+        message = await self._messageable(channel_id).send(embed=discord.Embed.from_dict(embed))
+        return str(message.id), message.jump_url
+
+    async def edit_embed(self, channel_id: str, message_id: str, embed: dict[str, Any]) -> None:
+        message = self._messageable(channel_id).get_partial_message(int(message_id))
+        try:
+            await message.edit(embed=discord.Embed.from_dict(embed))
+        except discord.NotFound as exc:
+            raise LookupError("status message no longer exists") from exc
+
+    def _messageable(self, channel_id: str) -> Any:
+        channel = self.client.get_channel(int(channel_id))
+        if channel is None or not hasattr(channel, "get_partial_message"):
+            raise LookupError(f"channel {channel_id} is not a text chat this bot can see")
+        return channel
+
     def play(self, audio: bytes, done: Any, priority: bool = False) -> bool:
         """Play encoded audio (wav/mp3/ogg — anything FFmpeg reads). `done(error)` runs on the loop.
 

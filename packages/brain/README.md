@@ -59,6 +59,11 @@ and stay open across meetings. At the next session's start the chair loads the o
 for everyone expected, and `/state` shows them. Every intervention lands in
 `interventions`, and every model call in `llm_calls` with tokens and cost. `/state` also
 exposes session facts, decisions, open items, and parked topics to the ears console.
+Notes are deduplicated twice: near-identical ones are dropped as they arrive
+(`src/state/notes.ts`), and `digest` — what the Discord status message shows — is those
+notes merged by the model (`config/prompts/digest.yaml`, `digest` profile). That call runs
+only when the notes changed, at most every `policy.digest.minIntervalSeconds` (20 s), ~500
+tokens in; anything newer than the last digest is appended until the next one.
 
 ## Tuning: everything is YAML (`config/`, hot-reloaded)
 

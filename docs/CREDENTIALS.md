@@ -20,8 +20,9 @@ Full walkthrough, including invite links for other servers: [DISCORD-SETUP.md](D
 - **Bot token** → `DISCORD_EARS_TOKEN`
 - **Privileged intents:** none needed. ears uses Guilds and Guild Voice States, which are not privileged.
 - **Invite it** with the **`bot`** scope, not just `applications.commands`:
-  `https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot&permissions=40895744`
-  (View Channel, Connect, Speak, Use Voice Activity, Mute Members, Priority Speaker).
+  `https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot&permissions=40914176`
+  (View Channel, Connect, Speak, Use Voice Activity, Mute Members, Priority Speaker,
+  Send Messages, Embed Links).
 - Once ears is running, select the meeting voice channel for each server in the operator
   console. The selection is stored in Postgres; no server/channel IDs are needed in `.env`.
 - Test server: **https://discord.gg/qR6RwKuAh**

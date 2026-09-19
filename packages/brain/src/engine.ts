@@ -16,6 +16,7 @@ import type { Wire } from "./ears/wire";
 import { log } from "./log";
 import type { Intervention, PersonView, Redirect, Snapshot } from "./policy/snapshot";
 import { evaluate, redirectFor } from "./policy/triggers";
+import { type Notes, addNotes, boardNotes, noteKeys, parkedLine, totalNotes } from "./state/notes";
 import { type Classification, RelevanceTracker } from "./state/relevance";
 import { TalkLedger } from "./state/talk";
 import { render } from "./template";
@@ -109,6 +110,11 @@ export class Engine {
   private facts: string[] = [];
   private decisions: string[] = [];
   private openItems: string[] = [];
+  /** Bumped whenever a note is added; the digest is redone when it moves. */
+  private notesVersion = 0;
+  private digest: { notes: Notes; seen: Set<string>; version: number } | null = null;
+  private digesting = false;
+  private digestAt = 0;
   private inFlight = new Set<Promise<unknown>>();
   readonly history: Array<Intervention & { at: number; line?: string; source?: string }> = [];
   readonly usage = { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 };
@@ -198,6 +204,9 @@ export class Engine {
     this.facts = [];
     this.decisions = [];
     this.openItems = [];
+    this.notesVersion = 0;
+    this.digest = null;
+    this.digestAt = 0;
     this.ledger.reset();
     this.relevance.resetAll();
     log.info("session.started", {
@@ -265,6 +274,7 @@ export class Engine {
       if (!this.ledger.holding(id, now, graceMs)) this.relevance.clear(id);
     }
     for (const id of this.people.keys()) this.maybeClassify(id);
+    this.maybeDigest(now);
     // "Karen," and then nothing: once they have gone quiet (or the wait runs out), answer the
     // greeting, or from what they said before it.
     const { followUpSeconds, settleSeconds } = this.cfg.policy.addressed;
@@ -614,6 +624,7 @@ export class Engine {
 
   async park(p: { discordId: string; name: string; summary: string; quote?: string; topicId?: string | null }): Promise<Memory | null> {
     this.parked.push({ name: p.name, summary: p.summary });
+    this.notesVersion += 1;
     const memory = await this.deps.store.addMemory({
       discordId: p.discordId,
       name: p.name,
@@ -902,9 +913,54 @@ export class Engine {
   }
 
   private absorbInsights(result: Classification): void {
-    addUnique(this.facts, result.facts);
-    addUnique(this.decisions, result.decisions);
-    addUnique(this.openItems, result.openItems);
+    const added = [
+      addNotes(this.facts, result.facts),
+      addNotes(this.decisions, result.decisions),
+      addNotes(this.openItems, result.openItems),
+    ];
+    if (added.some(Boolean)) this.notesVersion += 1;
+  }
+
+  private notes(): Notes {
+    return { facts: this.facts, decisions: this.decisions, openItems: this.openItems, parked: this.parked };
+  }
+
+  /** Re-merge the notes for the status board once they have changed, at most every minIntervalSeconds. */
+  private maybeDigest(now: number): void {
+    const llm = this.deps.llm;
+    const { minIntervalSeconds, minItems } = this.cfg.policy.digest;
+    if (!llm.digest || this.digesting || !this.agenda) return;
+    if (this.notesVersion === (this.digest?.version ?? 0)) return;
+    if (now - this.digestAt < minIntervalSeconds * 1000) return;
+    const notes = this.notes();
+    if (totalNotes(notes) < minItems) return;
+    const lines = (list: string[]) => (list.length ? list.map((x) => `- ${x}`).join("\n") : "(none)");
+    const user = render(this.cfg.digest.user, {
+      agenda: this.agenda.topics.map((t) => t.title).join("; "),
+      facts: lines(notes.facts),
+      decisions: lines(notes.decisions),
+      openItems: lines(notes.openItems),
+      parked: lines(notes.parked.map(parkedLine)),
+    });
+    const version = this.notesVersion;
+    const seen = noteKeys(notes);
+    const session = this.sessionId;
+    this.digesting = true;
+    this.digestAt = now;
+    this.track(
+      llm
+        .digest({ system: this.cfg.digest.system, user })
+        .catch((err) => {
+          log.warn("digest.failed", { error: String(err) });
+          return null;
+        })
+        .then((merged) => {
+          this.digesting = false;
+          if (!merged || session !== this.sessionId) return;
+          this.digest = { notes: merged, seen, version };
+          log.debug("digest", { before: seen.size, after: totalNotes(merged) });
+        }),
+    );
   }
 
   // --- model usage ------------------------------------------------------------------------------
@@ -974,19 +1030,12 @@ export class Engine {
         later: [...this.openItems, ...this.parked.map((p) => p.summary)],
         offTopics: [...this.parked],
       },
+      // The notes merged and deduplicated, for the status board.
+      digest: boardNotes(this.notes(), this.digest?.notes ?? null, this.digest?.seen ?? new Set()),
       interventions: this.history.slice(-20).map((h) => ({ at: h.at, kind: h.kind, line: h.line, source: h.source })),
       usage: { ...this.usage, costUsd: Number(this.usage.costUsd.toFixed(6)) },
       policy: s.policy,
     };
-  }
-}
-
-function addUnique(target: string[], values: string[] | undefined): void {
-  for (const raw of values ?? []) {
-    const value = raw.trim();
-    if (!value || target.some((x) => x.toLowerCase() === value.toLowerCase())) continue;
-    target.push(value);
-    if (target.length > 50) target.shift();
   }
 }
 
