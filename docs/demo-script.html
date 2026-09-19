@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>gavel — demo script</title>
+<style>
+  :root{--bg:#07090f;--ink:#eef1f7;--dim:#8b94ab;--line:#232a3a;--card:#0e121b;
+        --ours:#5b8cff;--spon:#ffb340;--room:#3fd6a0;--off:#b98bff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:17px/1.65 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       background-image:radial-gradient(1100px 620px at 78% -8%,#131a2b 0%,transparent 62%)}
+  main{max-width:900px;margin:0 auto;padding:56px 22px 90px}
+  h1{font-size:40px;line-height:1.1;letter-spacing:-.02em;margin:0 0 6px}
+  h2{font-size:24px;letter-spacing:-.01em;margin:54px 0 14px;padding-bottom:9px;
+     border-bottom:1px solid var(--line)}
+  h3{font-size:18px;margin:26px 0 8px;color:var(--ours)}
+  p{margin:12px 0}
+  .lede{color:var(--dim);font-size:18px;margin:0 0 4px}
+  .meta{color:var(--dim);font-size:14px;margin:18px 0 0}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:15px}
+  th{text-align:left;color:var(--dim);font-weight:600;font-size:13px;
+     text-transform:uppercase;letter-spacing:.06em;padding:8px 10px;border-bottom:1px solid var(--line)}
+  td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+  tbody tr:nth-child(even){background:#0b0f19}
+  td.clock{color:var(--spon);font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+        padding:20px 22px;margin:18px 0}
+  .say{border-left:3px solid var(--ours);background:#0b1020;border-radius:0 10px 10px 0;
+       padding:14px 18px;margin:14px 0;font-size:17px}
+  .say.karen{border-left-color:var(--off);background:#120c1e}
+  .say.drift{border-left-color:var(--spon);background:#1a1206;color:#f3e6cf}
+  .note{color:var(--dim);font-size:15px;font-style:italic;margin:8px 0 0}
+  .warn{border:1px solid #6b4a12;background:#1a1206;border-radius:12px;padding:14px 18px;margin:16px 0}
+  .warn strong{color:var(--spon)}
+  code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;
+             background:#111726;border:1px solid var(--line);border-radius:6px;padding:1px 6px;
+             overflow-wrap:anywhere}
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .scroll table{min-width:520px}
+  .chip{display:inline-block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+        border:1px solid var(--line);border-radius:999px;padding:2px 9px;color:var(--dim);margin-left:8px}
+  ol,ul{margin:12px 0;padding-left:22px}li{margin:6px 0}
+  .opens{display:grid;gap:16px}
+  .open{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--room);
+        border-radius:12px;padding:18px 20px}
+  .open h3{margin-top:0;color:var(--room)}
+  .silent{color:var(--room);font-weight:600}
+  @media print{
+    body{background:#fff;color:#111;background-image:none}
+    main{max-width:none;padding:0}
+    .card,.open,.warn,.say{box-shadow:none;background:#fff;border-color:#ccc;color:#111;
+      page-break-inside:avoid}
+    .say.karen,.say.drift{color:#111}
+    table,tr,td{page-break-inside:avoid}
+    tbody tr:nth-child(even){background:#f4f4f4}
+    h1,h2,h3{color:#111}.lede,.dim,.meta,.note,th{color:#444}
+    td.clock{color:#111}
+  }
+</style></head><body><main>
+
+<h1>gavel — demo script</h1>
+<p class="lede">HackBarna, 20 Sep 2026. Target <strong>6:00</strong>, ceiling 7:00. Same
+script for the stage and the submission video.</p>
+<p class="meta">Four cold opens — §2. Everything after the open is identical in all four.</p>
+
+<h2>1 · Pre-flight</h2>
+<div class="scroll"><table><thead><tr><th>#</th><th>Check</th><th>How</th></tr></thead><tbody>
+<tr><td>1</td><td>Policy overrides live</td><td><code>CALENDAR_POLICY_OVERRIDES={"offAgendaGraceSeconds": 8, "requireStart": false}</code> — verified on the box: agenda ships 13 policy keys, grace <strong>8</strong>, requireStart <strong>false</strong>, gap <strong>45</strong></td></tr>
+<tr><td>2</td><td>Topic types in the confirm table</td><td>row 1 <strong>presentation</strong> · row 2 <strong>discussion</strong> · row 3 <strong>presentation</strong></td></tr>
+<tr><td>3</td><td>Must-hear on row 2</td><td><code>Vitaly, Artem</code> — without it the handover has nobody to hand to</td></tr>
+<tr><td>4</td><td>Attendee map</td><td>3 entries mapped; both of you must be in it or Karen cannot match a Discord speaker to an attendee</td></tr>
+<tr><td>5</td><td>Persona</td><td>formal</td></tr>
+<tr><td>6</td><td>Tabs, in this order</td><td><code>/compose</code> · mailbox · calendar · Discord · <code>/architecture</code> on slide 1</td></tr>
+<tr><td>7</td><td>Second screen <span class="chip">optional</span></td><td>ears console — the live feed names each trigger as it fires</td></tr>
+</tbody></table></div>
+
+<div class="warn"><strong>Why type matters.</strong> In a <code>discussion</code> topic the
+brain's <code>floorHog</code> trigger fires at ≥45s of held floor with ≥60% of the last 120s.
+That is <em>you</em>, 45 seconds into your own architecture walkthrough. A
+<code>presentation</code> topic skips the trigger entirely — one person holds the floor by
+design. Rows 1 and 3 are presentations for exactly this reason.</div>
+
+<h2>2 · The four cold opens</h2>
+<p>Pick one. 12–18 seconds, then join the spine at §3. Slide 1 of <code>/architecture</code>
+is on screen in every version.</p>
+
+<div class="opens">
+<div class="open">
+<h3>A — Her voice first</h3>
+<p class="note">Say nothing. Let Karen be the first sound in the room — play the 7s clip, or
+live, let the room sit quiet for three seconds first.</p>
+<div class="say karen"><strong>Karen:</strong> “Vitaly, parked for later: pricing. Back to
+solution and architecture: what does the room need to understand first?”</div>
+<div class="say"><strong>You:</strong> “That is an AI chair taking the floor off a human,
+mid-sentence. Everything in the next five minutes is how it got there — and I am going to
+make it do that to me, live.”</div>
+<p class="note">Strongest with judges. Weakest if the room is still settling — needs quiet.</p>
+</div>
+
+<div class="open">
+<h3>B — The one-line claim</h3>
+<div class="say"><strong>You:</strong> “Every meeting you have ever been in had an agenda.
+Nobody in the room was enforcing it, because the person who could is the person talking. We
+built the thing that does — it joins the call, it holds the agenda, and it interrupts.
+Including me. Watch.”</div>
+<p class="note">Safest. No dependencies. Use it if the room is noisy or you are running late.</p>
+</div>
+
+<div class="open">
+<h3>C — The cost</h3>
+<div class="say"><strong>You:</strong> “Pick any number you like for what a week of meetings
+costs your company — it is large and you already believe it. Here is the part nobody prices:
+every one of those meetings had an agenda, and not one had anyone whose job was to enforce
+it. That is not a note-taking problem. That is a missing role. We built it.”</div>
+<p class="note">Do not quote a statistic you cannot defend from the stage. This version wins
+the point without one.</p>
+</div>
+
+<div class="open">
+<h3>D — The prediction</h3>
+<div class="say"><strong>You:</strong> “In about three minutes I am going to go off-topic on
+purpose, in the middle of my own demo. I am not going to stop myself. Somebody else will.
+That is the product — everything else is plumbing.”</div>
+<p class="note">Highest tension, and it pre-sells the drift beat so the room watches for it.
+Only if you are confident the catch fires — it names the thing that must work.</p>
+</div>
+</div>
+
+<h2>3 · The spine</h2>
+<div class="scroll"><table><thead><tr><th>Clock</th><th>Beat</th><th>Screen</th><th>You say / do</th></tr></thead><tbody>
+<tr><td class="clock">0:15</td><td><strong>Dictate the meeting</strong></td><td><code>/compose</code></td><td>Hit the mic, speak the brief (§4, ~15s). “I am not filling in a form. I am telling it what the meeting is.”</td></tr>
+<tr><td class="clock">0:35</td><td><strong>Generate</strong></td><td>parse result</td><td>“That is a 70B model on Nebius turning speech into an agenda.”</td></tr>
+<tr><td class="clock">0:45</td><td><strong>The confirm table</strong></td><td>topic rows</td><td>Point at <strong>Type</strong>: “Rows one and three are presentations — one person holds the floor on purpose. Row two is a discussion. She treats them differently, and you will see how.” Then <strong>Must hear</strong>: “Both of us have to be heard on row two. That is a promise she keeps.”</td></tr>
+<tr><td class="clock">1:05</td><td><strong>Send</strong></td><td>success page</td><td>“Real invite, real .ics, real mailbox.”</td></tr>
+<tr><td class="clock">1:15</td><td><strong>Inbox → accept → calendar → join</strong></td><td>mailbox · calendar · Discord</td><td>Four clicks, one sentence each — never narrate silently. “Invite. Accepted. In my calendar with a join link. The link is a Discord call.”</td></tr>
+<tr><td class="clock">1:40</td><td><strong>Karen opens the meeting herself</strong></td><td>Discord</td><td><span class="silent">Say nothing for 10 seconds.</span> She reads the agenda unprompted — nobody typed “start”.</td></tr>
+<tr><td class="clock">1:55</td><td><strong>Topic 1 — architecture</strong></td><td>slide 1</td><td>60 seconds off the Hear / Think / Speak lanes — §5.</td></tr>
+<tr><td class="clock">2:55</td><td><strong>You drift, on purpose</strong></td><td>slide 1</td><td>Slide into something adjacent and off-agenda — §6. Keep talking.</td></tr>
+<tr><td class="clock">~3:05</td><td><strong>She catches you</strong> <span class="chip">8s grace</span></td><td>—</td><td>Let her finish. Then: “That was eight seconds. I did not cue her — and notice she parked it rather than binned it.”</td></tr>
+<tr><td class="clock">3:20</td><td><strong>Topic 2 — open discussion</strong></td><td>slide 1 / camera</td><td>“Artem, you have been building the Discord side — what breaks first at scale?” Then <span class="silent">stop talking</span>. No “mhm”, no agreement noises — anything you say dilutes his share of the floor and delays her.</td></tr>
+<tr><td class="clock">~4:20</td><td><strong>She takes the floor back</strong></td><td>—</td><td>She thanks Artem and hands it to you by name. One beat, then: “Sixty seconds, one voice, and the chair moved the floor. Nobody here had to be the person who interrupts.”</td></tr>
+<tr><td class="clock">4:35</td><td><strong>Topic 3 — roadmap</strong></td><td>slide 3</td><td>50 seconds — §7.</td></tr>
+<tr><td class="clock">5:25</td><td><strong>Close</strong></td><td>slide 3</td><td>§8.</td></tr>
+</tbody></table></div>
+
+<div class="warn"><strong>Two timing rules that are not optional.</strong>
+She will not speak twice inside <strong>45 seconds</strong>
+(<code>minSecondsBetweenInterventions</code>) — keep ≥45s between her opening line and your
+drift, or the catch lands late. And Artem needs <strong>~60 seconds of uninterrupted
+floor</strong> for the handover to fire: brief him to give one answer, no pauses for
+agreement, keep going until she cuts in.</div>
+
+<h2>4 · The dictation, verbatim</h2>
+<p>Speak this into <code>/compose</code> — it names everything the parser needs: start,
+duration, topics, minutes, owner, must-hear, and which ones are presentations.</p>
+<div class="say">“Karen, set up a meeting with Artem in fifteen minutes, fifteen minutes long,
+called gavel live demo. Three topics. One: solution and architecture, five minutes, I present
+it. Two: open discussion, six minutes — I want both Artem and me heard on it. Three: roadmap,
+four minutes, I present it.”</div>
+<p class="note">If the parse comes back wrong, do not re-record — fix the row and keep moving.
+“The parse is a draft. The table is the contract.” That line turns a miss into a feature.</p>
+
+<h2>5 · Topic 1 — the architecture, in 60 seconds</h2>
+<p>Off slide 1, left to right, one sentence per lane.</p>
+<div class="say">“Three moves. <strong>Hear</strong> — she is in the Discord call as a
+participant, audio goes to SLNG for speech-to-text, turns land in Postgres and Redis.
+<br><br>
+<strong>Think</strong> — this is the part people assume is a model and isn't. Whether to
+interrupt is plain code: who has held the floor, for how long, against the agenda's own
+budget. Deterministic, testable, and it runs every 250 milliseconds. Mastra and Nebius are
+only asked for the <em>words</em> — the decision was already made.
+<br><br>
+<strong>Speak</strong> — text to speech back through SLNG into the same call, and fal
+lip-syncs her face so there is someone to look at.
+<br><br>
+Six containers behind Traefik. One of them knows what Discord is. That is the whole reason
+this moves to Teams.”</div>
+
+<h2>6 · The drift, verbatim</h2>
+<p>Adjacent and plausible — the catch reads as real precisely because the drift is not absurd.</p>
+<div class="say drift">“…and honestly the interesting part is the cost curve, because once you
+are running six containers you start thinking about reserved instances versus spot, and I
+priced this out against three providers last month, and the pricing pages are all deliberately
+incomparable — which is a whole separate rant, actually let me tell you about egress fees…”</div>
+<div class="say karen"><strong>Karen:</strong> “Vitaly, parked for later: cloud pricing. Back
+to solution and architecture: what does the room need to understand first?”</div>
+<p class="note">That is the fallback template. The model usually paraphrases — same meaning,
+its own words. If she paraphrases, say so: “she wrote that line just now, it is not a canned
+string.”</p>
+
+<h2>7 · Topic 3 — roadmap, 50 seconds</h2>
+<div class="say">“Discord is a demo choice, not a product choice. One container knows what a
+voice call is — everything else is platform-agnostic by construction. Meet and Zoom adapters
+are the same shape of work. Teams is where this belongs: an add-on inside the suite where the
+calendar, the agenda and the org chart already live.
+<br><br>
+And the category is not meeting notes. Notes are a record of what happened. This changes what
+happens — inside the hour, while it can still be fixed. Time governance, on top of a calendar
+that already knows what the meeting was for.”</div>
+
+<h2>8 · Close, 25 seconds</h2>
+<div class="say">“So: I dictated a meeting, it sent a real invite, she opened the call herself,
+she caught me going off-topic in eight seconds, and she took the floor off the person who had
+held it for a minute and handed it to the person who hadn't spoken.
+<br><br>
+Every one of those is a rule you already wanted enforced and nobody in the room can afford to
+enforce. That is the product. Thank you.”</div>
+<p class="note">If time is short, cut everything after the first paragraph and land on “That is
+the product.”</p>
+
+<h2>9 · Failure drills</h2>
+<div class="scroll"><table><thead><tr><th>If</th><th>Then</th></tr></thead><tbody>
+<tr><td>STT mangles the brief</td><td>Fix the row in the table. “The parse is a draft, the table is the contract.” Never re-record on stage.</td></tr>
+<tr><td>She misses the drift</td><td>Keep going — do <strong>not</strong> wait on her. The discussion handover is the money beat and has a much wider margin. If she lands late, name it: “45-second cooldown — she had just opened the meeting.”</td></tr>
+<tr><td>Email is slow</td><td>Second tab already has the invite open. Never stand in silence watching a mailbox.</td></tr>
+<tr><td>Her face does not render</td><td>Ignore it. The voice is the product, the face is garnish. Do not debug on stage.</td></tr>
+<tr><td>Discord join fails</td><td>Join from <code>/m/&lt;session id&gt;</code> directly.</td></tr>
+<tr><td>Artem gets interrupted early</td><td>Still the demo working. Say so and move on.</td></tr>
+<tr><td>Everything falls over</td><td><code>/architecture</code> is three slides and tells the story standing still. Talk over the deck, finish on time.</td></tr>
+</tbody></table></div>
+
+<h2>10 · What the panel changed</h2>
+<div class="card">
+<h3>Hackathon judge</h3>
+<p>“I have seen forty demos today; six were a wrapper with a system prompt.” → The
+<em>Think</em> lane now says out loud that the interrupt decision is plain code, not a model
+call, and that it runs at 250ms. Sponsor names land inside the architecture sentence, not as a
+logo slide.</p>
+<h3>Enterprise buyer</h3>
+<p>“Why is this not a Teams feature in eighteen months?” → §7 answers the wedge directly — the
+calendar and the agenda already exist, and she acts <em>inside</em> the hour — and names the
+category, so the comparison is not notes-bots.</p>
+<h3>HN skeptic</h3>
+<p>“So it is VAD plus a timer with a TTS voice.” → Yes, and that is the claim: the boring part
+is deterministic and testable, only the phrasing is generated. Said that way, the objection
+becomes the design. Also killed the invented statistic in open C — an unsourced number is the
+one thing that loses this room.</p>
+<h3>Demo director</h3>
+<p>“You have 40 seconds of dead air on mailbox and Discord clicks.” → Every click has its own
+sentence now, and the tab order removes the hunting. The two beats where you must be silent —
+her opening, Artem's minute — are marked, because silence is what makes both triggers fire on
+time.</p>
+</div>
+
+<h2>11 · Recording the submission video</h2>
+<p>Same script, three differences:</p>
+<ol>
+<li>Use open <strong>B</strong> or <strong>D</strong> — no room quiet needed, no reaction needed.</li>
+<li>Screen-record everything; a second angle on you is optional and adds nothing.</li>
+<li>Do not re-take a Karen intervention that lands slightly late. A real one at eleven seconds
+is worth more than a perfect one nobody believes.</li>
+</ol>
+
+</main></body></html>

@@ -202,6 +202,8 @@ services:
       # The demo deck, read at request time by GET /architecture. Read-only, and
       # outside the image so it can be edited without a rebuild.
       - ./docs/architecture.html:/app/architecture.html:ro
+      # The run sheet, served by GET /demo-script. Same deal: edit, no rebuild.
+      - ./docs/demo-script.html:/app/demo-script.html:ro
     ports:
       - "127.0.0.1:${CALENDAR_PORT:-8790}:8790"
     networks:

@@ -146,19 +146,31 @@ async def board() -> str:
     return _render_board_page(records)
 
 
-@app.get("/architecture", response_class=HTMLResponse)
-def architecture() -> str:  # sync on purpose: FastAPI runs it in a threadpool,
-    # so the small blocking read never sits on the event loop.
-    """The demo deck, served off the same host as everything else.
+def _mounted_doc(filename: str, what: str) -> str:
+    """Serve an HTML file mounted read-only into the image at request time.
 
-    Mounted read-only from `docs/architecture.html` rather than baked into the
-    image, so a wording fix before the pitch needs no rebuild. Missing file is a
-    404 and never a 500 — the deck is not load-bearing for any meeting.
+    Mounted rather than baked in, so a wording fix before the pitch needs no
+    rebuild. A missing file is a 404 and never a 500 — neither document is
+    load-bearing for any meeting.
     """
-    deck = Path("/app/architecture.html")
-    if not deck.is_file():
-        raise HTTPException(status_code=404, detail="architecture deck not mounted")
-    return deck.read_text(encoding="utf-8")
+    doc = Path("/app") / filename
+    if not doc.is_file():
+        raise HTTPException(status_code=404, detail=f"{what} not mounted")
+    return doc.read_text(encoding="utf-8")
+
+
+# Both routes are sync on purpose: FastAPI runs them in a threadpool, so the
+# small blocking read never sits on the event loop.
+@app.get("/architecture", response_class=HTMLResponse)
+def architecture() -> str:
+    """The demo deck (docs/architecture.html), on the same host as everything else."""
+    return _mounted_doc("architecture.html", "architecture deck")
+
+
+@app.get("/demo-script", response_class=HTMLResponse)
+def demo_script() -> str:
+    """The run sheet for the demo (docs/demo-script.html) — readable on a phone on stage."""
+    return _mounted_doc("demo-script.html", "demo script")
 
 
 @app.get("/m/{session_id}", response_class=HTMLResponse)
