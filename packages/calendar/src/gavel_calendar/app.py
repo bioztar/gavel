@@ -4,6 +4,8 @@
     GET  /m/{session_id}    the join page: title, agenda with budgets, expected
                              attendees, one Join button
     POST /m/{session_id}/join   force-starts the session now
+    GET  /board              upcoming ingested meetings, each with its Join button —
+                              the demo path from a read-only feed to a running session
     GET  /health
 
 Both the Join button and the scheduler end in `service.start` — see scheduler.py.
@@ -23,6 +25,7 @@ from fastapi.responses import HTMLResponse
 from . import scheduler, service
 from .agenda import build_agenda
 from .ears_client import EarsClient
+from .feed_store import FeedRegistry
 from .ics_parser import InvalidInvite, parse_ics
 from .settings import get_settings
 from .store import InviteRecord, InviteStore
@@ -30,15 +33,30 @@ from .store import InviteRecord, InviteStore
 settings = get_settings()
 store = InviteStore()
 ears = EarsClient(settings.ears_api_url)
+feed_registry = FeedRegistry()
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    task = asyncio.create_task(scheduler.run(store, ears, settings.scheduler_poll_seconds))
+    tasks = [asyncio.create_task(scheduler.run(store, ears, settings.scheduler_poll_seconds))]
+    if settings.ics_feed_urls:
+        tasks.append(
+            asyncio.create_task(
+                scheduler.poll_feeds(
+                    store,
+                    feed_registry,
+                    settings.ics_feed_urls,
+                    settings.attendee_map,
+                    settings.scheduler_poll_seconds,
+                    settings.feed_window,
+                )
+            )
+        )
     try:
         yield
     finally:
-        task.cancel()
+        for task in tasks:
+            task.cancel()
 
 
 app = FastAPI(title="gavel calendar", lifespan=lifespan)
@@ -46,7 +64,18 @@ app = FastAPI(title="gavel calendar", lifespan=lifespan)
 
 @app.get("/health")
 async def health() -> dict[str, Any]:
-    return {"status": "ok", "pending": len(store.pending())}
+    feeds = []
+    for i in range(len(settings.ics_feed_urls)):
+        h = feed_registry.health_for(i)
+        feeds.append(
+            {
+                "feed": i,
+                "lastSuccess": h.last_success.isoformat() if h.last_success else None,
+                "eventCount": h.event_count,
+                "lastError": h.last_error,
+            }
+        )
+    return {"status": "ok", "pending": len(store.pending()), "feeds": feeds}
 
 
 @app.post("/invite")
@@ -82,6 +111,12 @@ async def invite(
     return {"sessionId": session_id, "joinUrl": join_url}
 
 
+@app.get("/board", response_class=HTMLResponse)
+async def board() -> str:
+    records = sorted(store.pending(), key=lambda r: r.start)
+    return _render_board_page(records)
+
+
 @app.get("/m/{session_id}", response_class=HTMLResponse)
 async def join_page(session_id: str) -> str:
     record = store.get(session_id)
@@ -100,6 +135,35 @@ async def join(session_id: str) -> str:
     except Exception as exc:  # ears unreachable, meeting rejected, etc.
         raise HTTPException(502, f"could not start the session: {exc}") from exc
     return _render_started_page(record, result)
+
+
+def _render_board_page(records: list[InviteRecord]) -> str:
+    e = html.escape
+    rows = "".join(
+        f"""<tr>
+<td><a href="/m/{e(r.session_id)}">{e(r.title)}</a></td>
+<td>{e(r.start.isoformat())}</td>
+<td>{len(r.agenda.get("topics", []))}</td>
+<td><form method="post" action="/m/{e(r.session_id)}/join">
+<button type="submit">Join</button></form></td>
+</tr>"""
+        for r in records
+    )
+    empty = "<p>Nothing upcoming.</p>" if not records else ""
+    return f"""<!doctype html>
+<html><head><meta charset="utf-8"><title>gavel calendar — board</title>
+<style>
+body {{ font-family: system-ui, sans-serif; max-width: 900px; margin: 3rem auto; padding: 0 1rem; }}
+table {{ width: 100%; border-collapse: collapse; margin: 1rem 0; }}
+td, th {{ text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #ddd; }}
+button {{ font-size: 1rem; padding: 0.4rem 1rem; cursor: pointer; }}
+form {{ margin: 0; }}
+</style></head>
+<body>
+<h1>Upcoming meetings</h1>
+{empty}
+<table><tr><th>Meeting</th><th>Start</th><th>Topics</th><th></th></tr>{rows}</table>
+</body></html>"""
 
 
 def _render_join_page(record: InviteRecord) -> str:
