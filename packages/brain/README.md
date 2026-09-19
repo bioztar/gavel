@@ -59,12 +59,19 @@ for everyone expected, and `/state` shows them. Every intervention lands in
 |---|---|
 | `models.yaml` | Nebius model per profile (`fast` = classifier, `normal` = the chair's line), timeouts, prices, SLNG voice |
 | `policy.yaml` | Threshold defaults (the agenda's `policy` block overrides them per meeting), trigger order, classifier rationing, pick-speaker order |
-| `prompts/chair.yaml` | Persona, style rules, and for each intervention kind: instruction, examples, fallback templates |
+| `prompts/chair.yaml` | Shared rules: style, and for each intervention kind, instruction + examples (persona-independent — same job, same rules either way) |
 | `prompts/relevance.yaml` | The off-agenda classifier prompt |
+| `personas.yaml` | The chair's two voices, formal and funky — `active` picks which one runs, or set `CHAIR_PERSONA=formal\|funky` at boot (env wins). Each persona's `tone` is folded into the stable system prefix, never the per-call suffix |
+| `prompts/chair.formal.yaml`, `prompts/chair.funky.yaml` | Per-persona fallback `templates` for every intervention kind (≥4 variants each), overlaid onto `chair.yaml`'s kinds at load time |
 
 Edit a file mid-call and the next tick uses it. A file that fails validation is logged and
 the last good config stays. To A/B a change, copy `config/` and run
 `pnpm replay <file> --config ./config-b`; try a threshold with `--policy allowMute=true`.
+
+Switching persona (either way) changes the stable prefix's bytes, so Nebius's prompt cache
+misses for the first call or two after a switch — expected, not a bug; the cache rebuilds
+on the next stable turns. See `docs/personas-replay.md` for the same fixture replayed under
+both personas side by side.
 
 ## Cost
 

@@ -466,13 +466,20 @@ export class Engine {
     }
   }
 
-  /** The first template whose placeholders all have values; the last one otherwise. */
+  /**
+   * The templates whose placeholders all have values, rotating by how many times this kind
+   * has already fired this session — so a persona's four-plus variants don't repeat inside
+   * one meeting. Deterministic: same history, same pick. Falls back to the last template
+   * (persona-agnostic) when none qualify.
+   */
   template(iv: Intervention): string {
     const templates = this.cfg.chair.kinds[iv.kind as InterventionKind].templates;
-    const filled = templates.find((t) =>
+    const filled = templates.filter((t) =>
       [...t.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].every((m) => (iv.vars[m[1]!] ?? "").trim() !== ""),
     );
-    return render(filled ?? templates[templates.length - 1]!, iv.vars);
+    const pool = filled.length ? filled : [templates[templates.length - 1]!];
+    const seenBefore = this.history.filter((h) => h.kind === iv.kind).length - 1;
+    return render(pool[seenBefore % pool.length]!, iv.vars);
   }
 
   /** Park, speak, mute, advance — whichever the intervention calls for, in that order. */
@@ -639,6 +646,7 @@ export class Engine {
         muted: this.muted.has(p.id),
         offAgenda: this.relevance.episode(p.id)?.summary ?? null,
       })),
+      persona: { id: this.cfg.persona.id, displayName: this.cfg.persona.displayName },
       chairBusy: s.chairBusy,
       silenceSeconds: Math.round(s.silenceMs / 1000),
       parked: this.parked,

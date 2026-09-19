@@ -1,0 +1,73 @@
+# Formal Karen's fallback lines — spoken when the model is slow or down (see
+# src/engine.ts `template()`). Same instructions/examples as prompts/chair.yaml; only the
+# `templates` list per kind is overlaid onto it for this persona (src/config.ts).
+#
+# Four+ variants per kind so a six-minute demo doesn't repeat itself: the engine rotates
+# through whichever variants have every placeholder filled, advancing by how many times
+# that kind has already fired this session (deterministic — same meeting, same lines).
+# The first variant per kind matches prompts/chair.yaml's original text: formal Karen's
+# baseline voice already reads this way.
+
+kinds:
+  offAgenda:
+    templates:
+      - "{{name}}, good point, I've parked {{summary}} for later. Let's get back to {{topicTitle}}. {{question}}"
+      - "{{name}}, that's parked under your name for later. Back to {{topicTitle}}: {{question}}"
+      - "Noted, {{name}}. {{summary}} is on the parking lot. {{topicTitle}} first: {{question}}"
+      - "{{name}}, we're not on {{summary}} right now, we're on {{topicTitle}}. {{question}}"
+
+  otherTopic:
+    templates:
+      - "{{name}}, that's coming up in {{otherTopicTitle}}, we'll get there. For now, {{topicTitle}}: {{question}}"
+      - "{{name}}, {{otherTopicTitle}} is later on the agenda. Staying on {{topicTitle}}: {{question}}"
+      - "We'll reach {{otherTopicTitle}} in turn, {{name}}. First, {{topicTitle}}: {{question}}"
+      - "{{name}}, hold that for {{otherTopicTitle}}. Right now: {{topicTitle}}. {{question}}"
+
+  floorHog:
+    templates:
+      - "Thanks {{name}}, got it. {{addresseeName}}, let's hear from you. {{question}}"
+      - "{{name}}, quick recap: {{recap}}. {{addresseeName}}, over to you. {{question}}"
+      - "{{name}}, let me pause you there. {{addresseeName}}, what's your take? {{question}}"
+      - "That's plenty on this, {{name}}. {{addresseeName}}: {{question}}"
+
+  escalateMute:
+    templates:
+      - "{{name}}, I'm muting you for {{seconds}} seconds so we can get back to {{topicTitle}}. You'll be unmuted automatically."
+      - "{{name}}, muting for {{seconds}} seconds to return to {{topicTitle}}. Automatic unmute follows."
+      - "{{name}}, that is {{seconds}} seconds of mute so {{topicTitle}} can proceed. You'll be back automatically."
+      - "{{name}}, a {{seconds}}-second mute, then you're back. {{topicTitle}} continues."
+
+  escalateFirm:
+    templates:
+      - "{{name}}, I need to stop you there. We have to get back to {{topicTitle}}. {{question}}"
+      - "{{name}}, I'll stop you there. {{topicTitle}} needs the floor now. {{question}}"
+      - "{{name}}, that's noted twice now. Back to {{topicTitle}}: {{question}}"
+      - "{{name}}, we're out of time for this. {{topicTitle}}: {{question}}"
+
+  topicOverrun:
+    templates:
+      - "We're over time on {{topicTitle}}, so let's move on to {{nextTopicTitle}}. {{nextQuestion}}"
+      - "{{topicTitle}} is over budget. Moving to {{nextTopicTitle}}. {{nextQuestion}}"
+      - "Time's up on {{topicTitle}}. Next: {{nextTopicTitle}}. {{nextQuestion}}"
+      - "We'll close {{topicTitle}} here and open {{nextTopicTitle}}. {{nextQuestion}}"
+
+  wrapUp:
+    templates:
+      - "That's the agenda, thank you all. Parked for later: {{parkedList}}."
+      - "That's the agenda, thank you all."
+      - "Agenda complete. For the record, parked: {{parkedList}}."
+      - "That covers the agenda. Noted for later: {{parkedList}}."
+
+  silence:
+    templates:
+      - "{{name}}, we haven't heard from you on {{notHeardOn}} yet. {{question}}"
+      - "{{name}}, let's hear from you. {{question}}"
+      - "{{name}}, you're due a turn on {{notHeardOn}}. {{question}}"
+      - "{{name}}, the floor is open. {{question}}"
+
+  roundRobin:
+    templates:
+      - "Quick round, one sentence each: {{names}}. {{question}}"
+      - "One sentence each, in order: {{names}}. {{question}}"
+      - "Let's go round quickly: {{names}}. {{question}}"
+      - "A short round now: {{names}}. {{question}}"

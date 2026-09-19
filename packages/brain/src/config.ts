@@ -112,12 +112,42 @@ export type ChairPrompts = z.infer<typeof ChairPrompts>;
 
 export const RelevancePrompts = z.object({ system: z.string(), user: z.string() });
 
+// The chair's two voices (config/personas.yaml). `tone` is folded into `chair.system` — the
+// stable prompt prefix — never into a per-call suffix, so Nebius keeps caching it.
+export const PERSONA_IDS = ["formal", "funky"] as const;
+export type PersonaId = (typeof PERSONA_IDS)[number];
+
+const Persona = z.object({
+  id: z.enum(PERSONA_IDS),
+  displayName: z.string(),
+  tone: z.string(),
+  avatar: z.string(),
+  idle: z.string(),
+  voice: z.string().default(""),
+});
+export type Persona = z.infer<typeof Persona>;
+
+export const PersonasFile = z.object({
+  active: z.enum(PERSONA_IDS),
+  personas: z.object(Object.fromEntries(PERSONA_IDS.map((p) => [p, Persona])) as Record<PersonaId, typeof Persona>),
+});
+
+// A persona's own fallback-line set: same kinds as ChairPrompts, only `templates` differ.
+const PersonaKind = z.object({ templates: z.array(z.string()).min(4) });
+export const ChairPersonaTemplates = z.object({
+  kinds: z.object(Object.fromEntries(INTERVENTION_KINDS.map((k) => [k, PersonaKind])) as Record<
+    InterventionKind,
+    typeof PersonaKind
+  >),
+});
+
 export interface Config {
   dir: string;
   models: z.infer<typeof ModelsConfig>;
   policy: PolicyConfig;
   chair: ChairPrompts;
   relevance: z.infer<typeof RelevancePrompts>;
+  persona: Persona;
 }
 
 const FILES = {
@@ -125,6 +155,9 @@ const FILES = {
   policy: ["policy.yaml", PolicyConfig],
   chair: ["prompts/chair.yaml", ChairPrompts],
   relevance: ["prompts/relevance.yaml", RelevancePrompts],
+  personas: ["personas.yaml", PersonasFile],
+  chairFormal: ["prompts/chair.formal.yaml", ChairPersonaTemplates],
+  chairFunky: ["prompts/chair.funky.yaml", ChairPersonaTemplates],
 } as const;
 
 export function loadConfig(dir = process.env.BRAIN_CONFIG_DIR ?? DEFAULT_CONFIG_DIR): Config {
@@ -134,12 +167,30 @@ export function loadConfig(dir = process.env.BRAIN_CONFIG_DIR ?? DEFAULT_CONFIG_
     if (!parsed.success) throw new Error(`${file}: ${z.prettifyError(parsed.error)}`);
     return parsed.data;
   };
+  // CHAIR_PERSONA at boot beats personas.yaml's `active`; editing `active` while running is
+  // the live-switch path (config/ is hot-reloaded, see watchConfig below).
+  const personas = read(...FILES.personas);
+  if (process.env.CHAIR_PERSONA && !(PERSONA_IDS as readonly string[]).includes(process.env.CHAIR_PERSONA)) {
+    throw new Error(`CHAIR_PERSONA: must be one of ${PERSONA_IDS.join(", ")}`);
+  }
+  const activeId = (process.env.CHAIR_PERSONA as PersonaId | undefined) ?? personas.active;
+  const persona = personas.personas[activeId];
+  const personaTemplates =
+    activeId === "formal" ? read(...FILES.chairFormal) : read(...FILES.chairFunky);
+
+  const chair = read(...FILES.chair);
+  for (const k of INTERVENTION_KINDS) chair.kinds[k].templates = personaTemplates.kinds[k].templates;
+  // The persona's tone joins the stable prefix (system + session context, see engine.ts),
+  // never the per-call suffix, so it stays cached like the rest of the prefix.
+  chair.system = `${chair.system}\n${persona.tone}`;
+
   const config: Config = {
     dir,
     models: read(...FILES.models),
     policy: read(...FILES.policy),
-    chair: read(...FILES.chair),
+    chair,
     relevance: read(...FILES.relevance),
+    persona,
   };
   // Env beats YAML for the model ids only — handy for a quick A/B without editing files.
   if (process.env.BRAIN_MODEL_FAST) config.models.profiles.fast.model = process.env.BRAIN_MODEL_FAST;
