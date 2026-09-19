@@ -2,8 +2,8 @@
 
 **Status:** live and validated
 **Host:** `uk-lon-1` (173.234.79.39) · **Domain:** https://gavel.pro7ocol.com
-**Deployed commit:** `4061b23` (`fix(compose): pass CHAIR_VIDEO_URL to brain so the stage hook is live`)
-**Deployed at:** 2026-09-19 16:25 UTC · **Last validated:** 2026-09-19 16:25 UTC
+**Deployed commit:** `5baf50b` (`feat(scripts): set-vonage-key.sh` — on top of Artem's `3227f0a`, Karen waits for a pause + STT fix)
+**Deployed at:** 2026-09-19 16:39 UTC · **Last validated:** 2026-09-19 16:39 UTC
 **Checkout on the box:** `/home/coder/DEV/gavel` · **Compose project:** `gavel`
 
 ---
