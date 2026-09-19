@@ -107,40 +107,44 @@
 
   <h2>Funky Karen — candidates</h2>
 
-  <div class="callout">
-    <p><strong>This first batch was rejected and is being regenerated.</strong> All three came
-       out as the same black blazer on the same grey background: 01 adds a floral top, 02 adds
-       pink earrings, 03 adds gold hoops. On a projector nobody would see two different
-       characters, which is the entire point of having two personas.</p>
-    <p>Cause: <code>fal-ai/flux/dev/image-to-image</code> at <code>strength=0.6</code> kept the
-       wardrobe along with the face. Next pass raises the strength and puts the funky elements
-       ahead of the identity clause in the prompt. Shown here so the failure mode is on record
-       — <strong>do not pick from these</strong>.</p>
+  <div class="callout ok">
+    <p><strong>Batch 2 — the regeneration worked.</strong> Strength raised and the funky
+       elements moved ahead of the identity clause, so the wardrobe and the background now
+       actually change. Batch 1 (three near-identical black blazers) is gone from this page;
+       the failure is recorded in <code>avatars/PROMPTS.md</code>.</p>
+    <p><strong>Your pick.</strong> helm's read is below each card — 01 is the only one that
+       clears every gate. Say the number and the service points at it.</p>
   </div>
 
   <div class="grid">
     <div class="card">
       <img src="avatars/karen-funky-01.jpg" alt="Funky Karen candidate 01">
       <div class="body">
-        <h3>karen-funky-01<span class="tag rejected">too tame</span></h3>
-        <code>strength 0.6 · patterned blazer, coral background</code>
-        <p>Neither the blazer nor the background survived the prompt. Reads as formal.</p>
+        <h3>karen-funky-01<span class="tag picked">clears everything</span></h3>
+        <code>floral blazer · orange striped tee · tortoiseshell glasses</code>
+        <p>Same woman as formal Karen, unmistakably a different character. Front-facing,
+           mouth fully visible and unobstructed, plain background, no text. Reads at four
+           metres. The one to use unless you want something louder.</p>
       </div>
     </div>
     <div class="card">
       <img src="avatars/karen-funky-02.jpg" alt="Funky Karen candidate 02">
       <div class="body">
-        <h3>karen-funky-02<span class="tag rejected">too tame</span></h3>
-        <code>strength 0.6 · synthwave, magenta and cyan rim light</code>
-        <p>Closest of the three — the earrings are the only visible change. No rim light.</p>
+        <h3>karen-funky-02<span class="tag rejected">render defect</span></h3>
+        <code>sequinned jacket · magenta rim light</code>
+        <p>A red laser streak crosses the eyebrow and hair — a generation artifact, not
+           styling, and it sits right where the lip-sync model warps the face. Also a
+           three-quarter turn rather than front-facing.</p>
       </div>
     </div>
     <div class="card">
       <img src="avatars/karen-funky-03.jpg" alt="Funky Karen candidate 03">
       <div class="body">
-        <h3>karen-funky-03<span class="tag rejected">too tame</span></h3>
-        <code>strength 0.6 · office rebel, pencil in hair, sticky notes</code>
-        <p>None of the props appeared. Also drifted furthest from Karen's face.</p>
+        <h3>karen-funky-03<span class="tag rejected">different person</span></h3>
+        <code>mustard cardigan · pencil in bun · sticky-note wall</code>
+        <p>Best styling of the three and the wrong face — different bone structure, not
+           Karen. The sticky-note wall also carries written text, which the checklist rules
+           out.</p>
       </div>
     </div>
   </div>
