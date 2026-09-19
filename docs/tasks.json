@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-19T14:30:00+02:00",
+  "updated": "2026-09-19T14:45:00+02:00",
   "freeze": "2026-09-20T11:00:00+02:00",
   "demos": "2026-09-20T14:00:00+02:00",
   "people": {
@@ -456,7 +456,7 @@
     },
     {
       "id": "vonage",
-      "name": "Vonage Video — app id + private key (API key in hand, secret still needed)",
+      "name": "Vonage Video — app id + private key + secret (only the API key is in .env)",
       "who": "Vonage mentor on site",
       "blocks": "V1–V4, the gold track",
       "status": "doing"
@@ -477,10 +477,10 @@
     },
     {
       "id": "nebius",
-      "name": "Nebius key, base URL, model id",
+      "name": "Nebius key, base URL, model id — in .env",
       "who": "Nebius mentor on site",
       "blocks": "B6 — what the chair says",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "mastra",
