@@ -1,11 +1,21 @@
-# HANDOVER — gavel — 2026-09-19 14:40
+# HANDOVER — gavel — 2026-09-19 14:50
 
 ## State
 Spine complete and merged to `main`: ears↔brain wire, calendar→agenda, two chair personas,
-chair-video. Nothing deployed yet — Artem is building the Docker Compose, deploy is on hold
-awaiting his go-ahead. DNS for `gavel.pro7ocol.com` already resolves to the dev box.
+chair-video, Google Calendar feed ingest. Artem's Docker Compose deploy stack landed on `main`
+(`632c462`) — deploy itself still on hold awaiting Vitaly's go-ahead. DNS for
+`gavel.pro7ocol.com` already resolves to the dev box.
 
 ## Done this session
+- `packages/calendar` Google Calendar ingest merged (`e024818`) — `CALENDAR_ICS_FEEDS` holds
+  comma-separated secret iCal URLs, polled on the scheduler loop, deduped on `UID`+`SEQUENCE`
+  (a bump on an already-started meeting updates in place, never starts a second ears session),
+  24h forward window, routed through the existing `ics_parser` → `build_agenda`. `GET /board`
+  lists upcoming invites with Join buttons. Per-feed health is addressed by index and holds no
+  URL; errors carry `type(exc).__name__`/status code only, never `str(exc)`. 37 tests pass.
+  **Limitation for demo day: RRULE is not expanded** — make the demo meeting a one-off.
+- Vitaly's own outstanding step: paste the secret iCal URL into `.env` as `CALENDAR_ICS_FEEDS=`
+  (a bearer credential — he does it himself, not through an agent).
 - `packages/calendar` merged — `.ics` → §1 agenda → join page → scheduler starts the session
   through ears' HTTP API. 26 tests pass. Policy overrides merge onto ears' full ten-key table
   instead of replacing it.
