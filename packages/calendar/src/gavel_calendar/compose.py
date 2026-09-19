@@ -27,6 +27,7 @@ from .ics_writer import build_ics
 from .invite_email import render_invite_html, render_invite_text
 from .llm import NebiusClient, ParsedBrief
 from .mailer import MailResult, send_invite
+from .schema import DEFAULT_ENFORCEMENT, ENFORCEMENT_LEVELS
 from .store import InviteRecord, InviteStore
 
 if TYPE_CHECKING:
@@ -36,8 +37,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# When the LLM found no topics, or failed outright, this many blank rows are
-# rendered so there is still something to type into without JS to add rows.
+# `_rows_from_parsed` falls back to this many blank rows when there is nothing to
+# show at all. The no-agenda case never reaches it -- that is `render_gate_html`.
 _MIN_TOPIC_ROWS = 3
 
 
@@ -95,72 +96,115 @@ def _fill_topic_minutes(minutes: list[int | None], total_minutes: int) -> list[i
 # no CDN font and no JS: the calendar service must render offline on a laptop on
 # a conference floor. Interpolated as {_STYLE} into each page's <style> block --
 # keep it out of the f-strings themselves so the braces need no doubling.
+#
+# Light, near-white, one accent, hairline rules, a lot of air. The system font
+# stack resolves to SF on the machine this is demoed from, which is most of the
+# look; the rest is restraint -- no gradients, no second accent, no card that
+# does not need an edge.
 _STYLE = """
 :root {
-  color-scheme: dark;
-  --bg: #0f1115;
-  --card: #171a21;
-  --line: #262b36;
-  --ink: #e8eaf0;
-  --muted: #98a0b3;
-  --accent: #6c7cff;
-  --accent-ink: #fff;
-  --warn: #ffb86b;
-  --bad: #ff7b7b;
-  --good: #58d6a0;
+  color-scheme: light;
+  --bg: #fbfbfd;
+  --surface: #ffffff;
+  --ink: #1d1d1f;
+  --dim: #6e6e73;
+  --line: #d2d2d7;
+  --hair: #e8e8ed;
+  --accent: #0071e3;
+  --warn: #b25000;
+  --good: #087443;
 }
 * { box-sizing: border-box; }
-html { background: var(--bg); }
+html { background: var(--bg); -webkit-font-smoothing: antialiased; }
 body {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 16px; line-height: 1.55; color: var(--ink);
-  max-width: 860px; margin: 3rem auto 4rem; padding: 2.5rem;
-  background: var(--card); border: 1px solid var(--line); border-radius: 16px;
-  box-shadow: 0 18px 50px rgba(0,0,0,.45);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+               Roboto, Helvetica, Arial, sans-serif;
+  font-size: 17px; line-height: 1.5; color: var(--ink); background: var(--bg);
+  margin: 0; padding: 88px 24px 120px;
 }
-h1 { font-size: 1.7rem; letter-spacing: -.02em; margin: 0 0 .4rem; }
-h1::after {
-  content: ""; display: block; width: 54px; height: 3px; margin-top: .7rem;
-  background: var(--accent); border-radius: 2px;
+.page { max-width: 680px; margin: 0 auto; }
+.eyebrow { margin: 0 0 14px; font-size: 12px; font-weight: 590;
+           letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+h1 { margin: 0 0 12px; font-size: 44px; line-height: 1.06;
+     letter-spacing: -.024em; font-weight: 600; }
+h2 { margin: 52px 0 12px; font-size: 12px; font-weight: 590; letter-spacing: .09em;
+     text-transform: uppercase; color: var(--dim); }
+.lede { margin: 0 0 8px; font-size: 19px; line-height: 1.5; color: var(--dim);
+        max-width: 33em; }
+.quote { margin: 0 0 40px; font-size: 19px; line-height: 1.5; color: var(--dim);
+         max-width: 33em; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+label { display: block; margin: 30px 0 8px; font-size: 13px; font-weight: 590;
+        letter-spacing: -.005em; color: var(--ink); }
+label .opt { font-weight: 400; color: var(--dim); }
+input, textarea, select {
+  width: 100%; font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px;
+  transition: border-color .15s, box-shadow .15s;
 }
-h2 { font-size: 1.1rem; text-transform: uppercase; letter-spacing: .08em;
-     color: var(--muted); margin: 2rem 0 .5rem; }
-p { color: var(--muted); }
-a { color: var(--accent); }
-label { display: block; font-weight: 600; font-size: .85rem; letter-spacing: .04em;
-        text-transform: uppercase; color: var(--muted); margin: 1.4rem 0 .35rem; }
-input, textarea {
-  width: 100%; font: inherit; color: var(--ink);
-  background: #10131a; border: 1px solid var(--line); border-radius: 9px;
-  padding: .6rem .7rem;
+textarea { min-height: 148px; resize: vertical; line-height: 1.55; }
+input:focus, textarea:focus, select:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(0,113,227,.16);
 }
-textarea { height: 8.5rem; resize: vertical; }
-input:focus, textarea:focus {
-  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108,124,255,.25);
+::placeholder { color: #a1a1a6; }
+button, .button {
+  display: inline-block; margin-top: 36px; font: inherit; font-size: 17px;
+  font-weight: 500; padding: 13px 28px; border: 0; border-radius: 980px;
+  background: var(--accent); color: #fff; cursor: pointer; text-decoration: none;
 }
-table { width: 100%; border-collapse: collapse; margin: .8rem 0 0;
-        border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-th { text-align: left; font-size: .75rem; text-transform: uppercase; letter-spacing: .07em;
-     color: var(--muted); background: #10131a; padding: .6rem .7rem; }
-td { padding: .45rem .5rem; border-top: 1px solid var(--line); vertical-align: middle; }
-tr:nth-child(even) td { background: rgba(255,255,255,.015); }
-td input { border-color: transparent; background: transparent; }
-td input:focus { border-color: var(--accent); background: #10131a; }
-button, a.button {
-  display: inline-block; font: inherit; font-weight: 600; font-size: 1rem;
-  margin-top: 1.6rem; padding: .7rem 1.5rem; cursor: pointer;
-  color: var(--accent-ink); background: var(--accent);
-  border: 0; border-radius: 10px; text-decoration: none;
-}
-button:hover, a.button:hover { filter: brightness(1.1); }
+button:hover, .button:hover { background: #0077ed; text-decoration: none; }
+.quiet { display: block; margin-top: 20px; font-size: 14px; color: var(--dim); }
+.hint { margin: 12px 0 0; font-size: 13.5px; line-height: 1.45; color: var(--dim); }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th { text-align: left; font-size: 11px; font-weight: 590; letter-spacing: .08em;
+     text-transform: uppercase; color: var(--dim);
+     padding: 0 10px 10px; border-bottom: 1px solid var(--line); }
+td { padding: 5px 4px; border-bottom: 1px solid var(--hair); vertical-align: middle; }
+td input, td select { border-color: transparent; background: transparent;
+                      padding: 9px 10px; border-radius: 9px; }
+/* let the type column size to its own longest option ("presentation") instead of
+   being squeezed by the 100% width every other control inherits */
+td select { width: auto; }
+th:first-child, td:first-child { width: 38%; }
+td input:focus, td select:focus { border-color: var(--accent); background: var(--surface); }
+
+/* the agenda gate */
+.gate { margin: 0 0 8px; padding: 18px 22px; border-left: 3px solid var(--warn);
+        background: #fff8f2; border-radius: 0 12px 12px 0; }
+.gate p { margin: 0; font-size: 16.5px; line-height: 1.5; color: #5c3a1e; }
+
+/* enforcement gauge */
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { display: block; margin: 0; padding: 14px 16px; cursor: pointer;
+             border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+             transition: border-color .15s, box-shadow .15s, background .15s; }
+.seg label b { display: block; font-size: 15px; font-weight: 590; letter-spacing: -.01em; }
+.seg label span { display: block; margin-top: 5px; font-size: 12.5px; line-height: 1.4;
+                  font-weight: 400; color: var(--dim); }
+.seg input:checked + label { border-color: var(--accent); background: #f2f8ff;
+                             box-shadow: 0 0 0 3px rgba(0,113,227,.13); }
+
+/* success */
+.notice { display: inline-block; margin: 0 0 4px; font-size: 14px;
+          padding: 8px 15px; border-radius: 980px; }
+.notice.ok { background: #e9f7ef; color: var(--good); }
+.notice.bad { background: #fdf2e8; color: var(--warn); }
+.meta { margin: 0 0 28px; font-size: 16px; color: var(--dim); }
+
 @media (max-width: 640px) {
-  body { margin: 0; padding: 1.5rem 1.1rem; border: 0; border-radius: 0; box-shadow: none; }
-  table, thead, tbody, tr, td, th { display: block; }
-  th { display: none; }
-  td { border-top: 0; }
-  tr { border-top: 1px solid var(--line); padding: .5rem 0; }
+  body { padding: 52px 20px 80px; }
+  h1 { font-size: 33px; }
+  .seg { grid-template-columns: 1fr; }
+  table, tbody, tr, td { display: block; }
+  thead { display: none; }
+  td { border: 0; padding: 3px 0; }
+  tr { border-bottom: 1px solid var(--hair); padding: 12px 0; }
+  td input, td select { border-color: var(--line); background: var(--surface); }
 }
 """
+
 
 
 def render_brief_form() -> str:
@@ -172,21 +216,26 @@ def render_brief_form() -> str:
     list on the first screen is a form to fill in; this is a sentence to say.
     """
     return f"""<!doctype html>
-<html><head><meta charset="utf-8"><title>gavel calendar — compose</title>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gavel — set up a meeting</title>
 <style>{_STYLE}</style></head>
-<body>
-<h1>Set up a meeting</h1>
-<p>Say it the way you'd say it out loud. "set up a 15 minute meeting in one hour with Artem,
-we need to cover pricing, the launch date and who owns the blockers."</p>
+<body><div class="page">
+<p class="eyebrow">gavel</p>
+<h1>Set up a meeting.</h1>
+<p class="quote">Say it the way you would say it out loud &mdash; &ldquo;thirty minutes with
+Artem tomorrow at ten, we need to land pricing, the launch date and who owns the
+blockers.&rdquo;</p>
 <form method="post" action="/compose/parse">
-<label for="brief">Brief</label>
-<textarea id="brief" name="brief" required autofocus></textarea>
-<label for="attendees">Who to invite <span style="text-transform:none;font-weight:400">(optional —
-leave empty and we'll work it out from the brief)</span></label>
+<label for="brief">The brief</label>
+<textarea id="brief" name="brief" required autofocus
+ placeholder="Dictate or type it."></textarea>
+<label for="attendees">Who to invite <span class="opt">&mdash; optional, we read it off
+the brief</span></label>
 <input id="attendees" name="attendees" placeholder="Name &lt;email&gt;, Name &lt;email&gt;">
-<button type="submit">Next</button>
+<button type="submit">Continue</button>
 </form>
-</body></html>"""
+</div></body></html>"""
 
 
 # --- POST /compose/parse ------------------------------------------------------------
@@ -214,19 +263,90 @@ def _attendee_field(pairs: list[tuple[str, str]]) -> str:
     return ", ".join(f"{name} <{email}>" for name, email in pairs)
 
 
-async def render_confirm_form(brief: str, attendees: str, settings: Settings) -> str:
+def render_gate_html(brief: str, attendees: str, typed: str = "") -> str:
+    """The refusal, and the one thing that clears it.
+
+    Everything else about this meeting is already inferred and waiting on the
+    next screen. The agenda is the one field nobody can infer, so this page asks
+    for that and nothing else: a sentence saying why, a box, a button. A grid of
+    empty topic rows here would read as paperwork, and the point is not that
+    Karen wants a form filled in -- it is that she will not book the meeting.
+    """
+    e = html.escape
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gavel — agenda needed</title>
+<style>{_STYLE}</style></head>
+<body><div class="page">
+<p class="eyebrow">not booked yet</p>
+<h1>There&rsquo;s no agenda in that brief.</h1>
+<div class="gate"><p>Karen won&rsquo;t put a meeting in three people&rsquo;s calendars
+without one. What does this call have to decide?</p></div>
+<form method="post" action="/compose/parse">
+<input type="hidden" name="brief" value="{e(brief)}">
+<input type="hidden" name="attendees" value="{e(attendees)}">
+<label for="agenda">The agenda</label>
+<textarea id="agenda" name="agenda" required autofocus
+ placeholder="One line per topic. Who owns it, and how long, if you know.">{e(typed)}</textarea>
+<p class="hint">&ldquo;Pricing &mdash; Artem, 10 min. Launch date &mdash; me, 5 min.
+Then open discussion on the blockers.&rdquo;</p>
+<button type="submit">Add agenda</button>
+<a class="quiet" href="/compose">Start over with a new brief</a>
+</form>
+</div></body></html>"""
+
+
+def _rows_from_lines(typed: str, host_name: str) -> list[_Row]:
+    """Last-resort reading of a typed agenda: one topic per line.
+
+    Only reached when the host has already been asked for an agenda, typed one,
+    and the model still came back with no topics -- a parse failure, not an
+    empty brief. Taking the lines literally is worse than a real parse and far
+    better than refusing a second time, which is the one way this beat can
+    dead-end in front of a room.
+    """
+    parts = [
+        chunk.strip(" \t-*\u2022")
+        for line in typed.splitlines()
+        for chunk in line.split(";")
+    ]
+    return [_Row(title=chunk, owner=host_name) for chunk in parts if chunk]
+
+
+async def render_confirm_form(
+    brief: str, attendees: str, settings: Settings, agenda_text: str = ""
+) -> str:
+    """Page two, or the gate.
+
+    `agenda_text` is set only by the gate page posting back. When it is present
+    it is appended to the brief and the whole thing is re-parsed, so the agenda
+    arrives through exactly the same path as one that was dictated in the first
+    place -- there is no second-class agenda in this system.
+    """
     llm = NebiusClient(settings.nebius_base_url, settings.nebius_api_key)
     now = datetime.now(ZoneInfo(settings.compose_timezone))
     attendee_pairs = _resolve_invitees(attendees, settings)
+    attendee_field = _attendee_field(attendee_pairs)
+    typed = agenda_text.strip()
+    combined = f"{brief}\n\nAgenda:\n{typed}" if typed else brief
     parsed = await llm.parse_brief(
-        brief,
+        combined,
         now=now,
         timezone=settings.compose_timezone,
         attendees=[name for name, _ in attendee_pairs],
     )
-    return _render_confirm_html(
-        brief, _attendee_field(attendee_pairs), parsed, settings.compose_timezone
-    )
+    if parsed is None or not parsed.topics:
+        if not typed:
+            return render_gate_html(brief, attendee_field)
+        host_name = attendee_pairs[0][0] if attendee_pairs else ""
+        fallback = _rows_from_lines(typed, host_name)
+        if fallback:
+            return _render_confirm_html(
+                brief, attendee_field, parsed, settings.compose_timezone, fallback
+            )
+        return render_gate_html(brief, attendee_field, typed)
+    return _render_confirm_html(brief, attendee_field, parsed, settings.compose_timezone)
 
 
 @dataclass
@@ -260,45 +380,30 @@ def _rows_from_parsed(
         )
         for t in parsed.topics
     ]
-    while len(rows) < _MIN_TOPIC_ROWS:
-        rows.append(_Row())
+    # One spare row: enough to add a topic that was missed, not so many that a
+    # parsed agenda reads as a half-empty form.
+    rows.append(_Row())
     local_start = parsed.start.astimezone(ZoneInfo(timezone))
     return rows, local_start.strftime("%Y-%m-%dT%H:%M")
 
 
 def _render_confirm_html(
-    brief: str, attendees: str, parsed: ParsedBrief | None, timezone: str
+    brief: str,
+    attendees: str,
+    parsed: ParsedBrief | None,
+    timezone: str,
+    fallback_rows: list[_Row] | None = None,
 ) -> str:
     e = html.escape
     attendee_pairs = _attendees_from_field(attendees)
     host_name = attendee_pairs[0][0] if attendee_pairs else ""
     rows, start_value = _rows_from_parsed(parsed, timezone, host_name)
+    if fallback_rows:
+        rows = [*fallback_rows, _Row()]
     title = e(parsed.title if parsed else "")
     purpose = e(parsed.purpose.strip() if parsed and parsed.purpose.strip() else "")
     duration = str(parsed.duration_minutes) if parsed else ""
 
-    # No topics came back — either the model failed, or the brief genuinely did
-    # not say what the meeting is for. Same answer either way: this is the one
-    # thing the host has to supply, and the page says so instead of quietly
-    # showing three empty boxes. The boxes are still there, because a chair that
-    # refuses and offers no way forward is just an obstacle.
-    no_agenda = parsed is None or not parsed.topics
-    if no_agenda:
-        warning = (
-            "<p style='color:var(--warn);font-size:1.05rem'><strong>There's no agenda in "
-            "that brief.</strong> Karen won't put a meeting in three people's calendars "
-            "without one — what does this call have to decide? Name the topics below, "
-            "with who owns each, or <a href='/compose'>say it again</a> with the agenda "
-            "in it.</p>"
-        )
-        # The link matters more than it looks: this page is a POST result, so the
-        # browser's own Back button offers "Confirm Form Resubmission" instead of
-        # the brief box. Re-dictating is the likelier fix for a missing agenda, and
-        # it should not depend on knowing that.
-    else:
-        warning = ""
-
-    return_marker = ""
     topic_rows = "".join(
         f"""<tr>
 <td><input name="topic_title_{i}" value="{e(r.title)}"></td>
@@ -314,33 +419,52 @@ def _render_confirm_html(
     )
 
     return f"""<!doctype html>
-<html><head><meta charset="utf-8"><title>gavel calendar — confirm</title>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gavel — confirm</title>
 <style>{_STYLE}</style></head>
-<body>
-<h1>Confirm the meeting</h1>
-{warning}{return_marker}
+<body><div class="page">
+<p class="eyebrow">before it goes out</p>
+<h1>Here&rsquo;s the contract.</h1>
+<p class="lede">This is what the invitees will read, and what the chair will hold
+the room to. Change anything that is wrong.</p>
 <form method="post" action="/compose/send">
 <input type="hidden" name="brief" value="{e(brief)}">
 <label for="title">Title</label>
 <input id="title" name="title" value="{title}">
-<label for="purpose">Purpose <span style="text-transform:none;font-weight:400">(one line —
-this is what the invitees read first)</span></label>
+<label for="purpose">Purpose <span class="opt">&mdash; one line, read first</span></label>
 <input id="purpose" name="purpose" value="{purpose}">
-<label for="attendees">Invitees <span style="text-transform:none;font-weight:400">(add or
-remove — "Name &lt;email&gt;", comma separated)</span></label>
+<label for="attendees">Invitees <span class="opt">&mdash; add or remove</span></label>
 <input id="attendees" name="attendees" value="{e(attendees)}">
-<label for="start">Start ({e(timezone)})</label>
+<label for="start">Start <span class="opt">&mdash; {e(timezone)}</span></label>
 <input id="start" name="start" type="datetime-local" value="{e(start_value)}">
-<label for="duration_minutes">Duration (minutes)</label>
+<label for="duration_minutes">Duration <span class="opt">&mdash; minutes</span></label>
 <input id="duration_minutes" name="duration_minutes" type="number" min="1" value="{e(duration)}">
-<label>Topics</label>
+
+<h2>Agenda</h2>
 <input type="hidden" name="topics_count" value="{len(rows)}">
-<table><tr><th>Title</th><th>Min</th><th>Owner</th><th>Must hear</th><th>Type</th></tr>{topic_rows}</table>
-<p class="hint">A <strong>presentation</strong> topic is one person holding the floor on purpose:
-the chair keeps it on the agenda but never hands the floor on inside it.</p>
-<button type="submit">Send</button>
+<table><thead><tr><th>Topic</th><th>Min</th><th>Owner</th><th>Must be heard</th>
+<th>Type</th></tr></thead><tbody>{topic_rows}</tbody></table>
+<p class="hint">A <strong>presentation</strong> is one person holding the floor on
+purpose. The chair keeps it on the agenda and never hands the floor on inside it.</p>
+
+<h2>How hard she chairs</h2>
+<div class="seg">
+<input type="radio" id="enf_low" name="enforcement" value="low">
+<label for="enf_low"><b>Low</b><span>Long rope. She only speaks up when a topic
+badly overruns.</span></label>
+<input type="radio" id="enf_medium" name="enforcement" value="medium" checked>
+<label for="enf_medium"><b>Medium</b><span>Waits for a pause, then moves the room
+on. The default chair.</span></label>
+<input type="radio" id="enf_high" name="enforcement" value="high">
+<label for="enf_high"><b>High</b><span>Cuts in mid-sentence, short grace, and may
+mute after a warning is ignored.</span></label>
+</div>
+<p class="hint">You are the host, so she will never mute you.</p>
+
+<button type="submit">Send the invite</button>
 </form>
-</body></html>"""
+</div></body></html>"""
 
 
 # --- POST /compose/send --------------------------------------------------------------
@@ -427,9 +551,16 @@ async def handle_send(form: FormData, store: InviteStore, settings: Settings) ->
     )
 
     session_id = uuid.uuid4().hex[:12]
-    agenda = build_agenda(
-        invite, session_id, settings.attendee_map, settings.policy_overrides
-    )
+    # The gauge is merged *over* the environment's overrides: the environment
+    # carries deployment facts, the gauge carries this meeting's intent, and the
+    # gauge wins on the keys it names. Unknown value falls back to Medium rather
+    # than 500ing -- a hand-rolled POST must still produce a meeting.
+    level = _form_str(form, "enforcement", DEFAULT_ENFORCEMENT).strip().lower()
+    overrides = {
+        **settings.policy_overrides,
+        **ENFORCEMENT_LEVELS.get(level, ENFORCEMENT_LEVELS[DEFAULT_ENFORCEMENT]),
+    }
+    agenda = build_agenda(invite, session_id, settings.attendee_map, overrides)
     # The host's own one-liner wins over the sentence `agenda.py` scrapes off the
     # top of the brief. `invite.description` stays the full brief either way —
     # that is what `record.context` carries to the chair.
@@ -536,19 +667,26 @@ def _render_success_page(
         for t in record.agenda["topics"]
     )
     notice = (
-        "<p style='color:var(--good)'>Invite emailed.</p>"
+        '<p><span class="notice ok">Invite emailed</span></p>'
         if mail_result.sent
-        else f"<p style='color:var(--warn)'>invite email not sent: {e(mail_result.reason or 'unknown reason')}</p>"
+        else '<p><span class="notice bad">Invite email not sent: '
+        f"{e(mail_result.reason or 'unknown reason')}</span></p>"
     )
+    when = record.start.strftime("%a %d %b, %H:%M")
+    mins = int((record.end - record.start).total_seconds()) // 60
     return f"""<!doctype html>
-<html><head><meta charset="utf-8"><title>{e(record.title)} — created</title>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{e(record.title)} — created</title>
 <style>{_STYLE}</style></head>
-<body>
+<body><div class="page">
+<p class="eyebrow">in their calendars</p>
 <h1>{e(record.title)}</h1>
-<p>{e(record.start.isoformat())} — {e(record.end.isoformat())}</p>
+<p class="meta">{e(when)} &nbsp;·&nbsp; {mins} min</p>
 {notice}
-<p><a class="button" href="{e(join_url)}">Join link</a></p>
-<p>Discord: <a href="{e(discord_url)}">{e(discord_url)}</a></p>
+<p><a class="button" href="{e(join_url)}">Open the join link</a></p>
+<p class="quiet">Discord: <a href="{e(discord_url)}">{e(discord_url)}</a></p>
 <h2>Agenda</h2>
-<table><tr><th>Topic</th><th>Budget</th><th>Owner</th></tr>{rows}</table>
-</body></html>"""
+<table><thead><tr><th>Topic</th><th>Budget</th><th>Owner</th></tr></thead>
+<tbody>{rows}</tbody></table>
+</div></body></html>"""

@@ -36,7 +36,7 @@ that they *should have*, and that nobody in the room is ever in a position to en
 | # | Check | How |
 |---|---|---|
 | 1 | Policy overrides live | `CALENDAR_POLICY_OVERRIDES={"offAgendaGraceSeconds": 8, "requireStart": false}` — verified on the box: agenda goes out with 13 policy keys, grace **8**, requireStart **false**, gap **45** |
-| 2 | The thin brief still gets refused | Say §4a into `/compose` once in rehearsal. It must come back with **no topic rows** and her pushback line. Measured 19 Sep: 5 different agenda-less briefs, 5 empty topic arrays |
+| 2 | The thin brief still gets refused | Say §4a into `/compose` once in rehearsal. It must come back as the **gate page** — a headline, one box, one button, and *no* topic grid and no Send. Measured 19 Sep: 5 different agenda-less briefs, 5 empty topic arrays |
 | 3 | Topic types in the confirm table | row 1 **presentation**, row 2 **discussion**, row 3 **presentation** |
 | 4 | Must-hear on row 2 | `Vitaly, Artem` — without it the handover has nobody to hand to |
 | 5 | Purpose line | one sentence on the confirm page — it is the first thing an invitee reads |
@@ -104,9 +104,10 @@ use it if you are confident the catch fires; it names the thing that must work.*
 | Clock | Beat | On screen | You say / do |
 |---|---|---|---|
 | 0:15 | **Ask for a meeting the way you actually ask** | `/compose` | One empty box. Hit the mic, say §4a (~8s). "No form, no invitee list. This is how a meeting really gets booked — a sentence, and somebody else's calendar." |
-| 0:28 | **She refuses** | pushback page | Read her line off the screen, out loud. Then: "It is not being awkward. That is ninety minutes of three people's time, and it wants to know what the ninety minutes buys. Nothing gets into a calendar through this without an agenda." |
-| 0:50 | **Say what it is for** | `/compose` | Hit **say it again** on her pushback — mic, §4b (~18s). "Same box. This time I say what has to come out of it." (Use the link, never the browser Back button: this page is a POST result.) |
+| 0:28 | **She refuses** | gate page | Read the headline off the screen, out loud: *there's no agenda in that brief*. Then: "Everything else it worked out — the time, the length, who to invite. The one thing it will not invent is what the call is for. Nothing gets into a calendar through this without an agenda." |
+| 0:50 | **Say what it is for** | gate page | Mic straight into the agenda box, §4b's agenda half (~12s). "One box. It asks for the one thing it can't infer." (Stay on this page — never the browser Back button, this is a POST result.) |
 | 1:12 | **The table is the contract** | confirm table | Point at **Type**: "Rows one and three are presentations — one person holds the floor on purpose. Row two is a discussion. She treats them differently and you will see how." Point at **Must hear**: "Both of us have to be heard on row two. That is a promise she keeps." Point at **Invitees**: "Read off the brief. I can still fix it here." |
+| 1:22 | **How hard she chairs** | confirm page, gauge | Click **High**. "Low, medium, high. On medium she waits for a pause. On high she cuts in mid-sentence, and after a warning she's allowed to mute. Note who she can't mute: me. The host is never a target." Leave it on **High** for the drift catch later. |
 | 1:40 | **Send** | success page | "Real invite, real .ics, real mailbox." |
 | 1:48 | **The invite is not what I dictated** | mailbox | Open it. "I dictated a paragraph. They get this: purpose in one line, every topic numbered, with an owner, a time budget, and who has to be heard on it. The agenda has teeth before anybody joins." |
 | 2:15 | **Accept → calendar → join** | mailbox, calendar, Discord | Three clicks, one sentence each — never narrate silently. "Accepted. In my calendar with a join link. And the link is a Discord call." |
@@ -247,7 +248,7 @@ work without one, and then it held me to it.")*
 | If | Then |
 |---|---|
 | She **accepts** the thin brief | "She took it — which tells you the parse is generous. The gate is the table: it still does not send until the agenda is filled." Fill it and move on. Measured 5/5 refusals on 19 Sep — never debug the gate on stage. |
-| Nebius is down / parse returns nothing | Same pushback page, blank rows. Type the topics. "The model is a convenience. The table is the contract." |
+| Nebius is down / parse returns nothing | Gate page, same as always. Type the agenda into the box — if the re-parse also fails, each line becomes a topic and the confirm table still comes up. "The model is a convenience. The table is the contract." |
 | STT mangles the real brief | Fix the row in the table. "The parse is a draft, the table is the contract." Never re-record on stage. |
 | The invite renders badly on the projector | Open the `.ics` instead — its DESCRIPTION carries the same agenda, owners included. |
 | She misses the drift | Keep going — do **not** wait on her. The discussion handover is the money beat and has a much wider margin. If she lands it late, name it: "45-second cooldown between interventions — she had just opened the meeting." |

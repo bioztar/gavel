@@ -19,11 +19,13 @@ from datetime import datetime
 
 from .agenda import attendee_name
 
-_INK = "#12151c"
-_DIM = "#5b6478"
-_LINE = "#e2e6ee"
-_ACCENT = "#4a5bd6"
-_WASH = "#f5f7fb"
+# Same palette as the compose pages: near-white ground, one accent, hairlines.
+# Inline styles only and no <style> block -- Outlook and Gmail strip those.
+_INK = "#1d1d1f"
+_DIM = "#6e6e73"
+_LINE = "#e8e8ed"
+_ACCENT = "#0071e3"
+_WASH = "#f5f5f7"
 
 _HOW_IT_RUNS = (
     "Every topic has an owner and a time budget — both are listed above.",
@@ -100,7 +102,7 @@ def _topic_row(agenda: dict, n: int, topic: dict, striped: bool) -> str:
     bg = _WASH if striped else "#ffffff"
     badge = (
         f'<span style="display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;'
-        f'background:#eceefb;color:{_ACCENT};font-size:11px;font-weight:600;letter-spacing:.04em;'
+        f'background:#eaf3fe;color:{_ACCENT};font-size:11px;font-weight:600;letter-spacing:.04em;'
         f'text-transform:uppercase">presentation</span>'
         if topic.get("type") == "presentation"
         else ""
@@ -140,17 +142,17 @@ def render_invite_html(
     )
     return f"""<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
-<body style="margin:0;padding:0;background:#eef1f6">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef1f6">
+<body style="margin:0;padding:0;background:#fbfbfd">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fbfbfd">
 <tr><td align="center" style="padding:28px 12px">
 <table role="presentation" width="640" cellpadding="0" cellspacing="0"
  style="width:640px;max-width:100%;background:#ffffff;border:1px solid {_LINE};border-radius:12px;
- font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
+ font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,Helvetica,Arial,sans-serif">
 
 <tr><td style="padding:26px 30px 0">
   <p style="margin:0 0 4px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:{_DIM}">
     Meeting invitation</p>
-  <h1 style="margin:0;font-size:23px;line-height:1.25;color:{_INK};font-weight:700">{e(title)}</h1>
+  <h1 style="margin:0;font-size:26px;line-height:1.18;letter-spacing:-.02em;color:{_INK};font-weight:600">{e(title)}</h1>
   <p style="margin:8px 0 0;font-size:15px;color:{_DIM}">{e(_when(start, end))} &nbsp;·&nbsp;
     {total} min on the agenda</p>
 </td></tr>

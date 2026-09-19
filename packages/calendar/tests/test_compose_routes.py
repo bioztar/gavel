@@ -97,7 +97,7 @@ def test_compose_parse_uses_llm_when_configured(
         "title": "Pricing sync",
         "start": "2026-09-19T13:00:00+02:00",
         "duration_minutes": 15,
-        "topics": [],
+        "topics": [{"title": "Pricing", "minutes": 15, "owner": "Vitaly", "must_hear": []}],
     }
     httpx_mock.add_response(
         url="https://fake.test/v1/chat/completions",
@@ -112,6 +112,70 @@ def test_compose_parse_uses_llm_when_configured(
         )
     assert resp.status_code == 200
     assert "Pricing sync" in resp.text
+    assert 'name="enforcement"' in resp.text
+
+
+def test_gate_asks_for_an_agenda_and_nothing_else(
+    monkeypatch: pytest.MonkeyPatch, httpx_mock: HTTPXMock
+) -> None:
+    """A brief the model finds no topics in gets the refusal, not a topic grid.
+
+    The gate is the demo's headline beat, so what it must *not* contain is as
+    load-bearing as what it does: no topic rows to fill in, no send button.
+    """
+    payload = {
+        "title": "Sync",
+        "start": "2026-09-19T13:00:00+02:00",
+        "duration_minutes": 30,
+        "topics": [],
+    }
+    httpx_mock.add_response(
+        url="https://fake.test/v1/chat/completions",
+        method="POST",
+        json={"choices": [{"message": {"content": json.dumps(payload)}}]},
+    )
+    monkeypatch.setattr(app_module.settings, "nebius_api_key", "key123")
+    with TestClient(app) as client:
+        resp = client.post(
+            "/compose/parse",
+            data={"brief": "meeting with Artem tomorrow", "attendees": ""},
+        )
+    assert resp.status_code == 200
+    assert "no agenda in" in resp.text.lower()
+    assert 'name="agenda"' in resp.text
+    assert "topic_title_0" not in resp.text
+    assert 'action="/compose/send"' not in resp.text
+
+
+def test_a_typed_agenda_clears_the_gate(
+    monkeypatch: pytest.MonkeyPatch, httpx_mock: HTTPXMock
+) -> None:
+    """The gate posts back with `agenda`; the brief and the agenda are re-parsed
+    together, so a topic typed there arrives exactly like a dictated one."""
+    payload = {
+        "title": "Sync",
+        "start": "2026-09-19T13:00:00+02:00",
+        "duration_minutes": 30,
+        "topics": [{"title": "Pricing", "minutes": 30, "owner": "Vitaly", "must_hear": []}],
+    }
+    httpx_mock.add_response(
+        url="https://fake.test/v1/chat/completions",
+        method="POST",
+        json={"choices": [{"message": {"content": json.dumps(payload)}}]},
+    )
+    monkeypatch.setattr(app_module.settings, "nebius_api_key", "key123")
+    with TestClient(app) as client:
+        resp = client.post(
+            "/compose/parse",
+            data={
+                "brief": "meeting with Artem tomorrow",
+                "attendees": "",
+                "agenda": "Pricing - Vitaly, 30 min",
+            },
+        )
+    assert resp.status_code == 200
+    assert 'action="/compose/send"' in resp.text
+    assert "Pricing" in resp.text
 
 
 def test_parse_accepts_an_empty_invitee_box():

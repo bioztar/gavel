@@ -251,3 +251,34 @@ def test_invite_email_does_not_repeat_the_owner_as_must_be_heard():
     arch, disc = body.split("2. Open discussion")
     assert "must be heard: —" in arch
     assert "must be heard: Vitaly, Artem" in disc
+
+
+async def test_enforcement_gauge_reaches_the_agenda_policy() -> None:
+    """High is not cosmetic: it has to arrive in the agenda the chair reads.
+
+    Also pins the merge order — the level wins over `CALENDAR_POLICY_OVERRIDES`
+    on the keys it names, and the environment's own keys survive untouched.
+    """
+    from starlette.datastructures import FormData
+
+    from gavel_calendar.store import InviteStore
+
+    settings = _settings()
+    settings.calendar_policy_overrides = '{"offAgendaGraceSeconds": 8, "requireStart": false}'
+    store = InviteStore()
+    form = FormData(
+        {
+            "title": "Pricing sync",
+            "attendees": "Vitaly <vitaly@test.dev>, Artem <artem@test.dev>",
+            "duration_minutes": "30",
+            "topics_count": "1",
+            "topic_title_0": "Pricing",
+            "enforcement": "high",
+        }
+    )
+    await compose.handle_send(form, store, settings)
+    policy = store.pending()[0].agenda["policy"]
+    assert policy["handover"] == "hard"
+    assert policy["allowMute"] is True
+    assert policy["offAgendaGraceSeconds"] == 5  # the level, not the env's 8
+    assert policy["requireStart"] is False  # env key the level never names

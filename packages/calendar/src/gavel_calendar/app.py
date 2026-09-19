@@ -130,12 +130,16 @@ async def compose_form() -> str:
 
 
 @app.post("/compose/parse", response_class=HTMLResponse)
-async def compose_parse(brief: str = Form(...), attendees: str = Form("")) -> str:
-    # The invitee box on page one is optional, and an empty text input posts as
-    # `attendees=` — which this Starlette version reports as *missing*, not as an
-    # empty string. Required here, that 422s the one path the host actually uses:
-    # dictate the brief, click Next, name nobody.
-    return await compose.render_confirm_form(brief, attendees, settings)
+async def compose_parse(
+    brief: str = Form(...), attendees: str = Form(""), agenda: str = Form("")
+) -> str:
+    # Both optional fields default to "" rather than being required. An empty
+    # text input posts as `attendees=`, which this Starlette version reports as
+    # *missing*, not as an empty string — required, that 422s the one path the
+    # host actually uses: dictate the brief, click Continue, name nobody.
+    # `agenda` is the same shape, posted back by the gate page when the brief
+    # had no agenda in it.
+    return await compose.render_confirm_form(brief, attendees, settings, agenda)
 
 
 @app.post("/compose/send", response_class=HTMLResponse)

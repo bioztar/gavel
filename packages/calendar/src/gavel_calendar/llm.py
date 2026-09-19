@@ -36,7 +36,11 @@ The current date and time is {now}, timezone {timezone}. Resolve every relative 
 in the brief ("in one hour", "tomorrow at 10", "half an hour") against that clock, \
 and always emit "start" with the {timezone} UTC offset — you have no other clock. \
 Known attendees: {attendees}. Use their names, never their emails, for "owner" and \
-"must_hear" when the brief names them. "must_hear" is ONLY the people the brief \
+"must_hear" when the brief names them. The person dictating the brief is the FIRST \
+name in that list, so "me", "I", "my" and "mine" mean that person and nobody else. \
+The brief is dictated TO the chair and often opens by addressing her by name — that \
+opening is an instruction to her, not a participant: the chair is never an attendee, \
+never an "owner" and never in "must_hear", even when the brief starts with her name. "must_hear" is ONLY the people the brief \
 explicitly says must be heard, must give their opinion, or must weigh in on that \
 topic. It is not the audience and it is not "whoever is not presenting" — if the \
 brief does not say it for that topic, emit an empty list. A topic someone presents \
