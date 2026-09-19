@@ -74,10 +74,23 @@ def build_agenda(
         for a, att in zip(invite.attendees, attendees, strict=True)
     }
 
+    # Whoever called the meeting is the standing best guess for anything the
+    # brief did not say. An agenda with no owner and nobody who must be heard
+    # gives the chair nothing to chase — she can't ask "who owns this?" or
+    # notice that the one person who had to speak never did. A guessed host is
+    # wrong far less often than empty is useless, and the compose form shows
+    # the guess so it can be corrected before the invite goes out.
+    host_id = next(
+        (a["discordId"] for a in attendees if a["role"] == "host"),
+        attendees[0]["discordId"] if attendees else None,
+    )
+
     budgets = _budget_seconds(invite.topics, total_seconds)
     topics = []
     for i, (draft, budget) in enumerate(zip(invite.topics, budgets, strict=True), start=1):
         owner_id = by_name.get(draft.owner_name.strip().lower()) if draft.owner_name else None
+        if owner_id is None:
+            owner_id = host_id
         # Unmatched names are dropped rather than passed through — the brain
         # resolves mustHear against discordIds, not free text.
         must_hear_ids = [
@@ -85,6 +98,9 @@ def build_agenda(
             for name in draft.must_hear_names
             if name.strip().lower() in by_name
         ]
+        if not must_hear_ids and owner_id is not None:
+            # The owner of a topic is the one person who has to be heard on it.
+            must_hear_ids = [owner_id]
         topics.append(
             {
                 "id": f"t{i}",

@@ -56,13 +56,16 @@ def test_demo_agenda_matches_contract_shape() -> None:
 
     assert agenda["topics"][0]["owner"] == "ana@example.invalid"
     assert agenda["topics"][1]["owner"] == "vitaly@example.invalid"
-    assert agenda["topics"][2]["owner"] is None
+    # The brief named no owner for this one. Rather than leave it unowned -- which
+    # gives the chair nobody to chase -- it falls back to whoever called the meeting.
+    assert agenda["topics"][2]["owner"] == "vitaly@example.invalid"
 
     # "must hear: Marc" / "goal: ..." / "q: ..." from the fixture's description.
     assert agenda["topics"][0]["mustHear"] == ["marc@example.invalid"]
     assert agenda["topics"][0]["goal"] == "one clear picture everyone agrees on"
     assert agenda["topics"][1]["questions"] == ["what happens if launch slips a week?"]
-    assert agenda["topics"][2]["mustHear"] == []
+    # Same fallback: the guessed owner is the one person who has to be heard on it.
+    assert agenda["topics"][2]["mustHear"] == ["vitaly@example.invalid"]
     assert agenda["topics"][2]["goal"] == ""
     assert agenda["topics"][2]["questions"] == []
 
@@ -72,8 +75,8 @@ def test_demo_agenda_matches_contract_shape() -> None:
 
 def test_policy_override_is_merged_onto_the_full_default_table() -> None:
     # ears's Agenda.policy does not deep-merge -- a partial dict would drop
-    # the other nine keys for this session. A single-key override must still
-    # produce all ten on the wire.
+    # the other ten keys for this session. A single-key override must still
+    # produce all eleven on the wire.
     invite = parse_ics(FIXTURE.read_bytes())
     agenda = build_agenda(
         invite,
@@ -81,7 +84,7 @@ def test_policy_override_is_merged_onto_the_full_default_table() -> None:
         attendee_map={},
         policy_overrides={"silenceSeconds": 20},
     )
-    assert len(agenda["policy"]) == 10
+    assert len(agenda["policy"]) == 11
     assert agenda["policy"] == {**EARS_DEFAULT_POLICY, "silenceSeconds": 20}
     assert agenda["policy"]["floorShareThreshold"] == EARS_DEFAULT_POLICY["floorShareThreshold"]
     ContractAgenda.model_validate(agenda)

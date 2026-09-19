@@ -35,6 +35,9 @@ EARS_DEFAULT_POLICY: dict[str, float | bool] = {
     "allowMute": False,
     "escalateAfterSeconds": 10,
     "muteSeconds": 15,
+    # False: the chair opens the meeting herself once everyone is in the call,
+    # instead of waiting for "Karen, let's start the meeting".
+    "requireStart": True,
 }
 
 
@@ -68,5 +71,5 @@ class ContractAgenda(Contract):
     # dict — it fully replaces its own. So this field is only ever set when
     # an invite genuinely overrides specific keys — and `agenda.py` merges
     # that override onto `EARS_DEFAULT_POLICY` above before sending, so the
-    # dict that goes out always carries all ten keys, not just the override.
+    # dict that goes out always carries all eleven keys, not just the override.
     policy: dict[str, float | bool] | None = None

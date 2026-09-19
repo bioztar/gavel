@@ -89,17 +89,84 @@ def _fill_topic_minutes(minutes: list[int | None], total_minutes: int) -> list[i
 # --- GET /compose ------------------------------------------------------------------
 
 
+# The compose pages are the first thing a judge or a colleague sees, so they get
+# a real look rather than raw browser defaults. CSS only, one shared constant,
+# no CDN font and no JS: the calendar service must render offline on a laptop on
+# a conference floor. Interpolated as {_STYLE} into each page's <style> block --
+# keep it out of the f-strings themselves so the braces need no doubling.
+_STYLE = """
+:root {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --card: #171a21;
+  --line: #262b36;
+  --ink: #e8eaf0;
+  --muted: #98a0b3;
+  --accent: #6c7cff;
+  --accent-ink: #fff;
+  --warn: #ffb86b;
+  --bad: #ff7b7b;
+  --good: #58d6a0;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px; line-height: 1.55; color: var(--ink);
+  max-width: 860px; margin: 3rem auto 4rem; padding: 2.5rem;
+  background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.45);
+}
+h1 { font-size: 1.7rem; letter-spacing: -.02em; margin: 0 0 .4rem; }
+h1::after {
+  content: ""; display: block; width: 54px; height: 3px; margin-top: .7rem;
+  background: var(--accent); border-radius: 2px;
+}
+h2 { font-size: 1.1rem; text-transform: uppercase; letter-spacing: .08em;
+     color: var(--muted); margin: 2rem 0 .5rem; }
+p { color: var(--muted); }
+a { color: var(--accent); }
+label { display: block; font-weight: 600; font-size: .85rem; letter-spacing: .04em;
+        text-transform: uppercase; color: var(--muted); margin: 1.4rem 0 .35rem; }
+input, textarea {
+  width: 100%; font: inherit; color: var(--ink);
+  background: #10131a; border: 1px solid var(--line); border-radius: 9px;
+  padding: .6rem .7rem;
+}
+textarea { height: 8.5rem; resize: vertical; }
+input:focus, textarea:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108,124,255,.25);
+}
+table { width: 100%; border-collapse: collapse; margin: .8rem 0 0;
+        border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+th { text-align: left; font-size: .75rem; text-transform: uppercase; letter-spacing: .07em;
+     color: var(--muted); background: #10131a; padding: .6rem .7rem; }
+td { padding: .45rem .5rem; border-top: 1px solid var(--line); vertical-align: middle; }
+tr:nth-child(even) td { background: rgba(255,255,255,.015); }
+td input { border-color: transparent; background: transparent; }
+td input:focus { border-color: var(--accent); background: #10131a; }
+button, a.button {
+  display: inline-block; font: inherit; font-weight: 600; font-size: 1rem;
+  margin-top: 1.6rem; padding: .7rem 1.5rem; cursor: pointer;
+  color: var(--accent-ink); background: var(--accent);
+  border: 0; border-radius: 10px; text-decoration: none;
+}
+button:hover, a.button:hover { filter: brightness(1.1); }
+@media (max-width: 640px) {
+  body { margin: 0; padding: 1.5rem 1.1rem; border: 0; border-radius: 0; box-shadow: none; }
+  table, thead, tbody, tr, td, th { display: block; }
+  th { display: none; }
+  td { border-top: 0; }
+  tr { border-top: 1px solid var(--line); padding: .5rem 0; }
+}
+"""
+
+
 def render_brief_form(default_attendees: str) -> str:
     e = html.escape
     return f"""<!doctype html>
 <html><head><meta charset="utf-8"><title>gavel calendar — compose</title>
-<style>
-body {{ font-family: system-ui, sans-serif; max-width: 720px; margin: 3rem auto; padding: 0 1rem; }}
-textarea, input {{ width: 100%; font: inherit; padding: 0.5rem; box-sizing: border-box; margin: 0.3rem 0 1rem; }}
-textarea {{ height: 8rem; }}
-label {{ font-weight: 600; }}
-button {{ font-size: 1.1rem; padding: 0.6rem 1.4rem; cursor: pointer; }}
-</style></head>
+<style>{_STYLE}</style></head>
 <body>
 <h1>Set up a meeting</h1>
 <p>Type it like you'd say it. "set up a 15 minute meeting in one hour with Artem, we need to
@@ -138,15 +205,21 @@ class _Row:
     must_hear: str = ""
 
 
-def _rows_from_parsed(parsed: ParsedBrief | None, timezone: str) -> tuple[list[_Row], str]:
+def _rows_from_parsed(
+    parsed: ParsedBrief | None, timezone: str, host_name: str = ""
+) -> tuple[list[_Row], str]:
+    """Rows for the confirm table. A topic the brief did not assign gets the
+    host as its owner and its only must-hear, rather than a blank box: an
+    unowned topic gives the chair nothing to chase, and a guess sitting in an
+    editable field is corrected in one keystroke. Blank is not."""
     if parsed is None:
         return [_Row() for _ in range(_MIN_TOPIC_ROWS)], ""
     rows = [
         _Row(
             title=t.title,
             minutes="" if t.minutes is None else str(t.minutes),
-            owner=t.owner or "",
-            must_hear=", ".join(t.must_hear),
+            owner=t.owner or host_name,
+            must_hear=", ".join(t.must_hear) or (t.owner or host_name),
         )
         for t in parsed.topics
     ]
@@ -160,13 +233,15 @@ def _render_confirm_html(
     brief: str, attendees: str, parsed: ParsedBrief | None, timezone: str
 ) -> str:
     e = html.escape
-    rows, start_value = _rows_from_parsed(parsed, timezone)
+    attendee_pairs = _attendees_from_field(attendees)
+    host_name = attendee_pairs[0][0] if attendee_pairs else ""
+    rows, start_value = _rows_from_parsed(parsed, timezone, host_name)
     title = e(parsed.title if parsed else "")
     duration = str(parsed.duration_minutes) if parsed else ""
     warning = (
         ""
         if parsed is not None
-        else "<p style='color:#a33'><strong>Could not parse that brief.</strong> "
+        else "<p style='color:var(--bad)'><strong>Could not parse that brief.</strong> "
         "Fill in the agenda by hand below.</p>"
     )
 
@@ -182,14 +257,7 @@ def _render_confirm_html(
 
     return f"""<!doctype html>
 <html><head><meta charset="utf-8"><title>gavel calendar — confirm</title>
-<style>
-body {{ font-family: system-ui, sans-serif; max-width: 900px; margin: 3rem auto; padding: 0 1rem; }}
-input {{ width: 100%; font: inherit; padding: 0.4rem; box-sizing: border-box; }}
-table {{ width: 100%; border-collapse: collapse; margin: 1rem 0; }}
-td, th {{ text-align: left; padding: 0.4rem 0.6rem; }}
-label {{ font-weight: 600; display: block; margin-top: 1rem; }}
-button {{ font-size: 1.1rem; padding: 0.6rem 1.4rem; cursor: pointer; margin-top: 1rem; }}
-</style></head>
+<style>{_STYLE}</style></head>
 <body>
 <h1>Confirm the meeting</h1>
 {warning}
@@ -380,18 +448,13 @@ def _render_success_page(
         for t in record.agenda["topics"]
     )
     notice = (
-        "<p style='color:#2a7'>Invite emailed.</p>"
+        "<p style='color:var(--good)'>Invite emailed.</p>"
         if mail_result.sent
-        else f"<p style='color:#a73'>invite email not sent: {e(mail_result.reason or 'unknown reason')}</p>"
+        else f"<p style='color:var(--warn)'>invite email not sent: {e(mail_result.reason or 'unknown reason')}</p>"
     )
     return f"""<!doctype html>
 <html><head><meta charset="utf-8"><title>{e(record.title)} — created</title>
-<style>
-body {{ font-family: system-ui, sans-serif; max-width: 720px; margin: 3rem auto; padding: 0 1rem; }}
-table {{ width: 100%; border-collapse: collapse; margin: 1rem 0; }}
-td, th {{ text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #ddd; }}
-a.button {{ display: inline-block; font-size: 1.1rem; padding: 0.6rem 1.4rem; }}
-</style></head>
+<style>{_STYLE}</style></head>
 <body>
 <h1>{e(record.title)}</h1>
 <p>{e(record.start.isoformat())} — {e(record.end.isoformat())}</p>
