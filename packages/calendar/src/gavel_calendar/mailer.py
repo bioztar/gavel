@@ -19,6 +19,7 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 _RESEND_URL = "https://api.resend.com/emails"
+_TIMEOUT_SECONDS = 10.0
 
 
 class MailResult(BaseModel):
@@ -34,7 +35,6 @@ async def send_invite(
     subject: str,
     text_body: str,
     ics_bytes: bytes,
-    timeout: float = 10.0,
 ) -> MailResult:
     if not api_key:
         return MailResult(sent=False, reason="not sent (no key)")
@@ -56,7 +56,7 @@ async def send_invite(
     }
     headers = {"Authorization": f"Bearer {api_key}"}
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:
             resp = await client.post(_RESEND_URL, json=body, headers=headers)
             resp.raise_for_status()
     except httpx.HTTPStatusError as exc:

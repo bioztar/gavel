@@ -351,7 +351,7 @@ async def _safe_mail(
             discord_url=settings.discord_meeting_url,
             join_url=join_url,
         )
-    except Exception as exc:  # noqa: BLE001 — isolation of last resort, see mailer.py
+    except Exception as exc:  # isolation of last resort, see mailer.py
         logger.exception("compose.ics_build_failed")
         return MailResult(sent=False, reason=f"invite not sent (ics build failed: {type(exc).__name__})")
 
@@ -365,7 +365,7 @@ async def _safe_mail(
             text_body=text_body,
             ics_bytes=ics_bytes,
         )
-    except Exception as exc:  # noqa: BLE001 — a mailer bug must never fail the meeting
+    except Exception as exc:  # a mailer bug must never fail the meeting
         logger.exception("compose.mail_call_failed")
         return MailResult(sent=False, reason=f"invite not sent ({type(exc).__name__})")
 

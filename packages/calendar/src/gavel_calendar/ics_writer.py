@@ -23,7 +23,7 @@ def _topic_line(agenda: dict, topic: dict) -> str:
     minutes = topic["budgetSeconds"] // 60
     owner = attendee_name(agenda, topic.get("owner"))
     must_hear = [attendee_name(agenda, i) for i in topic.get("mustHear", [])]
-    line = f"- {topic['title']} — {minutes}m"  # noqa: RUF001
+    line = f"- {topic['title']} — {minutes}m"
     parts = []
     if owner:
         parts.append(f"owner: {owner}")

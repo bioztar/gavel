@@ -45,6 +45,10 @@ the `id`/`sessionId` `ears` handed back).
 | `POST /m/{sessionId}/join` | Forces the session to start now. Same call the scheduler makes automatically at the event's start time. |
 | `GET /board` | Upcoming ingested meetings (manual invites and polled feed events alike), each with its own **Join** button — the demo path from "meeting exists" to "session running" when nothing wrote a join link back into the calendar. |
 | `GET /health` | `{status, pending, feeds}` — `feeds` is per-`CALENDAR_ICS_FEEDS` entry, addressed by index only: `{feed, lastSuccess, eventCount, lastError}`. Never the feed URL. |
+| `GET /` | 307 redirect to `/board`. |
+| `GET /compose` | The "set up a meeting" front door: a plain-English brief form, prefilled with `COMPOSE_DEFAULT_ATTENDEES`. |
+| `POST /compose/parse` | Sends the brief to the LLM, returns an editable confirmation form (title, start, duration, per-topic rows). No LLM configured, or the call fails: falls back to an empty/best-guess form instead of erroring — you can still fill it by hand and send. |
+| `POST /compose/send` | Confirms the form. See below for what this does and in what order. |
 
 ## The `.ics` parser
 
@@ -97,6 +101,41 @@ mapping one to the other, so:
 This is the one real seam in this package — worth checking before the demo run, not
 after.
 
+## Compose — "set up a meeting" front door
+
+`src/gavel_calendar/compose.py` is the plain-English path onto the board, for when
+nothing put an invite on Vitaly's calendar in the first place. Flow:
+
+1. `GET /compose` — a brief textarea plus an attendees field (prefilled from
+   `COMPOSE_DEFAULT_ATTENDEES`).
+2. `POST /compose/parse` — `src/gavel_calendar/llm.py`'s `NebiusClient` sends the brief to
+   Nebius (chat completions) and asks for `{title, start, duration_minutes, topics[]}` as
+   JSON. The result renders as an editable form — every field, including per-topic minutes,
+   owner, and must-hear, can be corrected by hand before sending. `NEBIUS_API_KEY` unset, or
+   the call fails or returns something that doesn't match the schema: the form still renders,
+   just empty/best-guess instead of LLM-filled. This path never raises — a flaky or
+   unconfigured LLM degrades to manual entry, it does not block the meeting.
+3. `POST /compose/send` — in this exact order:
+   1. Builds the contract agenda (`agenda.py:build_agenda`, same code `.ics` ingestion uses)
+      and saves the `InviteRecord` to the in-memory `InviteStore`. The join URL
+      (`/m/{sessionId}`) works from this point on, regardless of what happens next.
+   2. Builds a `.ics` file (`ics_writer.py:build_ics`) — the same topic-line format
+      `ics_parser.py` reads, so a compose-created invite round-trips exactly like a
+      hand-written one (see `tests/test_ics_writer.py`).
+   3. Best-effort emails that `.ics` via Resend (`mailer.py:send_invite`) to the parsed
+      attendees. **A mailer failure — missing key, bad request, network error, even an
+      unexpected exception — is caught and never fails the meeting.** No `RESEND_API_KEY` or
+      no `COMPOSE_FROM_EMAIL`: the mailer dry-runs (logs what it would have sent, returns
+      `sent=False`) instead of calling out. See `tests/test_compose.py`'s
+      `test_handle_send_survives_mailer_raising` for the worst case this guards.
+   4. Renders a success page: join URL, the Discord link (`DISCORD_MEETING_URL`), the parsed
+      agenda, and whether the email actually sent.
+
+Resend setup: create an API key at resend.com, verify a sending domain there, and set
+`COMPOSE_FROM_EMAIL` to an address on that domain — Resend rejects sends from an unverified
+domain, which is exactly the failure `_safe_mail` is built to absorb without touching the
+meeting.
+
 ## Config (`.env`, repo root — never printed, never committed)
 
 | Var | Default | |
@@ -108,6 +147,12 @@ after.
 | `SCHEDULER_POLL_SECONDS` | `30` | upper bound on how late the scheduler notices a new invite, and the feed poll interval |
 | `CALENDAR_ICS_FEEDS` | empty | comma-separated Google Calendar feed URLs — see below |
 | `CALENDAR_FEED_WINDOW_HOURS` | `24` | only feed events starting within this window from "now" are ingested |
+| `NEBIUS_API_KEY` | empty | shared with `packages/brain` — powers `POST /compose/parse`. Empty: compose still works, form starts blank/best-guess instead of LLM-filled |
+| `RESEND_API_KEY` | empty | powers `POST /compose/send`'s email step. Empty: mailer dry-runs, meeting is still created and the join link still works |
+| `COMPOSE_FROM_EMAIL` | empty | must be on a Resend-verified sending domain |
+| `COMPOSE_DEFAULT_ATTENDEES` | see `.env.example` | `"Name <email>, Name <email>, ..."` — prefills `GET /compose` |
+| `DISCORD_MEETING_URL` | see `.env.example` | used as the `.ics` `LOCATION` and the success page's Discord link |
+| `COMPOSE_TIMEZONE` | `Europe/Madrid` | IANA name — what relative times like "in an hour" resolve against |
 
 Missing/invalid config fails with the setting's name — no value is ever read into a log
 or an error message.
@@ -168,3 +213,14 @@ mocked at the HTTP boundary, plus `/board` and `/health`.
 network): first ingest, unchanged re-poll, a `SEQUENCE` bump (including one that must not
 restart an already-started session), no-topics and out-of-window skips, a malformed feed,
 and an unreachable feed that must not block a healthy one.
+`tests/test_ics_writer.py` — `build_ics` round-trips through our own `ics_parser.parse_ics`
+byte-for-byte on agenda content, including an uneven whole-minute topic split.
+`tests/test_llm.py` — `NebiusClient.parse_brief` against a stubbed Nebius endpoint: success,
+fenced-markdown JSON, malformed JSON, HTTP errors, and schema mismatches all resolve to
+`None` rather than raising.
+`tests/test_mailer.py` — `send_invite` dry-runs on missing key/from-address, and never raises
+on a bad status or a network error.
+`tests/test_compose.py` — the compose helpers and `handle_send` in isolation (fake
+`Settings`, no real `.env`/network), including the mailer-raises-but-meeting-survives case.
+`tests/test_compose_routes.py` — the three compose routes through the real app
+(`TestClient`), proving the join link works immediately after `POST /compose/send`.
