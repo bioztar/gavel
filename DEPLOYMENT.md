@@ -2,15 +2,15 @@
 
 **Status:** live and validated
 **Host:** `uk-lon-1` (173.234.79.39) · **Domain:** https://gavel.pro7ocol.com
-**Deployed commit:** `ccb5b35` (`fix(compose): pass the compose front door's settings into the calendar container`)
-**Deployed at:** 2026-09-19 16:20 UTC · **Last validated:** 2026-09-19 16:21 UTC
+**Deployed commit:** `a5db1f7` (`merge: chair/vonage — Vonage Video HLS broadcast + archive surface`)
+**Deployed at:** 2026-09-19 16:28 UTC · **Last validated:** 2026-09-19 16:29 UTC
 **Checkout on the box:** `/home/coder/DEV/gavel` · **Compose project:** `gavel`
 
 ---
 
 ## What is running
 
-Seven containers from `compose.yaml`, one of which is a run-once migration job.
+Eight containers from `compose.yaml`, one of which is a run-once migration job.
 
 | Container | Image | Size | Bind | Health | Purpose |
 |---|---|---|---|---|---|
@@ -18,6 +18,7 @@ Seven containers from `compose.yaml`, one of which is a run-once migration job.
 | `gavel-brain-1` | `gavel-brain:local` | 807 MB | `127.0.0.1:8788` | healthy | All chair decisions — talk-time, interruptions, agenda budget. Imports no call SDK |
 | `gavel-calendar-1` | `gavel-calendar:local` | 385 MB | `127.0.0.1:8790` | healthy | Invite board, `.ics` feed poller, scheduler. **The only public service** |
 | `gavel-chair-video-1` | `gavel-chair-video:local` | 387 MB | `127.0.0.1:8791` | healthy | Karen's face — fal lip-sync, idle loop |
+| `gavel-stream-vonage-1` | `gavel-stream-vonage:local` | — | `127.0.0.1:8792` | healthy | Vonage Video HLS broadcast + archive, publisher/watch pages. **No credentials yet** — `/healthz` reports `credentials: absent` |
 | `gavel-postgres-1` | `postgres:17-alpine` | 424 MB | `127.0.0.1:5432` | healthy | Meetings, sessions, transcripts, memories, LLM cost log |
 | `gavel-redis-1` | `redis:7-alpine` | 57.8 MB | `127.0.0.1:6379` | healthy | Ephemeral only (`--save "" --appendonly no`) |
 | `gavel-migrate-1` | `gavel-ears:local` | — | — | `Exited (0)` | `alembic upgrade head`, runs once per `up`, gates `ears` |
