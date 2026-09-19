@@ -86,6 +86,12 @@ web stage. On Vonage it is in the call.
 | `packages/concierge` | whoever is free | Stretch: Discord bot that writes the agenda |
 | `packages/contract` | both | Shared schema and fixtures. Changes need both to agree |
 
+## Try it
+
+Join the test Discord server: **https://discord.gg/qR6RwKuAh** — hop into a voice channel
+while `ears-discord` is running and the bot joins you. Setup and the operator console:
+[packages/ears-discord/README.md](packages/ears-discord/README.md).
+
 ## Docs
 
 - [docs/PLAN.md](docs/PLAN.md) — chunks, dependencies, hour-by-hour, cut lines

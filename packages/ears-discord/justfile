@@ -1,0 +1,53 @@
+# ears — the stenographer. https://just.systems
+set dotenv-load := false
+
+default:
+    @just --list
+
+# Deps, Postgres + Redis, schema. Everything a fresh clone needs.
+setup: install up-deps migrate
+
+install:
+    uv sync
+
+# Postgres + Redis (both optional at runtime)
+up-deps:
+    docker compose up -d --wait
+
+down:
+    docker compose down
+
+migrate:
+    uv run alembic upgrade head
+
+# Join Discord voice, serve the brain on ws://127.0.0.1:$WIRE_PORT
+run:
+    uv run python -m ears
+
+# A stand-in brain: prints frames, speaks every 30s
+stub-brain *args:
+    uv run python scripts/stub_brain.py {{args}}
+
+# SLNG key + route + latency, through the same path a Discord chunk takes
+stt-check *args:
+    uv run python scripts/stt_check.py {{args}}
+
+# A recorded session as replay.jsonl (latest by default)
+export-replay *args:
+    uv run python scripts/export_replay.py {{args}}
+
+# Tail the Redis event stream
+tail-redis:
+    docker compose exec redis redis-cli subscribe gavel:ears:events
+
+test *args:
+    uv run pytest {{args}}
+
+lint:
+    uv run ruff check .
+    uv run ruff format --check .
+
+typecheck:
+    uv run pyright
+
+check: lint typecheck test

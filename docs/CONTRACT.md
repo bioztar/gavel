@@ -100,6 +100,31 @@ frames from both surfaces and that is the entire point of the seam.
 The brain does its own TTS and hands over finished audio. The ears do not know what a
 sentence is.
 
+### Additive, from `ears` (free per the rules above — ignore what you don't need)
+
+- Every ears→brain frame carries `at` (ISO 8601 UTC) and `atMs` (epoch ms).
+- `transcript` also carries `name`, `utteranceId`, `seq`, `final`, `turnId`, `confidence`.
+  A long utterance arrives as several frames with one `utteranceId` and rising `seq`,
+  at most `CHUNK_MAX_MS` (15 s) of speech each; `final: true` marks the last.
+- `spoken` also carries `interrupted` (a `stop` cut it short) and `error`.
+- **Turns** — speaking events smoothed over pauses shorter than `TURN_GAP_MS` (1.5 s),
+  i.e. who holds the floor. Crosstalk is two open turns.
+
+| `type` | When | Fields |
+|---|---|---|
+| `turn.start` | Someone takes the floor | `discordId`, `turnId`, `previousDiscordId` |
+| `turn.tick` | Every `TURN_TICK_MS` (10 s) while they keep it | `discordId`, `turnId`, `startedAt`, `durationMs`, `speakingMs` |
+| `turn.end` | Silent for `TURN_GAP_MS` | `discordId`, `turnId`, `startedAt`, `endedAt`, `durationMs`, `speakingMs` |
+| `session.started` | A run of a meeting begins — from the ears console, or on joining voice. Also re-sent on connect | `sessionId`, `meetingId`, `title`, `context`, `agenda` (§1 shape with `sessionId` filled, or `null`) |
+| `session.ended` | Console ended it, or a new one started | `sessionId` |
+
+`session.started.agenda` is optional for the brain to use: it is whatever the host typed
+into the ears console (`http://localhost:8787/console`). A brain that loads its agenda
+from a file can ignore it.
+
+The same frames are also on Redis (`XADD` / `PUBLISH gavel:ears:events`), and `speak` /
+`stop` are accepted on `PUBLISH gavel:ears:commands` — see `packages/ears-discord/README.md`.
+
 ### Rules
 
 - Either side may restart. The brain re-sends nothing; the ears re-announce `ready` and

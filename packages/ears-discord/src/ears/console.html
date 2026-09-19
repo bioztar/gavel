@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gavel · ears console</title>
+<style>
+:root {
+  --bg: #0f1115; --panel: #171a21; --panel-2: #1e222b; --line: #2a2f3a;
+  --text: #e6e8ec; --muted: #8b93a3; --accent: #7aa2ff; --ok: #3ecf8e; --warn: #f5b942;
+  --bad: #ff6b6b; --chair: #c792ea;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg: #f5f6f8; --panel: #fff; --panel-2: #f0f2f5; --line: #dde1e7; --text: #1b1f27;
+    --muted: #677084; --accent: #3b6cf6; --ok: #11a36a; --warn: #b7791f; --bad: #d64545; --chair: #8e44ad; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 14px;
+  border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 2; }
+header h1 { font-size: 14px; margin: 0 8px 0 0; font-weight: 650; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px;
+  background: var(--panel-2); border: 1px solid var(--line); white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); } .dot.warn { background: var(--warn); }
+main { display: grid; grid-template-columns: 380px minmax(0, 1fr) 400px; gap: 10px; padding: 10px;
+  height: calc(100vh - 46px); }
+@media (max-width: 1280px) { main { grid-template-columns: 340px minmax(0, 1fr); height: auto; }
+  main > section { height: calc(100vh - 66px); } main > section:last-child { grid-column: 1 / -1; height: 70vh; } }
+@media (max-width: 800px) { main { grid-template-columns: 1fr; } main > section { height: auto; max-height: none; } }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; display: flex;
+  flex-direction: column; min-height: 0; }
+section > h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+  margin: 0; padding: 9px 12px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
+section > h2 .grow { flex: 1; }
+.scroll { overflow: auto; min-height: 0; flex: 1; }
+.pad { padding: 10px 12px; }
+label { display: block; color: var(--muted); font-size: 11px; margin: 8px 0 3px; }
+input, textarea, select { width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 5px; padding: 5px 7px; font: inherit; }
+textarea { resize: vertical; min-height: 54px; }
+button { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 5px;
+  padding: 5px 10px; font: inherit; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.danger { color: var(--bad); }
+button.small { padding: 2px 7px; font-size: 12px; }
+button:disabled { opacity: .5; cursor: default; }
+.row { display: flex; gap: 6px; align-items: center; }
+.row > * { min-width: 0; }
+.grow { flex: 1; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--mono); font-size: 12px; }
+.card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; margin: 6px 0; }
+.card .row + .row, .card .row + input, .card input + .row { margin-top: 5px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; }
+details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin: 10px 0 4px; }
+.sessionbar { border-top: 1px solid var(--line); padding: 10px 12px; display: grid; gap: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); cursor: pointer;
+  user-select: none; color: var(--muted); }
+.chip.on { color: var(--text); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent); }
+
+/* transcript */
+.utt { padding: 7px 12px; border-bottom: 1px solid var(--line); }
+.utt .meta { display: flex; gap: 8px; align-items: baseline; font-size: 11px; color: var(--muted); }
+.utt .who { font-weight: 650; font-size: 13px; }
+.utt .text { margin-top: 2px; font-size: 14px; }
+.utt.chair .who { color: var(--chair); }
+.utt.chair .text { font-style: italic; }
+.utt .badge { font-family: var(--mono); font-size: 10.5px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.divider { padding: 6px 12px; font-size: 11px; color: var(--accent); background: var(--panel-2);
+  border-bottom: 1px solid var(--line); }
+.saybox { border-top: 1px solid var(--line); padding: 8px 12px; }
+.saybox .hint { font-size: 11px; color: var(--muted); margin-top: 4px; min-height: 15px; }
+
+/* floor */
+.person { padding: 7px 12px; border-bottom: 1px solid var(--line); }
+.person .row { justify-content: space-between; }
+.person .name { font-weight: 600; }
+.bar { height: 6px; border-radius: 3px; background: var(--panel-2); margin-top: 5px; overflow: hidden; }
+.bar > div { height: 100%; background: var(--accent); transition: width .3s; }
+.speaking .dot { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 30%, transparent); }
+.turn { font-family: var(--mono); font-size: 11.5px; color: var(--warn); }
+.counters { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.counter { background: var(--panel-2); border-radius: 6px; padding: 5px 7px; }
+.counter b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; }
+.counter span { font-size: 10.5px; color: var(--muted); }
+
+/* log */
+.log { font-family: var(--mono); font-size: 11.5px; }
+.ev { display: grid; grid-template-columns: 62px 118px minmax(0, 1fr); padding: 3px 12px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); cursor: pointer; }
+.ev .t { color: var(--muted); margin-right: 6px; }
+.ev .k { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ev.turn .k { color: var(--warn); } .ev.speaking .k { color: var(--ok); } .ev.transcript .k { color: var(--accent); }
+.ev.session .k, .ev.voice .k { color: var(--chair); } .ev.bad .k { color: var(--bad); }
+.ev pre { grid-column: 1 / -1; margin: 4px 0; white-space: pre-wrap; word-break: break-all; color: var(--muted); display: none; }
+.ev.open pre { display: block; }
+.toast { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); background: var(--bad); color: #fff;
+  padding: 7px 14px; border-radius: 6px; display: none; z-index: 10; }
+</style>
+</head>
+<body>
+<header>
+  <h1>gavel · ears console</h1>
+  <span class="pill"><span class="dot" id="d-live"></span><span id="s-live">connecting…</span></span>
+  <span class="pill"><span class="dot" id="d-voice"></span><span id="s-voice">voice</span></span>
+  <span class="pill"><span class="dot" id="d-session"></span><span id="s-session">no session</span></span>
+  <span class="pill"><span class="dot" id="d-brain"></span><span id="s-brain">brain</span></span>
+  <span class="pill"><span class="dot" id="d-pg"></span>postgres</span>
+  <span class="pill"><span class="dot" id="d-redis"></span>redis</span>
+  <span class="pill"><span class="dot" id="d-stt"></span>stt</span>
+  <span class="pill"><span class="dot" id="d-tts"></span><span id="s-tts">tts</span></span>
+</header>
+
+<main>
+  <!-- ───────────── meeting ───────────── -->
+  <section>
+    <h2><span class="grow">Meeting</span>
+      <button class="small" id="b-new">New</button>
+    </h2>
+    <div class="scroll pad">
+      <div class="row"><select id="m-select" class="grow"></select></div>
+      <label>Title</label><input id="m-title" placeholder="Q4 launch sync">
+      <label>Purpose</label><input id="m-purpose" placeholder="Decide the launch date and name an owner for each blocker">
+      <label>Context — notes for the chair</label>
+      <textarea id="m-context" rows="3" placeholder="Background, what was decided last time, sensitivities…"></textarea>
+
+      <label class="row"><span class="grow">Attendees</span>
+        <button class="small" id="b-import-voice" title="Everyone currently in the voice channel">from voice</button>
+        <button class="small" id="b-add-att">+ add</button></label>
+      <div id="attendees"></div>
+
+      <label class="row"><span class="grow">Topics <span id="total" class="muted"></span></span>
+        <button class="small" id="b-add-topic">+ add</button></label>
+      <div id="topics"></div>
+
+      <details><summary>Policy (interrupt thresholds)</summary><div class="grid2" id="policy"></div></details>
+      <details><summary>Agenda JSON — import / export</summary>
+        <textarea id="m-json" rows="8" class="mono" placeholder="Paste an agenda.json (contract shape) and press Import"></textarea>
+        <div class="row" style="margin-top:6px"><button class="small" id="b-import-json">Import into form</button>
+          <button class="small" id="b-export-json">Show current</button></div>
+      </details>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="b-save">Save meeting</button>
+        <span class="grow muted" id="m-saved"></span>
+        <button class="danger small" id="b-delete">Delete</button>
+      </div>
+    </div>
+    <div class="sessionbar">
+      <button class="primary" id="b-start">▶ Start new session with this meeting</button>
+      <div class="row">
+        <button class="grow" id="b-start-bare">Start without meeting</button>
+        <button class="grow danger" id="b-end">■ End session</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────────── transcript ───────────── -->
+  <section>
+    <h2><span class="grow">Live transcript</span>
+      <label class="row muted" style="margin:0;font-size:11px;text-transform:none;letter-spacing:0">
+        <input type="checkbox" id="autoscroll" checked style="width:auto"> follow</label>
+      <button class="small" id="b-clear-tx">clear</button>
+    </h2>
+    <div class="scroll" id="transcript"></div>
+    <div class="saybox">
+      <div class="row">
+        <input id="say" class="grow" placeholder="Say something into the channel (SLNG TTS)…" maxlength="1000">
+        <button class="primary" id="b-say">Speak</button>
+        <button id="b-stop" title="Stop playback and clear the queue">Stop</button>
+      </div>
+      <div class="hint" id="say-hint"></div>
+    </div>
+  </section>
+
+  <!-- ───────────── floor + triggers ───────────── -->
+  <section>
+    <h2><span class="grow">Floor</span><span class="muted" id="floor-window" style="text-transform:none;letter-spacing:0"></span></h2>
+    <div id="floor"></div>
+    <div class="counters">
+      <div class="counter"><b id="c-start">0</b><span>turn.start</span></div>
+      <div class="counter"><b id="c-tick">0</b><span>turn.tick</span></div>
+      <div class="counter"><b id="c-end">0</b><span>turn.end</span></div>
+      <div class="counter"><b id="c-stt">–</b><span>stt p50 ms</span></div>
+    </div>
+    <h2><span class="grow">Signals &amp; debug</span><button class="small" id="b-clear-log">clear</button></h2>
+    <div class="pad" style="padding-bottom:4px"><div class="chips" id="filters"></div></div>
+    <div class="scroll log" id="log"></div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const hhmmss = (ms) => new Date(ms).toLocaleTimeString([], { hour12: false });
+const secs = (ms) => (ms / 1000).toFixed(ms < 10000 ? 1 : 0) + "s";
+const clock = (ms) => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => (t.style.display = "none"), 4000); }
+async function api(method, path, body) {
+  const res = await fetch(path, { method, headers: body ? { "content-type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail ?? data));
+  return data;
+}
+
+/* ═════════════ status ═════════════ */
+let status = null;
+function setDot(id, state) { $(id).className = "dot " + (state === true ? "ok" : state === false ? "bad" : state || ""); }
+function renderStatus() {
+  if (!status) return;
+  setDot("d-voice", status.voice);
+  $("s-voice").textContent = status.voice ? `voice · ${status.participants.length} in channel` : "not in voice";
+  setDot("d-session", status.sessionId ? true : "warn");
+  $("s-session").textContent = status.sessionId
+    ? `session ${status.sessionId.slice(0, 8)}${status.meeting ? " · " + status.meeting.title : ""}` : "no session";
+  setDot("d-brain", status.brains > 0 ? true : "warn");
+  $("s-brain").textContent = `brain ×${status.brains}`;
+  setDot("d-pg", status.postgres); setDot("d-redis", status.redis); setDot("d-stt", status.stt);
+  setDot("d-tts", !!status.tts); $("s-tts").textContent = status.tts ? "tts" : "tts off";
+  for (const p of status.participants) names[p.discordId] = p.name;
+  if (status.voice) present = status.participants.map((p) => p.discordId);
+  renderFloor();
+}
+async function pollStatus() { try { status = await api("GET", "/api/status"); renderStatus(); } catch {} }
+setInterval(pollStatus, 3000);
+
+/* ═════════════ meetings ═════════════ */
+const POLICY_DEFAULTS = { floorShareThreshold: 0.6, floorWindowSeconds: 120, floorMinSpeakingSeconds: 45,
+  topicOverrunFactor: 1.2, silenceSeconds: 15, minSecondsBetweenInterventions: 45 };
+let meetings = [], current = null; // current: meeting being edited (id may be null)
+
+function blankMeeting() {
+  return { id: null, title: "", context: "", agenda: { purpose: "", attendees: [], topics: [], policy: { ...POLICY_DEFAULTS } } };
+}
+async function loadMeetings(selectId) {
+  meetings = await api("GET", "/api/meetings");
+  const sel = $("m-select");
+  sel.innerHTML = `<option value="">— new meeting —</option>` +
+    meetings.map((m) => `<option value="${m.id}">${esc(m.title)}</option>`).join("");
+  const pick = meetings.find((m) => m.id === selectId) || (current?.id ? meetings.find((m) => m.id === current.id) : null);
+  sel.value = pick ? pick.id : "";
+  if (!current || selectId) edit(pick ? structuredClone(pick) : blankMeeting());
+}
+function edit(m) {
+  current = m;
+  $("m-title").value = m.title; $("m-context").value = m.context; $("m-purpose").value = m.agenda.purpose || "";
+  $("m-saved").textContent = m.id ? `saved ${m.updatedAt?.slice(11, 16) ?? ""}` : "not saved";
+  renderAttendees(); renderTopics(); renderPolicy();
+}
+function readForm() {
+  current.title = $("m-title").value.trim();
+  current.context = $("m-context").value;
+  current.agenda.purpose = $("m-purpose").value;
+  current.agenda.totalSeconds = current.agenda.topics.reduce((a, t) => a + (+t.budgetSeconds || 0), 0);
+  return { title: current.title, context: current.context, agenda: current.agenda };
+}
+function attendeeOptions(selected) {
+  return `<option value="">—</option>` + current.agenda.attendees
+    .map((a) => `<option value="${esc(a.discordId)}" ${a.discordId === selected ? "selected" : ""}>${esc(a.name)}</option>`).join("");
+}
+function renderAttendees() {
+  $("attendees").innerHTML = current.agenda.attendees.map((a, i) => `
+    <div class="card"><div class="row">
+      <input class="grow" data-a="${i}" data-f="name" value="${esc(a.name)}" placeholder="name">
+      <select data-a="${i}" data-f="role" style="width:95px">
+        ${["host", "attendee"].map((r) => `<option ${a.role === r ? "selected" : ""}>${r}</option>`).join("")}</select>
+      <button class="small danger" data-del-a="${i}">✕</button></div>
+      <input class="mono" data-a="${i}" data-f="discordId" value="${esc(a.discordId)}" placeholder="discord user id">
+    </div>`).join("") || `<div class="muted">No attendees — “from voice” pulls in whoever is in the channel.</div>`;
+}
+function renderTopics() {
+  const total = current.agenda.topics.reduce((a, t) => a + (+t.budgetSeconds || 0), 0);
+  $("total").textContent = total ? `· ${clock(total * 1000)} total` : "";
+  $("topics").innerHTML = current.agenda.topics.map((t, i) => `
+    <div class="card">
+      <div class="row"><span class="muted mono">${esc(t.id)}</span>
+        <input class="grow" data-t="${i}" data-f="title" value="${esc(t.title)}" placeholder="topic">
+        <input data-t="${i}" data-f="budgetSeconds" type="number" min="0" step="15" value="${t.budgetSeconds}" style="width:72px" title="budget, seconds">
+        <span class="muted">s</span>
+        <button class="small" data-up="${i}" title="move up">↑</button>
+        <button class="small danger" data-del-t="${i}">✕</button></div>
+      <input data-t="${i}" data-f="goal" value="${esc(t.goal)}" placeholder="goal — what done looks like">
+      <div class="row"><span class="muted" style="font-size:11px">owner</span>
+        <select data-t="${i}" data-f="owner" class="grow">${attendeeOptions(t.owner)}</select></div>
+      <div class="row" style="flex-wrap:wrap"><span class="muted" style="font-size:11px">must hear</span>
+        ${current.agenda.attendees.map((a) => `<label class="row" style="margin:0;font-size:12px;color:var(--text)">
+          <input type="checkbox" style="width:auto" data-mh="${i}" value="${esc(a.discordId)}" ${t.mustHear.includes(a.discordId) ? "checked" : ""}>${esc(a.name)}</label>`).join("")}</div>
+      <textarea data-t="${i}" data-f="questions" rows="1" placeholder="questions, one per line">${esc(t.questions.join("\n"))}</textarea>
+    </div>`).join("") || `<div class="muted">No topics yet.</div>`;
+}
+function renderPolicy() {
+  const p = current.agenda.policy;
+  $("policy").innerHTML = Object.keys(POLICY_DEFAULTS).map((k) => `
+    <div><label>${k}</label><input type="number" step="any" data-p="${k}" value="${p[k] ?? POLICY_DEFAULTS[k]}"></div>`).join("");
+}
+document.addEventListener("input", (e) => {
+  const el = e.target, d = el.dataset;
+  if (!current) return;
+  if (d.a !== undefined) current.agenda.attendees[+d.a][d.f] = el.value;
+  else if (d.t !== undefined) {
+    const t = current.agenda.topics[+d.t];
+    if (d.f === "budgetSeconds") { t.budgetSeconds = +el.value || 0; const total = current.agenda.topics.reduce((a, x) => a + (+x.budgetSeconds || 0), 0); $("total").textContent = total ? `· ${clock(total * 1000)} total` : ""; }
+    else if (d.f === "questions") t.questions = el.value.split("\n").map((q) => q.trim()).filter(Boolean);
+    else if (d.f === "owner") t.owner = el.value || null;
+    else t[d.f] = el.value;
+  } else if (d.mh !== undefined) {
+    const t = current.agenda.topics[+d.mh];
+    t.mustHear = el.checked ? [...new Set([...t.mustHear, el.value])] : t.mustHear.filter((x) => x !== el.value);
+  } else if (d.p !== undefined) current.agenda.policy[d.p] = +el.value;
+  if (d.a !== undefined && d.f !== "role") return; // keep focus while typing names/ids
+  if (d.a !== undefined) renderTopics();
+});
+document.addEventListener("change", (e) => { if (e.target.dataset.a !== undefined) renderTopics(); });
+document.addEventListener("click", (e) => {
+  const d = e.target.dataset;
+  if (d.delA !== undefined) { current.agenda.attendees.splice(+d.delA, 1); renderAttendees(); renderTopics(); }
+  if (d.delT !== undefined) { current.agenda.topics.splice(+d.delT, 1); renderTopics(); }
+  if (d.up !== undefined && +d.up > 0) { const ts = current.agenda.topics, i = +d.up; [ts[i - 1], ts[i]] = [ts[i], ts[i - 1]]; renderTopics(); }
+});
+$("m-select").onchange = (e) => { const m = meetings.find((x) => x.id === e.target.value); edit(m ? structuredClone(m) : blankMeeting()); };
+$("b-new").onclick = () => { $("m-select").value = ""; edit(blankMeeting()); $("m-title").focus(); };
+$("b-add-att").onclick = () => { current.agenda.attendees.push({ discordId: "", name: "", role: "attendee" }); renderAttendees(); renderTopics(); };
+$("b-import-voice").onclick = () => {
+  const people = status?.participants ?? [];
+  if (!people.length) return toast("Nobody is in the voice channel right now.");
+  const have = new Set(current.agenda.attendees.map((a) => a.discordId));
+  for (const p of people) if (!have.has(p.discordId))
+    current.agenda.attendees.push({ discordId: p.discordId, name: p.name, role: current.agenda.attendees.length ? "attendee" : "host" });
+  renderAttendees(); renderTopics();
+};
+$("b-add-topic").onclick = () => {
+  const ids = new Set(current.agenda.topics.map((t) => t.id)); let n = current.agenda.topics.length + 1;
+  while (ids.has("t" + n)) n++;
+  current.agenda.topics.push({ id: "t" + n, title: "", goal: "", budgetSeconds: 120, owner: null, mustHear: [], questions: [] });
+  renderTopics();
+};
+$("b-import-json").onclick = () => {
+  try {
+    const a = JSON.parse($("m-json").value);
+    current.agenda = {
+      purpose: a.purpose ?? "", attendees: a.attendees ?? [], policy: { ...POLICY_DEFAULTS, ...(a.policy ?? {}) },
+      topics: (a.topics ?? []).map((t, i) => ({ id: t.id ?? "t" + (i + 1), title: t.title ?? "", goal: t.goal ?? "",
+        budgetSeconds: t.budgetSeconds ?? (t.budgetMinutes ? t.budgetMinutes * 60 : 120), owner: t.owner ?? null,
+        mustHear: t.mustHear ?? [], questions: t.questions ?? [] })),
+    };
+    if (!current.title && a.purpose) current.title = a.purpose.slice(0, 80);
+    edit(current);
+  } catch (err) { toast("Not valid JSON: " + err.message); }
+};
+$("b-export-json").onclick = () => { readForm(); $("m-json").value = JSON.stringify({ sessionId: "(set on start)", ...current.agenda }, null, 2); };
+async function save() {
+  const body = readForm();
+  if (!body.title) { toast("Give the meeting a title."); $("m-title").focus(); throw new Error("no title"); }
+  const saved = current.id ? await api("PUT", `/api/meetings/${current.id}`, body) : await api("POST", "/api/meetings", body);
+  await loadMeetings(saved.id);
+  return saved;
+}
+$("b-save").onclick = () => save().catch((e) => e.message !== "no title" && toast(e.message));
+$("b-delete").onclick = async () => {
+  if (!current.id || !confirm(`Delete “${current.title}”?`)) return;
+  await api("DELETE", `/api/meetings/${current.id}`).catch((e) => toast(e.message));
+  current = null; await loadMeetings();
+};
+$("b-start").onclick = async () => {
+  try { const m = await save(); await api("POST", "/api/sessions", { meetingId: m.id }); pollStatus(); }
+  catch (e) { if (e.message !== "no title") toast(e.message); }
+};
+$("b-start-bare").onclick = () => api("POST", "/api/sessions", { meetingId: null }).then(pollStatus).catch((e) => toast(e.message));
+$("b-end").onclick = () => api("POST", "/api/sessions/end").then(pollStatus).catch((e) => toast(e.message));
+
+/* ═════════════ live ═════════════ */
+const names = {};
+let present = []; // discordIds in the channel, from the latest participants/ready frame
+const who = (id) => names[id] || (id ? "…" + String(id).slice(-4) : "");
+const COLORS = ["#7aa2ff", "#3ecf8e", "#f5b942", "#ff8a65", "#4dd0e1", "#ba68c8", "#aed581", "#f06292"];
+const colorOf = (id) => COLORS[[...String(id)].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
+
+// floor: talk time from raw speaking events, turns from turn.* frames
+let floor = {}; // id → { speakingSince, spokenMs, turn: {id, startedMs, ticks} }
+const counts = { start: 0, tick: 0, end: 0 };
+let sttLatencies = [];
+function person(id) { return (floor[id] ??= { speakingSince: null, spokenMs: 0, turn: null }); }
+function spoken(p, now) { return p.spokenMs + (p.speakingSince ? now - p.speakingSince : 0); }
+function renderFloor() {
+  const now = Date.now();
+  const ids = new Set([...Object.keys(floor), ...present]);
+  const rows = [...ids].map((id) => ({ id, p: person(id), ms: spoken(person(id), now) })).sort((a, b) => b.ms - a.ms);
+  const total = rows.reduce((a, r) => a + r.ms, 0) || 1;
+  $("floor").innerHTML = rows.map(({ id, p, ms }) => `
+    <div class="person ${p.speakingSince ? "speaking" : ""}">
+      <div class="row"><span class="row"><span class="dot"></span><span class="name" style="color:${colorOf(id)}">${esc(who(id))}</span></span>
+        <span class="turn">${p.turn ? `turn ${clock(now - p.turn.startedMs)} · ${p.turn.ticks} tick${p.turn.ticks === 1 ? "" : "s"}` : ""}</span>
+        <span class="mono">${clock(ms)} · ${Math.round((100 * ms) / total)}%</span></div>
+      <div class="bar"><div style="width:${(100 * ms) / total}%;background:${colorOf(id)}"></div></div>
+    </div>`).join("") || `<div class="pad muted">Nobody has spoken yet.</div>`;
+  $("c-start").textContent = counts.start; $("c-tick").textContent = counts.tick; $("c-end").textContent = counts.end;
+  const s = [...sttLatencies].sort((a, b) => a - b);
+  $("c-stt").textContent = s.length ? s[Math.floor(s.length / 2)] : "–";
+}
+setInterval(renderFloor, 250);
+
+// transcript
+const utterances = new Map(); // utteranceId → element
+const sttMs = new Map(); // `${utteranceId}:${seq}` → ms (stt.result arrives before its transcript)
+function follow() { if ($("autoscroll").checked) $("transcript").scrollTop = 1e9; }
+function addDivider(text) { const d = document.createElement("div"); d.className = "divider"; d.textContent = text; $("transcript").append(d); follow(); }
+function addTranscript(f) {
+  let el = utterances.get(f.utteranceId);
+  if (!el) {
+    el = document.createElement("div"); el.className = "utt"; el.dataset.parts = "[]";
+    utterances.set(f.utteranceId, el); $("transcript").append(el);
+  }
+  const parts = JSON.parse(el.dataset.parts); parts[f.seq] = f.text; el.dataset.parts = JSON.stringify(parts);
+  const stt = sttMs.get(`${f.utteranceId}:${f.seq}`);
+  el.innerHTML = `<div class="meta"><span class="who" style="color:${colorOf(f.discordId)}">${esc(f.name || who(f.discordId))}</span>
+    <span>${hhmmss(Date.parse(f.startedAt))}</span>
+    <span class="badge">${parts.filter((x) => x != null).length} chunk${parts.length > 1 ? "s" : ""}</span>
+    ${f.final ? `<span class="badge">final</span>` : `<span class="badge" style="color:var(--warn)">…</span>`}
+    ${f.confidence != null ? `<span class="badge">conf ${f.confidence.toFixed(2)}</span>` : ""}
+    ${stt ? `<span class="badge">stt ${stt}ms</span>` : ""}</div>
+    <div class="text">${esc(parts.filter((x) => x != null).join(" "))}</div>`;
+  follow();
+}
+function addChair(text, source, uid, atMs) {
+  const el = document.createElement("div"); el.className = "utt chair"; el.id = "say-" + uid;
+  el.innerHTML = `<div class="meta"><span class="who">Chair</span><span>${hhmmss(atMs)}</span>
+    <span class="badge">${esc(source)}</span><span class="badge" data-state>synthesizing…</span></div><div class="text">${esc(text)}</div>`;
+  $("transcript").append(el); follow();
+}
+function chairState(uid, text, color) {
+  const b = document.querySelector(`#say-${CSS.escape(uid)} [data-state]`);
+  if (b) { b.textContent = text; b.style.color = color || ""; }
+}
+
+// log
+const GROUPS = { speaking: "speaking", turn: "turn", transcript: "transcript", session: "session", participants: "session",
+  ready: "session", voice: "session", spoken: "playback", speak: "playback", tts: "playback", stt: "stt", command: "bad" };
+const groupOf = (f) => f.type === "debug" ? (GROUPS[f.kind.split(".")[0]] || "debug") : (GROUPS[f.type.split(".")[0]] || "other");
+const FILTERS = ["turn", "speaking", "transcript", "stt", "playback", "session"];
+const active = new Set(["turn", "transcript", "stt", "playback", "session"]);
+$("filters").innerHTML = FILTERS.map((f) => `<span class="chip ${active.has(f) ? "on" : ""}" data-filter="${f}">${f}</span>`).join("");
+$("filters").onclick = (e) => {
+  const f = e.target.dataset.filter; if (!f) return;
+  active.has(f) ? active.delete(f) : active.add(f); e.target.classList.toggle("on");
+  for (const row of $("log").children) row.style.display = active.has(row.dataset.g) ? "" : "none";
+};
+function summary(f) {
+  const w = f.discordId ? who(f.discordId) + " " : "";
+  switch (f.type) {
+    case "turn.start": return `${w}takes the floor${f.previousDiscordId ? " after " + who(f.previousDiscordId) : ""}`;
+    case "turn.tick": return `${w}holding ${secs(f.durationMs)} (spoke ${secs(f.speakingMs)})`;
+    case "turn.end": return `${w}${secs(f.durationMs)} turn, spoke ${secs(f.speakingMs)}`;
+    case "transcript": return `${w}#${f.seq}${f.final ? " final" : ""}: ${f.text}`;
+    case "participants": return f.participants.map((p) => p.name).join(", ") || "(empty)";
+    case "ready": return `channel ${f.channelId} · ` + f.participants.map((p) => p.name).join(", ");
+    case "session.started": return `${f.sessionId.slice(0, 8)} ${f.title ? "· " + f.title : "(no meeting)"}${f.agenda ? ` · ${f.agenda.topics.length} topics` : ""}`;
+    case "session.ended": return f.sessionId.slice(0, 8);
+    case "spoken": return `${f.utteranceId.slice(0, 8)}${f.interrupted ? " interrupted" : ""}${f.error ? " ERROR " + f.error : ""}`;
+    case "debug": {
+      const d = { ...f }; for (const k of ["type", "kind", "at", "atMs", "discordId", "utteranceId"]) delete d[k];
+      if (f.kind === "stt.result") return `${w}#${f.seq} ${f.audioMs}ms audio → ${f.sttMs}ms stt · rms ${f.rms}${f.empty ? " · EMPTY" : ""}`;
+      if (f.kind === "stt.skipped") return `${w}#${f.seq} ${f.audioMs}ms below silence floor (rms ${f.rms})`;
+      return `${w}${Object.entries(d).map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`).join(" ")}`;
+    }
+    default: return w.trim();
+  }
+}
+function log(f) {
+  const g = groupOf(f), row = document.createElement("div");
+  const kind = f.type === "debug" ? f.kind : f.type;
+  const bad = /failed|error|ignored/.test(kind) || f.error;
+  row.className = `ev ${g}${bad ? " bad" : ""}`; row.dataset.g = g;
+  row.style.display = active.has(g) || bad ? "" : "none";
+  row.innerHTML = `<span class="t">${hhmmss(f.atMs)}</span><span class="k" title="${esc(kind)}">${esc(kind)}</span><span>${esc(summary(f))}</span><pre>${esc(JSON.stringify(f, null, 2))}</pre>`;
+  row.onclick = () => row.classList.toggle("open");
+  const box = $("log"), atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+  box.append(row); while (box.children.length > 800) box.firstChild.remove();
+  if (atBottom) box.scrollTop = 1e9;
+}
+
+function handle(f) {
+  switch (f.type) {
+    case "ready": case "participants":
+      for (const p of f.participants) names[p.discordId] = p.name;
+      present = f.participants.map((p) => p.discordId); break;
+    case "speaking.start": person(f.discordId).speakingSince = f.atMs; break;
+    case "speaking.end": { const p = person(f.discordId); if (p.speakingSince) p.spokenMs += f.atMs - p.speakingSince; p.speakingSince = null; break; }
+    case "turn.start": counts.start++; person(f.discordId).turn = { id: f.turnId, startedMs: f.atMs, ticks: 0 }; break;
+    case "turn.tick": counts.tick++; { const p = person(f.discordId); if (p.turn) p.turn.ticks++; } break;
+    case "turn.end": counts.end++; person(f.discordId).turn = null; break;
+    case "transcript": addTranscript(f); break;
+    case "session.started":
+      floor = {}; counts.start = counts.tick = counts.end = 0; sttLatencies = [];
+      addDivider(`● session ${f.sessionId.slice(0, 8)} started${f.title ? " — " + f.title : ""} · ${hhmmss(f.atMs)}`); break;
+    case "session.ended": addDivider(`■ session ${f.sessionId.slice(0, 8)} ended · ${hhmmss(f.atMs)}`); break;
+    case "spoken": chairState(f.utteranceId, f.error ? "error: " + f.error : f.interrupted ? "stopped" : "played", f.error ? "var(--bad)" : f.interrupted ? "var(--warn)" : "var(--ok)"); break;
+    case "debug":
+      if (f.kind === "stt.result") { sttLatencies.push(f.sttMs); if (sttLatencies.length > 50) sttLatencies.shift();
+        sttMs.set(`${f.utteranceId}:${f.seq}`, f.sttMs); }
+      if (f.kind === "tts.request") addChair(f.text, "console", f.utteranceId, f.atMs);
+      if (f.kind === "tts.result") chairState(f.utteranceId, `tts ${f.ttsMs}ms`);
+      if (f.kind === "tts.failed") chairState(f.utteranceId, "tts failed", "var(--bad)");
+      if (f.kind === "speak.queued" && f.source === "brain") { addChair("(audio from brain)", "brain", f.utteranceId, f.atMs); chairState(f.utteranceId, "queued"); }
+      if (f.kind === "speak.playing") chairState(f.utteranceId, "playing…", "var(--accent)");
+      break;
+  }
+  log(f);
+}
+
+function connect() {
+  const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/live`);
+  ws.onopen = () => { setDot("d-live", true); $("s-live").textContent = "live"; };
+  ws.onclose = () => { setDot("d-live", false); $("s-live").textContent = "reconnecting…"; setTimeout(connect, 1500); };
+  ws.onmessage = (e) => {
+    const f = JSON.parse(e.data);
+    if (f.type === "console.hello") {
+      status = f.status; floor = {}; utterances.clear(); $("transcript").innerHTML = ""; $("log").innerHTML = "";
+      counts.start = counts.tick = counts.end = 0; renderStatus();
+      for (const r of f.recent) handle(r);
+      return;
+    }
+    handle(f);
+  };
+}
+
+/* ═════════════ say-box ═════════════ */
+async function say() {
+  const text = $("say").value.trim(); if (!text) return;
+  $("b-say").disabled = true; $("say-hint").textContent = "synthesizing…";
+  try { const r = await api("POST", "/api/say", { text }); $("say").value = ""; $("say-hint").textContent = `TTS ${r.ttsMs} ms · queued ${r.utteranceId.slice(0, 8)}`; }
+  catch (e) { $("say-hint").textContent = ""; toast(e.message); }
+  finally { $("b-say").disabled = false; $("say").focus(); }
+}
+$("b-say").onclick = say;
+$("say").onkeydown = (e) => { if (e.key === "Enter") say(); };
+$("b-stop").onclick = () => api("POST", "/api/stop").catch((e) => toast(e.message));
+$("b-clear-tx").onclick = () => { $("transcript").innerHTML = ""; utterances.clear(); };
+$("b-clear-log").onclick = () => { $("log").innerHTML = ""; };
+
+(async () => {
+  await pollStatus();
+  await loadMeetings(status?.meeting?.id).catch((e) => toast(e.message));
+  connect();
+})();
+</script>
+</body>
+</html>
