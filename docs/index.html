@@ -391,18 +391,31 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "note": "Deterministic. The model never decides whether to speak."
     },
     {
+      "id": "B6a",
+      "lane": "brain",
+      "title": "Mastra harness — the chair as a Mastra agent, Nebius as its model, SLNG + fal as tools",
+      "owner": "vitaly",
+      "effort": "45m",
+      "deps": [
+        "B5"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Thin wrap. The deterministic triggers stay plain code outside it — the framework must never decide whether to interrupt. Traces are what a judge looks at."
+    },
+    {
       "id": "B6",
       "lane": "brain",
       "title": "Nebius — one sentence in the chair's voice, template fallback",
       "owner": "vitaly",
       "effort": "1h",
       "deps": [
-        "B5",
+        "B6a",
         "S1"
       ],
       "status": "todo",
       "spine": false,
-      "note": "Always has a template fallback. On time beats clever."
+      "note": "Generated through the Mastra agent. Always has a template fallback. On time beats clever."
     },
     {
       "id": "B7",
@@ -439,11 +452,12 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "effort": "1.5h",
       "deps": [
         "B8",
+        "B6a",
         "S1"
       ],
       "status": "todo",
       "spine": false,
-      "note": "First thing to cut."
+      "note": "Called as a Mastra tool. First thing to cut."
     },
     {
       "id": "B10",
@@ -520,7 +534,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "deps": [],
       "status": "cut",
       "spine": false,
-      "note": "Parked. Only if the spine is finished and stable with hours to spare."
+      "note": "Parked. Mastra no longer depends on it — the live chair already runs on Mastra."
     }
   ],
   "credentials": [
@@ -550,6 +564,13 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "name": "Nebius key, base URL, model id",
       "who": "Nebius mentor on site",
       "blocks": "B6 — what the chair says",
+      "status": "todo"
+    },
+    {
+      "id": "mastra",
+      "name": "Mastra — cloud key if hosting, otherwise nothing",
+      "who": "Mastra mentor on site",
+      "blocks": "B6a — ask whether local counts for the track",
       "status": "todo"
     },
     {

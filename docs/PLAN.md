@@ -87,10 +87,11 @@ one where the chair's face can be in the call.
 | B3 | Replay harness — run `replay.jsonl` through the state machine at speed or real time | 45m | B2 |
 | B4 | Agenda clock — current topic, spent vs budget, which topics are now at risk | 1h | B1 |
 | B5 | **Interrupt policy** — the triggers. Deterministic, tunable from the agenda's `policy` block | 1.5h | B2, B4 |
-| B6 | Nebius — given the trigger + state, one sentence in the chair's voice. Falls back to a template if the call is slow or fails | 1h | B5 |
+| B6a | Mastra harness — the chair as a Mastra agent: Nebius as the model, SLNG and fal as tools, traces on. Deterministic triggers stay outside it | 45m | B5 |
+| B6 | Nebius — given the trigger + state, one sentence in the chair's voice, generated through the Mastra agent. Falls back to a template if the call is slow or fails | 1h | B6a |
 | B7 | SLNG TTS → `speak` frame over the wire | 1h | B6 |
 | B8 | Web stage — agenda, live talk-time bars, current topic, what the chair just said | 1.5h | B2, B4 |
-| B9 | fal live video of the chair on the stage | 1.5h | B8 |
+| B9 | fal live video of the chair on the stage, called as a Mastra tool | 1.5h | B8, B6a |
 | B10 | Tier 2 — consume `transcript`, topic-coverage detection, content-aware lines, minutes | 1.5h | E6 |
 
 B6 always has a template fallback. A model call inside a live interruption is a latency
@@ -168,8 +169,8 @@ Drop in this order:
 | **SLNG** | TTS for the chair's voice; STT per speaker if tier 2 lands | core |
 | **Nebius** | Token Factory for what the chair says | core |
 | **Vonage** (gold) | The chair joins a session as a real participant — custom audio and video tracks, signalling, archiving | core |
-| **fal.ai** | Live-generated video on the stage, and published into the Vonage call | stretch |
-| **Mastra** | Only if the Concierge gets built and hosted | parked |
+| **fal.ai** | Live-generated video, called through Mastra, on the stage and in the Vonage call | stretch |
+| **Mastra** | The harness around the brain's outward calls — Nebius, SLNG, fal as tools, with traces | core |
 
-Building the second surface is what puts the gold track back on the table. Parking the
-Concierge still gives up Mastra. The overall prize does not care which track you entered.
+Building the second surface is what puts the gold track back on the table. Mastra no longer
+depends on the Concierge — it is the harness the live chair already runs on. The overall prize does not care which track you entered.

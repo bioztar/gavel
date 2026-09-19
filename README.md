@@ -70,8 +70,8 @@ publish video at all.
 | **SLNG** | Speech-to-text per speaker, text-to-speech for the chair's voice | core |
 | **Nebius** | Token Factory inference — what the chair says, and why | core |
 | **Vonage** | The second call surface — the chair joins a session as a real participant | core |
-| **fal.ai** | Live-generated video of the chair — on the stage, and published into the Vonage call | stretch |
-| **Mastra** | The Concierge agent, if it gets built | parked |
+| **fal.ai** | Live-generated video of the chair — called as a Mastra tool, shown on the stage and published into the Vonage call | stretch |
+| **Mastra** | The harness the chair's brain runs on — tool-calls Nebius, SLNG and fal, and gives a trace to show a judge | core |
 
 Discord blocks video publishing from bots, so on Discord the chair's face lives on the
 web stage. On Vonage it is in the call.
