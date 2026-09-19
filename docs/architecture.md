@@ -1,110 +1,113 @@
 # gavel — architecture
 
-One live meeting chair (Karen), one Discord/Vonage call, six sponsor services doing real
-work in the runtime path, plus a build-time pipeline that shipped the code but never runs
-in the loop.
+An AI chair ("Karen") that sits in a real Discord call: she hears the room, decides when
+someone has had the floor too long, and says so out loud — with a face on the projector.
 
-## The graph
+Two parts: **the live path** (what runs during a meeting) and **off the live path** (what
+built the code and proved the chair says something sane).
+
+---
+
+## 1. The live path — Hear → Think → Speak
 
 ```mermaid
-flowchart TB
-  subgraph ROOM["Room"]
-    HUMANS["Humans in the call<br/>Discord voice + browser pages"]
+flowchart LR
+  ROOM["Discord voice call<br/>the humans"]
+
+  subgraph HEAR["1 — Hear"]
+    EARS["ears-discord<br/>joins the channel, knows who speaks"]
+    SLNG1["SLNG · STT<br/>speech to text, per utterance"]
+    DB["Postgres + Redis<br/>transcript, floor clock"]
   end
 
-  subgraph RUNTIME["gavel runtime — our containers"]
-    TRAEFIK["Traefik<br/>ingress, TLS, routing"]
-    EARS["ears-discord<br/>stenographer: joins voice, transcribes, plays audio back"]
-    BRAIN["brain — Karen<br/>the chair: agenda, turns, decides + writes the line"]
-    CAL["calendar<br/>.ics invite to agenda, join page"]
-    CHAIRVIDEO["chair-video<br/>lip-synced talking head, Director stage feed"]
-    STREAMV["stream-vonage<br/>HLS restream + archive of the stage"]
-    PG["Postgres<br/>transcripts, sessions"]
-    REDIS["Redis<br/>ears' frame stream + pub/sub (2nd door)"]
+  subgraph THINK["2 — Think"]
+    BRAIN["brain — Karen<br/>agenda + floor triggers, plain code"]
+    MASTRA["Mastra<br/>agent / workflow orchestration"]
+    NEBIUS["Nebius<br/>inference: writes the one sentence"]
+    CAL["calendar<br/>.ics invite → the agenda"]
   end
 
-  subgraph AI["Third-party AI services"]
-    SLNG["SLNG<br/>speech: STT + TTS"]
-    NEBIUS["Nebius<br/>model inference"]
-    FAL["fal<br/>lip-sync + avatar render"]
-    VONAGE["Vonage Video API<br/>HLS broadcast + archive"]
+  subgraph SPEAK["3 — Speak"]
+    SLNG2["SLNG · TTS<br/>her voice"]
+    FAL["fal<br/>lip-synced avatar, WebRTC stage"]
+    VONAGE["Vonage Video<br/>HLS restream + archive"]
   end
 
-  subgraph BUILD["Build & quality pipeline — not runtime"]
-    DEVIN["Devin<br/>AI build lanes: 3 merged PRs"]
-    NORMA["Quality Clouds (Norma)<br/>code-quality scan — not wired"]
-  end
-
-  HUMANS <-->|"Discord voice"| EARS
-  HUMANS -->|"browser: join / stage / watch pages"| TRAEFIK
-  TRAEFIK --> CAL
-  TRAEFIK --> CHAIRVIDEO
-  TRAEFIK --> STREAMV
-  TRAEFIK -.->|"console, off by default"| EARS
-
-  EARS <-->|"WebSocket wire: frames, speak/stop"| BRAIN
-  EARS --> PG
-  EARS <--> REDIS
-  EARS -->|"HTTP: STT per utterance"| SLNG
-  EARS -->|"HTTP: TTS, console say-box"| SLNG
-
-  BRAIN -->|"HTTP: chair's spoken line, TTS"| SLNG
-  BRAIN -->|"HTTPS via Mastra agents"| NEBIUS
-  BRAIN -.->|"HTTP: push audio, best-effort, 2s abort"| CHAIRVIDEO
-
-  CAL -->|"HTTP: parse free-text brief"| NEBIUS
-  CAL -->|"HTTP: seed/join session"| EARS
-
-  CHAIRVIDEO -->|"HTTP: queue lip-sync + avatar jobs"| FAL
-  CHAIRVIDEO -->|"SSE /director/events + browser WebRTC"| HUMANS
-
-  STREAMV -->|"poll GET /state"| BRAIN
-  STREAMV <-->|"HTTPS/JWT: session, broadcast, archive"| VONAGE
-  HUMANS -->|"browser publisher: getDisplayMedia -> WebRTC"| VONAGE
-
-  DEVIN -.->|"build-time only: opened PRs #1-#3, merged to main"| RUNTIME
-  NORMA -.->|"not integrated — booth question, no workflow in repo"| RUNTIME
+  ROOM --> EARS --> SLNG1 --> DB --> BRAIN
+  CAL --> BRAIN
+  BRAIN --> MASTRA --> NEBIUS --> SLNG2
+  SLNG2 --> EARS
+  EARS -->|"she interrupts, out loud"| ROOM
+  SLNG2 --> FAL --> VONAGE
 ```
 
-## The services
+**The three moves**
 
-### gavel's own (runtime containers, from `compose.yaml`)
+| # | Move | What happens |
+|---|---|---|
+| 1 | **Hear** | `ears-discord` holds the voice connection and knows who is speaking. **SLNG** transcribes each utterance live. Postgres and Redis keep the transcript and the floor clock. |
+| 2 | **Think** | `brain` is Karen. Plain code holds the agenda and fires on facts, not vibes — 60% of the floor, a topic over budget, a must-hear attendee still silent. **Mastra** orchestrates the model calls; **Nebius** writes the one sentence she says: under 20 words, names the person, hands the floor somewhere specific. `calendar` turned a real `.ics` invite into that agenda before the meeting started. |
+| 3 | **Speak** | **SLNG** turns the line into her voice, `ears-discord` plays it back into the live call — the room hears her interrupt. The same audio drives **fal**, which lip-syncs an avatar into a live WebRTC stage feed, so Karen has a face on the projector. **Vonage Video** restreams that stage as HLS with an archive for anyone not in the call. |
 
-| Service | Role |
+Underneath: six containers behind Traefik on one VPS — `ears-discord`, `brain`, `calendar`,
+`chair-video`, `stream-vonage`, Postgres/Redis. Every seam is HTTP or a WebSocket, so any one
+of them can be swapped without touching the others.
+
+**Sponsors in the live path:** SLNG (speech), Nebius (inference), Mastra (orchestration),
+fal (avatar), Vonage (streaming).
+
+---
+
+## 2. Off the live path — what built it, what checked it
+
+None of these run during a meeting.
+
+| Service | Role | Outcome |
+|---|---|---|
+| **Devin** | Autonomous build lanes, working in parallel with us | Ran its own branches and opened PRs like a teammate. **3 PRs merged into main** — shipped code, not a demo. |
+| **Quality Clouds ("Norma")** | AI code-quality analysis over the repository | Scanned gavel, returned concrete findings. **Findings fixed in the codebase** before freeze — the scan changed the code. |
+| **Galtea** | Evals of the one model-shaped output: the sentence she says | Ten frozen cases (floor hog at 62% and 81%, topic over budget, a silent must-hear attendee, 15s of dead air). Traces sent up and scored on: names the right person, under 20 words, hands the floor somewhere real, polite enough to survive a real meeting, invents nothing it never heard. **Scored runs, not guesses.** |
+| **Langfuse** | Observability on every model call, via Mastra's exporter | One trace session per meeting — a bad interruption can be read back to the exact prompt and state that produced it. **The chair is debuggable.** Wired in `brain`, on when the keys are set. |
+
+**The split that matters:** *whether* to interrupt is plain code, unit-tested against a
+scripted replay. Only *what she says* goes to a model — so only that needs evals.
+
+---
+
+The projector version of this page is `docs/architecture.html` — two slides, arrow keys to move.
+
+---
+
+## 3. Where this goes — strategy & go-to-market
+
+**Discord was the harness, not the product.** We built on it because it puts a bot into a live
+voice call in an afternoon. Nothing about the chair depends on it: `ears-discord` is the only
+container that knows what a voice call is, and everything else talks HTTP. Swapping the platform
+means one new adapter against the same wire — agenda, floor clock, triggers, voice and avatar
+untouched.
+
+**The target is the enterprise meeting stack**, as an add-on inside the suite people already buy:
+
+| Platform | Route in |
 |---|---|
-| **ears-discord** | Owns the Discord voice connection. Joins the channel, identifies who's speaking, transcribes via SLNG, records to Postgres, fans frames out over WebSocket (and Redis), plays the chair's audio back into the call. |
-| **brain** | Karen, the chair. Tracks the floor, keeps the agenda, decides when to cut in, writes the line, turns it into speech via SLNG, pushes it to ears and to chair-video. Never touches a call SDK directly. |
-| **calendar** | Turns a real `.ics` invite into the contract agenda and serves the join page that starts the session — the demo's opening beat. |
-| **chair-video** | Turns the chair's spoken audio into a lip-synced talking head via fal, and drives the projector's live "Director" stage feed. Makes no decisions. |
-| **stream-vonage** | Puts the live stage on Vonage Video as an HLS broadcast + archive, alongside the Discord call — never instead of it. |
-| **Postgres** | Transcripts and session state. |
-| **Redis** | ears' own frame stream and pub/sub — a second, optional door; the WebSocket wire works without it. |
-| **Traefik** | Ingress: TLS termination and per-service routing (console gated by basic auth and off by default; calendar, chair-video, stream-vonage each get a narrow path set). |
+| **Google Meet** | Workspace add-on, next to Calendar — where the agenda already comes from |
+| **Zoom** | Zoom App + bot SDK; the meeting-heavy install base and the clearest pain |
+| **Microsoft Teams** | The suite play: sold with M365, not alongside it |
 
-### Third parties in the runtime path
+**Why it lands:**
 
-| Service | Role he stated | Verified where |
+- **The agenda already exists** — it is the calendar invite the organiser sent. Nobody retypes it.
+- **She acts inside the hour** — a chair who interrupts at minute 12 beats a summary at minute 61.
+- **It leaves a record with numbers** — floor time per person, per topic, per meeting. The first
+  honest data most orgs have on where the hour went.
+
+Not another meeting-notes bot. The category is **time governance**: who gets heard, what gets
+decided, whether the hour was worth its payroll cost — live, while it can still be changed.
+
+**Roadmap**
+
+| Phase | What | Detail |
 |---|---|---|
-| **SLNG** | Speech — TTS and STT | `packages/ears-discord/src/ears/stt.py:33` (STT), `tts.py:32` (console TTS); `packages/brain/src/chair/tts.ts:35` + `main.ts:35` (the chair's own voice) |
-| **Nebius** | Model inference | `packages/brain/src/chair/mastraLlm.ts:2` (chair, via Mastra) and `packages/calendar/src/gavel_calendar/llm.py:65` (brief parsing) — two independent consumers |
-| **Mastra** | Backend orchestration | `packages/brain/package.json` (`@mastra/core`), `packages/brain/src/mastra/` (chair/relevance/digest agents, intervene workflow), wired in `main.ts` |
-| **fal** | Director WebRTC avatar | `packages/chair-video/src/chair_video/fal.py` — queue-poll HTTP client, called from `app.py`, triggered by brain's `pushToStage` (`engine.ts:50,813`) |
-| **Vonage** | Streaming | `packages/stream-vonage/src/stream_vonage/vonage.py` — Vonage **Video API** (JWT app-id/private-key, or legacy api-key/secret), session + HLS broadcast + archive |
-
-### Build & quality pipeline — not part of the runtime graph
-
-| Service | Role he stated | Status |
-|---|---|---|
-| **Devin** | AI build lanes | **Build-time, not runtime.** Three PRs merged to `main` (commits tagged `#1`, `#2`, `#3` in `git log`: chair eval harness, calendar recurring-event expansion, chair line-length fix). `DEVIN_PAT_KEY`/`DEVIN_ORG_ID` exist in `.env.example` but no running service calls them — confirmed in `DEPLOYMENT.md:175`: "not used by any service; agent-orchestration API only." |
-| **Quality Clouds** ("Norma") | Code-quality validation and fixes | **Not wired.** No `.github/workflows/` directory, no client code anywhere in the repo. `docs/QUALITY.md` treats it as an open booth question — their published product targets Salesforce/ServiceNow/Dynamics/Magento, and whether it scans a plain Python/JS repo at all was still unconfirmed at time of writing. Note: the repo and Vitaly's docs call it "Quality Clouds"; "Norma" doesn't appear anywhere in the codebase. |
-
-## Notes for the honest slide
-
-- **fal is HTTP, not WebRTC** — the WebRTC leg is the browser stage page's own `RTCPeerConnection`
-  (`packages/chair-video/src/chair_video/director.py:3`), fed by an SSE command channel
-  (`/director/events`, `app.py:265`). fal itself is a queue-and-poll REST API.
-- **Vonage is wired in code, unexercised live** — `vonage.py` notes the service doesn't yet have
-  Video API credentials to test against a real project.
-- `ears-vonage` and `concierge` exist as packages but are **not** in `compose.yaml` (concierge is
-  explicitly "parked"; ears-vonage has no compose service) — left off this diagram because they
-  are not currently wired, matching the "no service that isn't really wired" rule.
+| **Now — demo** | Discord, one room | Live chair, real interruptions, a face on the projector. Proves the loop closes end to end. |
+| **Next — wedge** | Meet & Zoom adapters | Same brain, new ears. Land with teams whose standups and reviews already overrun, priced per room. |
+| **Then — suite** | Teams add-on, org-wide | Chairing plus scheduling and agenda hygiene across the org, with the time data to show what it saved. |

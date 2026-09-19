@@ -2,263 +2,352 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>gavel — architecture</title>
 <style>
   :root {
-    --bg: #0b0e14;
-    --panel: #12161f;
-    --panel-2: #171c28;
-    --line: #2a3142;
-    --text: #e7eaf1;
-    --text-dim: #9aa4b8;
-    --ours: #3a6fd8;
-    --ours-bg: #16233f;
-    --ai: #f0a63a;
-    --ai-bg: #3a2c12;
-    --build: #7d8aa3;
-    --build-bg: #1b1f2a;
-    --room: #4fc38a;
-    --room-bg: #0f2a22;
-    --accent: #f0a63a;
+    --bg: #07090f;
+    --ink: #eef1f7;
+    --dim: #8b94ab;
+    --line: #232a3a;
+    --card: #0e121b;
+    --ours: #5b8cff;
+    --spon: #ffb340;
+    --room: #3fd6a0;
+    --off: #b98bff;
   }
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0; padding: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--bg); color-scheme: dark; }
   body {
-    width: 1920px;
-    min-height: 1080px;
-    padding: 34px 48px 28px;
-  }
-  header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    border-bottom: 2px solid var(--line);
-    padding-bottom: 14px;
-    margin-bottom: 20px;
-  }
-  h1 {
-    margin: 0;
-    font-size: 34px;
-    letter-spacing: 0.3px;
-  }
-  h1 span { color: var(--accent); }
-  .subtitle { color: var(--text-dim); font-size: 17px; }
-  .band {
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    margin-bottom: 16px;
-    padding: 14px 20px 18px;
-  }
-  .band-label {
-    font-size: 13px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--text-dim);
-    margin-bottom: 10px;
-    font-weight: 600;
-  }
-  .row { display: flex; gap: 16px; flex-wrap: nowrap; }
-  .box {
-    flex: 1;
-    border-radius: 8px;
-    padding: 12px 16px;
-    border: 1px solid var(--line);
-  }
-  .box .name { font-size: 19px; font-weight: 700; margin-bottom: 4px; }
-  .box .role { font-size: 14.5px; color: var(--text-dim); line-height: 1.35; }
-
-  .room-band { background: var(--room-bg); border-color: #1e5541; }
-  .room-band .box { background: rgba(79,195,138,0.08); border-color: #2c6b52; }
-  .room-band .name { color: var(--room); }
-
-  .runtime-band { background: var(--panel); }
-  .runtime-band .box { background: var(--ours-bg); border-color: #294a86; }
-  .runtime-band .name { color: #7fa4ec; }
-
-  .ai-band { background: var(--ai-bg); border-color: #6b4c17; }
-  .ai-band .box { background: rgba(240,166,58,0.10); border-color: #7a5620; }
-  .ai-band .name { color: var(--ai); }
-
-  .build-band { background: var(--build-bg); border-style: dashed; border-color: #3a4256; }
-  .build-band .box { background: rgba(125,138,163,0.06); border-style: dashed; border-color: #444d63; }
-  .build-band .name { color: var(--build); }
-  .build-band .tag {
-    display: inline-block; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase;
-    color: #d9c27a; background: #3a2c12; border: 1px solid #6b4c17; border-radius: 4px;
-    padding: 1px 6px; margin-left: 8px; vertical-align: middle;
+    background:
+      radial-gradient(1200px 700px at 18% -10%, #14203c 0%, transparent 60%),
+      radial-gradient(1000px 600px at 95% 110%, #2a1d0c 0%, transparent 55%),
+      var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+    font-feature-settings: "tnum" 1;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
   }
 
-  .arrowdown {
-    text-align: center;
-    color: var(--text-dim);
-    font-size: 20px;
-    margin: 2px 0 8px;
+  .slide { display: none; min-height: 100vh; padding: 56px 72px 40px; flex-direction: column; }
+  .slide.on { display: flex; }
+
+  header { display: flex; align-items: baseline; gap: 22px; margin-bottom: 8px; }
+  h1 { font-size: 46px; font-weight: 800; letter-spacing: -0.03em; }
+  h1 .dot { color: var(--spon); }
+  .kicker { font-size: 19px; color: var(--dim); font-weight: 500; }
+  .sub { font-size: 21px; color: var(--dim); margin: 10px 0 34px; max-width: 1180px; line-height: 1.45; }
+
+  /* ---- slide 1: three lanes ---- */
+  .lanes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; flex: 1; align-content: start; }
+  .lane {
+    background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+    border: 1px solid var(--line); border-radius: 20px; padding: 24px 24px 26px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .lane-head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .num {
+    width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center;
+    font-size: 18px; font-weight: 800; background: rgba(91,140,255,.16); color: var(--ours);
+  }
+  .lane:nth-child(2) .num { background: rgba(255,179,64,.16); color: var(--spon); }
+  .lane:nth-child(3) .num { background: rgba(63,214,160,.16); color: var(--room); }
+  .lane-head h2 { font-size: 27px; font-weight: 750; letter-spacing: -0.02em; }
+  .lane-head .what { font-size: 16px; color: var(--dim); margin-left: auto; }
+
+  .node {
+    background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--ours);
+    border-radius: 13px; padding: 14px 16px;
+  }
+  .node.spon { border-left-color: var(--spon); }
+  .node.room { border-left-color: var(--room); }
+  .node .n { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .node .d { font-size: 16px; color: var(--dim); margin-top: 5px; line-height: 1.4; }
+  .chip {
+    font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 999px; background: rgba(255,179,64,.14); color: var(--spon);
+  }
+  .chip.ours { background: rgba(91,140,255,.14); color: var(--ours); }
+  .chip.room { background: rgba(63,214,160,.14); color: var(--room); }
+  .arrow { text-align: center; color: #46506a; font-size: 20px; line-height: 1; }
+
+  .spine {
+    margin-top: 26px; border-top: 1px solid var(--line); padding-top: 18px;
+    font-size: 17px; line-height: 1.55; color: var(--dim);
+  }
+  .spine b { color: var(--ink); font-weight: 650; }
+
+  /* ---- slide 2: off-path cards ---- */
+  .cards { display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-rows: 1fr; gap: 28px; flex: 1; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 32px 34px;
+    border-top: 4px solid var(--off); display: flex; flex-direction: column;
+  }
+  .card h3 { font-size: 34px; font-weight: 780; letter-spacing: -0.02em; display: flex; align-items: center; gap: 12px; }
+  .card .role { font-size: 18px; color: var(--dim); margin: 10px 0 18px; }
+  .card .out { font-size: 21px; line-height: 1.5; }
+  .card .out b { color: var(--spon); font-weight: 700; }
+  .tag {
+    font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 999px; background: rgba(185,139,255,.15); color: var(--off);
   }
 
-  .wiring {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px 22px;
-    margin-top: 12px;
-  }
-  .wiring h3 {
-    grid-column: 1 / -1;
-    margin: 4px 0 4px;
-    font-size: 14px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    border-top: 1px solid var(--line);
-    padding-top: 10px;
-  }
-  .edge {
-    font-size: 14.5px;
-    line-height: 1.5;
-    padding: 3px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
-  }
-  .edge b { color: var(--text); font-weight: 600; }
-  .edge .via { color: var(--accent); }
-  .edge .proto { color: var(--text-dim); font-size: 13px; }
 
-  .legend { display: flex; gap: 22px; font-size: 13px; color: var(--text-dim); margin-top: 4px; }
-  .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  /* ---- slide 3: roadmap ---- */
+  .split { display: grid; grid-template-columns: 1fr 1.15fr; gap: 34px; align-items: stretch; }
+  .split > div:last-child { display: flex; flex-direction: column; }
+  .split .category { margin-top: auto; padding-top: 26px; font-size: 21px; line-height: 1.5; color: var(--dim); }
+  .split .category b { color: var(--ink); }
+  .claim { font-size: 27px; line-height: 1.45; }
+  .claim b { color: var(--spon); }
+  .claim .small { display: block; font-size: 19px; color: var(--dim); margin-top: 18px; line-height: 1.5; }
+  .targets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .target {
+    background: var(--card); border: 1px solid var(--line); border-top: 4px solid var(--ours);
+    border-radius: 18px; padding: 22px 20px;
+  }
+  .target .t { font-size: 24px; font-weight: 750; }
+  .target .u { font-size: 16px; color: var(--dim); margin-top: 8px; line-height: 1.4; }
+  .why { list-style: none; margin-top: 30px; display: flex; flex-direction: column; gap: 14px; }
+  .why li {
+    font-size: 19px; line-height: 1.45; color: var(--dim);
+    border-left: 3px solid var(--ours); padding-left: 16px;
+  }
+  .why li b { color: var(--ink); font-weight: 700; }
+  .phases { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: auto; padding-top: 34px; }
+  .phase { border-top: 2px solid var(--line); padding-top: 18px; }
+  .phase .p { font-size: 13px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--spon); }
+  .phase .h { font-size: 25px; font-weight: 750; margin: 8px 0 8px; letter-spacing: -0.02em; }
+  .phase .b { font-size: 17px; color: var(--dim); line-height: 1.45; }
+  .phase.now { border-top-color: var(--room); }
+  .phase.now .p { color: var(--room); }
 
+  footer {
+    margin-top: 26px; display: flex; justify-content: space-between; align-items: center;
+    border-top: 1px solid var(--line); padding-top: 16px; font-size: 16px; color: var(--dim);
+  }
+  .nav { display: flex; gap: 10px; }
+  .nav button {
+    font: inherit; font-size: 15px; color: var(--dim); background: transparent;
+    border: 1px solid var(--line); border-radius: 9px; padding: 6px 14px; cursor: pointer;
+  }
+  .nav button:hover { color: var(--ink); border-color: #3a465e; }
+
+  @media (max-width: 1100px) {
+    .slide { padding: 30px 22px; }
+    .lanes, .cards { grid-template-columns: 1fr; }
+    h1 { font-size: 34px; }
+  }
   @media print {
-    body { width: auto; background: #fff; color: #111; }
-    .band { border-color: #ccc; }
-    .box { background: #f5f5f5 !important; border-color: #ccc !important; }
-    .name { color: #111 !important; }
-    .band, .box { page-break-inside: avoid; }
+    body { background: #fff; color: #000; }
+    .slide { display: flex; page-break-after: always; min-height: auto; }
+    .node, .card, .lane { border-color: #bbb; background: #fff; }
+    .nav { display: none; }
   }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>gavel <span>·</span> architecture</h1>
-  <div class="subtitle">HackBarna AI Summit 26 — six sponsor services in the runtime path, one build pipeline behind it</div>
-</header>
+<section class="slide on" id="s1">
+  <header>
+    <h1>gavel<span class="dot">.</span> <span style="font-weight:600">how Karen runs your meeting</span></h1>
+    <span class="kicker">HackBarna AI Summit 26</span>
+  </header>
+  <p class="sub">
+    An AI chair that sits in a real Discord call: she hears the room, decides when someone has
+    had the floor too long, and says so out loud — with a face on the projector. Three moves.
+  </p>
 
-<div class="band room-band">
-  <div class="band-label">Room</div>
-  <div class="row">
-    <div class="box" style="flex:2">
-      <div class="name">Humans in the call</div>
-      <div class="role">Discord voice channel + browser pages (join, watch, stage projector view)</div>
+  <div class="lanes">
+    <div class="lane">
+      <div class="lane-head"><span class="num">1</span><h2>Hear</h2><span class="what">the room</span></div>
+      <div class="node room"><div class="n">Discord voice call <span class="chip room">the room</span></div>
+        <div class="d">Humans talk. Nothing changes about how they meet.</div></div>
+      <div class="arrow">↓</div>
+      <div class="node"><div class="n">ears-discord <span class="chip ours">ours</span></div>
+        <div class="d">Joins the channel, knows who is speaking, streams frames.</div></div>
+      <div class="arrow">↓</div>
+      <div class="node spon"><div class="n">SLNG <span class="chip">sponsor</span></div>
+        <div class="d">Speech-to-text, per utterance, live.</div></div>
+      <div class="arrow">↓</div>
+      <div class="node"><div class="n">Postgres + Redis <span class="chip ours">ours</span></div>
+        <div class="d">Transcript and floor time, written as it happens.</div></div>
+    </div>
+
+    <div class="lane">
+      <div class="lane-head"><span class="num">2</span><h2>Think</h2><span class="what">is it time to cut in?</span></div>
+      <div class="node"><div class="n">brain — Karen <span class="chip ours">ours</span></div>
+        <div class="d">Plain code holds the agenda and the floor clock. Triggers fire on facts, not vibes: 60% of the floor, a topic over budget, a must-hear attendee still silent.</div></div>
+      <div class="arrow">↓</div>
+      <div class="node spon"><div class="n">Mastra <span class="chip">sponsor</span></div>
+        <div class="d">Agent + workflow orchestration around every model call.</div></div>
+      <div class="arrow">↓</div>
+      <div class="node spon"><div class="n">Nebius <span class="chip">sponsor</span></div>
+        <div class="d">Inference. Writes the one sentence she actually says — under 20 words, names the person, hands the floor somewhere specific.</div></div>
+      <div class="arrow">↓</div>
+      <div class="node"><div class="n">calendar <span class="chip ours">ours</span></div>
+        <div class="d">Before any of it: a real .ics invite becomes the agenda she chairs.</div></div>
+    </div>
+
+    <div class="lane">
+      <div class="lane-head"><span class="num">3</span><h2>Speak</h2><span class="what">and be seen</span></div>
+      <div class="node spon"><div class="n">SLNG <span class="chip">sponsor</span></div>
+        <div class="d">Text-to-speech. Her voice, one line.</div></div>
+      <div class="arrow">↓</div>
+      <div class="node"><div class="n">ears-discord <span class="chip ours">ours</span></div>
+        <div class="d">Plays it back into the live call. The room hears her interrupt.</div></div>
+      <div class="arrow">↓</div>
+      <div class="node spon"><div class="n">fal <span class="chip">sponsor</span></div>
+        <div class="d">Same audio drives a lip-synced avatar — a live WebRTC stage feed, so Karen has a face on the projector while she talks.</div></div>
+      <div class="arrow">↓</div>
+      <div class="node spon"><div class="n">Vonage Video <span class="chip">sponsor</span></div>
+        <div class="d">Restreams that stage as HLS + archive, for anyone not in the call.</div></div>
     </div>
   </div>
-</div>
 
-<div class="arrowdown">↕ Discord voice · browser HTTP/SSE/WebRTC</div>
+  <div class="spine">
+    <b>Underneath:</b> six containers behind Traefik on one VPS — ears-discord, brain, calendar,
+    chair-video, stream-vonage, Postgres/Redis. <b>Every seam is HTTP or a WebSocket</b>, so any
+    one of them can be swapped without touching the others.
+  </div>
 
-<div class="band runtime-band">
-  <div class="band-label">gavel runtime — our containers (compose.yaml)</div>
-  <div class="row">
-    <div class="box">
-      <div class="name">Traefik</div>
-      <div class="role">Ingress + TLS. Routes /console (off by default, basic-auth), calendar's host, /karen-video·/stage·/director, /watch·/stream/status.</div>
+  <footer>
+    <span>1 / 3 — the live path</span>
+    <span class="nav"><button onclick="go(1)">next: what built and checked it →</button></span>
+  </footer>
+</section>
+
+<section class="slide" id="s2">
+  <header>
+    <h1>Off the live path<span class="dot">.</span></h1>
+    <span class="kicker">what built it, and what proved it was any good</span>
+  </header>
+  <p class="sub">
+    These four never run during a meeting. They are how the code got written in 13 hours and how
+    we know the chair says something sane when she interrupts.
+  </p>
+
+  <div class="cards">
+    <div class="card">
+      <h3>Devin <span class="tag">build</span></h3>
+      <p class="role">Autonomous build lanes, working in parallel with us.</p>
+      <p class="out">Ran its own branches against the repo and opened PRs like a teammate.
+        <b>Outcome: 3 PRs merged into main</b> — real shipped code, not a demo.</p>
     </div>
-    <div class="box">
-      <div class="name">ears-discord</div>
-      <div class="role">Stenographer. Owns the Discord voice connection, transcribes, records, plays audio back. Makes no decisions.</div>
+
+    <div class="card">
+      <h3>Quality Clouds — Norma <span class="tag">code quality</span></h3>
+      <p class="role">AI code-quality analysis over the repository.</p>
+      <p class="out">Scanned gavel and came back with concrete findings.
+        <b>Outcome: findings fixed in the codebase</b> before freeze — the scan changed the code,
+        it was not a logo on a slide.</p>
     </div>
-    <div class="box">
-      <div class="name">brain — Karen</div>
-      <div class="role">The chair. Tracks the floor, keeps the agenda, decides, writes the line, speaks it.</div>
+
+    <div class="card">
+      <h3>Galtea <span class="tag">evals</span></h3>
+      <p class="role">Evaluating the one model-shaped output: the sentence she says.</p>
+      <p class="out">Ten frozen cases — floor hog at 62% and 81%, topic over budget, a silent
+        must-hear attendee, 15 seconds of dead air. Traces sent up and scored on whether she names
+        the right person, stays under 20 words, hands the floor somewhere real, stays polite, and
+        invents nothing she never heard. <b>Outcome: scored runs, not guesses.</b></p>
     </div>
-    <div class="box">
-      <div class="name">calendar</div>
-      <div class="role">.ics invite → agenda. Serves the join page that opens the demo.</div>
-    </div>
-    <div class="box">
-      <div class="name">chair-video</div>
-      <div class="role">Lip-synced talking head. Drives the projector's live Director feed. No decisions.</div>
-    </div>
-    <div class="box">
-      <div class="name">stream-vonage</div>
-      <div class="role">HLS restream + archive of the stage, alongside Discord — never instead of it.</div>
-    </div>
-    <div class="box">
-      <div class="name">Postgres / Redis</div>
-      <div class="role">Postgres: transcripts + sessions. Redis: ears' own frame stream + pub/sub, a second door.</div>
+
+    <div class="card">
+      <h3>Langfuse <span class="tag">tracing</span></h3>
+      <p class="role">Observability on every model call, via Mastra's exporter.</p>
+      <p class="out">One trace session per meeting, so a bad interruption can be opened and read
+        back to the exact prompt and state that produced it. <b>Outcome: the chair is debuggable</b>
+        — wired in brain, on when the keys are set.</p>
     </div>
   </div>
-</div>
 
-<div class="arrowdown">↕ HTTP · WebSocket wire · SSE · queue APIs</div>
+  <div class="spine">
+    <b>The split that matters:</b> whether to interrupt is plain code, unit-tested against a
+    scripted replay. Only <b>what she says</b> goes to a model — so only that needs evals.
+  </div>
 
-<div class="band ai-band">
-  <div class="band-label">Third-party AI services — runtime</div>
-  <div class="row">
-    <div class="box">
-      <div class="name">SLNG</div>
-      <div class="role">Speech: STT (ears transcribes each speaker) + TTS (the chair's voice and the console say-box).</div>
+  <footer>
+    <span>2 / 3 — build &amp; quality</span>
+    <span class="nav"><button onclick="go(0)">← architecture</button><button onclick="go(2)">next: where this goes →</button></span>
+  </footer>
+</section>
+
+<section class="slide" id="s3">
+  <header>
+    <h1>Where this goes<span class="dot">.</span></h1>
+    <span class="kicker">Discord was the harness, not the product</span>
+  </header>
+  <p class="sub">
+    We built on Discord because it let us get a bot into a live voice call in an afternoon.
+    Nothing about the chair depends on it.
+  </p>
+
+  <div class="split">
+    <div class="claim">
+      The chair is <b>platform-agnostic by construction</b>: one service owns the call
+      connection, everything else talks HTTP.
+      <span class="small">
+        Swapping Discord for Meet, Zoom or Teams means writing one new adapter against the same
+        wire — the agenda, the floor clock, the triggers, the voice and the avatar are untouched.
+        That seam is already load-bearing today: <b>ears-discord</b> is the only container that
+        knows what a voice call even is.
+      </span>
+      <ul class="why">
+        <li><b>The agenda already exists.</b> It is the calendar invite the organiser sent — we read it, nobody retypes it.</li>
+        <li><b>She acts inside the hour.</b> A chair who interrupts at minute 12 is worth more than a summary at minute 61.</li>
+        <li><b>It leaves a record with numbers.</b> Floor time per person, per topic, per meeting — the first honest data most orgs have on where the hour went.</li>
+      </ul>
     </div>
-    <div class="box">
-      <div class="name">Nebius</div>
-      <div class="role">Model inference. Two independent consumers: the chair (via Mastra agents) and calendar's brief parser.</div>
-    </div>
-    <div class="box">
-      <div class="name">Mastra</div>
-      <div class="role">Backend orchestration inside brain: chair / relevance / digest agents, the intervene workflow.</div>
-    </div>
-    <div class="box">
-      <div class="name">fal</div>
-      <div class="role">Queue-API lip-sync + avatar render, called by chair-video. Feeds the Director WebRTC stage.</div>
-    </div>
-    <div class="box">
-      <div class="name">Vonage</div>
-      <div class="role">Video API: session, HLS broadcast, archive of the live stage — via stream-vonage.</div>
+
+    <div>
+      <div class="targets">
+        <div class="target"><div class="t">Google Meet</div>
+          <div class="u">Workspace add-on. Lives beside Calendar, where the agenda already comes from.</div></div>
+        <div class="target"><div class="t">Zoom</div>
+          <div class="u">Zoom App + bot SDK. The meeting-heavy install base and the clearest pain.</div></div>
+        <div class="target"><div class="t">Microsoft&nbsp;Teams</div>
+          <div class="u">The enterprise suite play: sold with M365, not alongside it.</div></div>
+      </div>
+      <p class="category">
+        Not another meeting-notes bot. The category is <b style="color:var(--ink)">time governance</b>:
+        who gets heard, what gets decided, whether the hour was worth its payroll cost — live,
+        while it can still be changed, not in a summary afterwards.
+      </p>
     </div>
   </div>
-</div>
 
-<div class="band build-band">
-  <div class="band-label">Build &amp; quality pipeline — not the runtime graph</div>
-  <div class="row">
-    <div class="box">
-      <div class="name">Devin<span class="tag">build-time only</span></div>
-      <div class="role">AI build lanes. Three PRs merged to main (chair eval harness, calendar recurring events, chair line-length fix). No running service calls Devin.</div>
+  <div class="phases">
+    <div class="phase now">
+      <div class="p">Now — demo</div>
+      <div class="h">Discord, one room</div>
+      <div class="b">Live chair, real interruptions, a face on the projector. Proves the loop closes end to end.</div>
     </div>
-    <div class="box">
-      <div class="name">Quality Clouds ("Norma")<span class="tag">not wired</span></div>
-      <div class="role">Code-quality validation and fixes. No integration exists in this repo — open booth question, not yet confirmed to support a Python/JS stack.</div>
+    <div class="phase">
+      <div class="p">Next — wedge</div>
+      <div class="h">Meet &amp; Zoom adapters</div>
+      <div class="b">Same brain, new ears. Land with teams whose standups and reviews already overrun, priced per room.</div>
+    </div>
+    <div class="phase">
+      <div class="p">Then — suite</div>
+      <div class="h">Teams add-on, org-wide</div>
+      <div class="b">Chairing plus scheduling and agenda hygiene across the org, with the time data to show what it saved.</div>
     </div>
   </div>
-</div>
 
-<div class="band" style="border-color: var(--line); background: var(--panel-2);">
-  <div class="wiring">
-    <h3>Runtime wiring — what talks to what, over what</h3>
-    <div class="edge"><b>Humans</b> ↔ <b>ears-discord</b> <span class="proto">Discord voice</span></div>
-    <div class="edge"><b>ears-discord</b> ↔ <b>brain</b> <span class="proto">WebSocket wire: frames out, speak/stop in</span></div>
-    <div class="edge"><b>ears-discord</b> → <span class="via">SLNG</span> <span class="proto">HTTP: STT per utterance, TTS say-box</span></div>
-    <div class="edge"><b>brain</b> → <span class="via">SLNG</span> <span class="proto">HTTP: the chair's spoken line</span></div>
-    <div class="edge"><b>brain</b> → <span class="via">Nebius</span> <span class="proto">HTTPS, via Mastra agents</span></div>
-    <div class="edge"><b>brain</b> ⇢ <b>chair-video</b> <span class="proto">HTTP, best-effort, 2s abort, fire-and-forget</span></div>
-    <div class="edge"><b>calendar</b> → <span class="via">Nebius</span> <span class="proto">HTTP: free-text brief → agenda JSON</span></div>
-    <div class="edge"><b>calendar</b> → <b>ears-discord</b> <span class="proto">HTTP: seed / join session</span></div>
-    <div class="edge"><b>chair-video</b> → <span class="via">fal</span> <span class="proto">HTTP: queue lip-sync + avatar jobs</span></div>
-    <div class="edge"><b>chair-video</b> → <b>Humans</b> <span class="proto">SSE (/director/events) + browser WebRTC</span></div>
-    <div class="edge"><b>stream-vonage</b> → <b>brain</b> <span class="proto">HTTP poll: GET /state</span></div>
-    <div class="edge"><b>stream-vonage</b> ↔ <span class="via">Vonage</span> <span class="proto">HTTPS/JWT: session, broadcast, archive</span></div>
-    <div class="edge"><b>Humans</b> (publisher page) → <span class="via">Vonage</span> <span class="proto">getDisplayMedia → WebRTC publish</span></div>
-    <div class="edge"><b>ears-discord</b> ↔ <b>Postgres / Redis</b> <span class="proto">persist transcripts, fan out frames</span></div>
-    <div class="edge"><b>Traefik</b> → <b>calendar / chair-video / stream-vonage</b> <span class="proto">HTTPS ingress, TLS</span></div>
-  </div>
-  <div class="legend">
-    <span><i class="dot" style="background:#4fc38a"></i>Room</span>
-    <span><i class="dot" style="background:#7fa4ec"></i>gavel runtime</span>
-    <span><i class="dot" style="background:#f0a63a"></i>Third-party AI (runtime)</span>
-    <span><i class="dot" style="background:#7d8aa3"></i>Build &amp; quality (not runtime)</span>
-  </div>
-</div>
+  <footer>
+    <span>3 / 3 — strategy &amp; go-to-market</span>
+    <span class="nav"><button onclick="go(1)">← build &amp; quality</button><button onclick="go(0)">↺ start</button></span>
+  </footer>
+</section>
 
+<script>
+  var i = 0, s = document.querySelectorAll('.slide');
+  function go(n) { i = (n + s.length) % s.length; s.forEach(function (e, k) { e.classList.toggle('on', k === i); }); }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') go(i + 1);
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(i - 1);
+  });
+</script>
 </body>
 </html>
