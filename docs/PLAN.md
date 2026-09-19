@@ -91,6 +91,7 @@ one where the chair's face can be in the call.
 | B6 | Nebius — given the trigger + state, one sentence in the chair's voice, generated through the Mastra agent. Falls back to a template if the call is slow or fails | 1h | B6a |
 | B7 | SLNG TTS → `speak` frame over the wire | 1h | B6 |
 | B8 | Web stage — agenda, live talk-time bars, current topic, what the chair just said | 1.5h | B2, B4 |
+| B11 | Fire drill — hazard word in a transcript, chair breaks in, offers to alert emergency services, host confirms, SMS goes out. Demo number only | 1h | E6, V5, B6a |
 | B9 | fal live video of the chair on the stage, called as a Mastra tool | 1.5h | B8, B6a |
 | B10 | Tier 2 — consume `transcript`, topic-coverage detection, content-aware lines, minutes | 1.5h | E6 |
 
@@ -161,6 +162,48 @@ Drop in this order:
   interruption lands after the moment. Pre-warm the TTS and template the common lines.
 - **"Built during the event — prior ideas fine, prior code is not."** This repo started
   empty today. Nothing gets lifted from an existing codebase.
+
+## The fire drill (B11)
+
+The one scripted laugh, and the only place the chair leaves the agenda.
+
+Someone says "there's a fire" — or smoke, or gas leak. The chair stops the topic clock
+mid-sentence, breaks in, and offers to alert emergency services. A **host** confirms out
+loud. The chair sends the message and says so. Then, deadpan, it returns the floor to
+whoever it interrupted and resumes the topic where it left off.
+
+It demos three things at once: the chair hears content, not just who is talking (SLNG STT);
+it reasons about what it heard (Nebius, through the Mastra agent); and it acts outside the
+call (Vonage Messages). Depth of API use, in one twenty-second beat.
+
+**How it fires**
+
+1. Deterministic keyword spot on a `transcript` frame — `fire`, `smoke`, `gas leak`,
+   `fuego`, `humo`. Cheap, no model in the hot path.
+2. Model call classifies hazard vs figure of speech, so "fire off an email", "you're fired"
+   and "this demo is fire" do not trip it. One sentence back: hazard yes/no.
+3. Chair interrupts immediately, ignoring the `minSecondsBetweenInterventions` floor — this
+   trigger is exempt, and it is the only one that is.
+4. Chair asks a **host** (an attendee with `role: host` in the agenda) to confirm. Nothing is
+   sent without a spoken yes inside 20 seconds. Anything else and it stands down out loud.
+5. On confirm: Vonage SMS to `EMERGENCY_DEMO_NUMBER`, stage shows the message that went out,
+   chair announces it and hands the floor back.
+
+**Safety rules — these are not negotiable, and they are in the code, not the plan**
+
+- The destination is **only** ever `EMERGENCY_DEMO_NUMBER` from the environment — a phone in
+  the room. Never 112, 911, 999, or any emergency short code, in any branch, at any time.
+  There is no configuration path that reaches a real emergency service; the demo number is
+  read once and nothing else is dialable.
+- Every message body starts `[DEMO — HackBarna hackathon, not a real emergency]`.
+- No send without the host's spoken confirmation, and the exemption applies to this trigger
+  only.
+- If `EMERGENCY_DEMO_NUMBER` is unset, the chair still performs the whole beat and says it
+  would have sent — it never falls back to a different number.
+
+**Fallback if STT is not done by 21:00.** Keep the beat: a stage button plants the transcript
+line, everything downstream runs for real. Say so in the demo — a scripted input into a real
+pipeline is honest, a faked output is not.
 
 ## Tracks
 

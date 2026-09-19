@@ -87,6 +87,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
   audio back in the call. If only that works, the demo lands. Everything else is upside.</p>
 </div>
 
+<div class="callout"><h3>The fire drill — the one scripted laugh</h3><p style="margin:6px 0 0">Someone says "fire". The chair stops the clock, breaks in, offers to alert emergency services, a host confirms out loud, an SMS goes out, and then it deadpan returns the floor and resumes the topic. Task <strong>B11</strong>. The destination is always the demo phone in the room — never a real emergency number, in any branch.</p></div>
 <div id="lanes"></div>
 
 <h2>Schedule</h2>
@@ -445,6 +446,21 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "note": "The visible half of the judged moment."
     },
     {
+      "id": "B11",
+      "lane": "brain",
+      "title": "Fire drill — hazard heard, chair breaks in, host confirms, SMS goes out",
+      "owner": "vitaly",
+      "effort": "1h",
+      "deps": [
+        "E6",
+        "V5",
+        "B6a"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "The scripted laugh. Demo number only, never an emergency service; host must confirm out loud. Stage-button fallback if STT is not done."
+    },
+    {
       "id": "B9",
       "lane": "brain",
       "title": "fal live video of the chair on the stage",
@@ -513,6 +529,19 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "note": "The one place the chair has a face inside the call."
     },
     {
+      "id": "V5",
+      "lane": "ears-vonage",
+      "title": "Vonage Messages — send one SMS, used by the fire drill",
+      "owner": "either",
+      "effort": "30m",
+      "deps": [
+        "S1"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Destination is EMERGENCY_DEMO_NUMBER and nothing else."
+    },
+    {
       "id": "V4",
       "lane": "ears-vonage",
       "title": "Depth — session.signal pushes agenda and interventions, archiving",
@@ -550,6 +579,13 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "name": "Vonage app id, private key, session + token",
       "who": "Vonage mentor on site",
       "blocks": "V1–V4, the gold track",
+      "status": "todo"
+    },
+    {
+      "id": "vonage-sms",
+      "name": "Vonage SMS — API key/secret + a sendable from-number",
+      "who": "Vonage mentor on site",
+      "blocks": "V5, B11 — the fire drill",
       "status": "todo"
     },
     {
@@ -591,6 +627,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
   "cutOrder": [
     "Concierge — already parked",
     "The chair's face (B9, V3)",
+    "The fire drill (B11, V5) — cut only if STT and the stage fallback both die",
     "Transcript features (E5, E6, B10)",
     "The second surface — demo one call surface, show the seam in the README",
     "The Nebius line (B6) — fall back to templates",

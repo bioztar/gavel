@@ -313,6 +313,21 @@
       "note": "The visible half of the judged moment."
     },
     {
+      "id": "B11",
+      "lane": "brain",
+      "title": "Fire drill — hazard heard, chair breaks in, host confirms, SMS goes out",
+      "owner": "vitaly",
+      "effort": "1h",
+      "deps": [
+        "E6",
+        "V5",
+        "B6a"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "The scripted laugh. Demo number only, never an emergency service; host must confirm out loud. Stage-button fallback if STT is not done."
+    },
+    {
       "id": "B9",
       "lane": "brain",
       "title": "fal live video of the chair on the stage",
@@ -381,6 +396,19 @@
       "note": "The one place the chair has a face inside the call."
     },
     {
+      "id": "V5",
+      "lane": "ears-vonage",
+      "title": "Vonage Messages — send one SMS, used by the fire drill",
+      "owner": "either",
+      "effort": "30m",
+      "deps": [
+        "S1"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Destination is EMERGENCY_DEMO_NUMBER and nothing else."
+    },
+    {
       "id": "V4",
       "lane": "ears-vonage",
       "title": "Depth — session.signal pushes agenda and interventions, archiving",
@@ -418,6 +446,13 @@
       "name": "Vonage app id, private key, session + token",
       "who": "Vonage mentor on site",
       "blocks": "V1–V4, the gold track",
+      "status": "todo"
+    },
+    {
+      "id": "vonage-sms",
+      "name": "Vonage SMS — API key/secret + a sendable from-number",
+      "who": "Vonage mentor on site",
+      "blocks": "V5, B11 — the fire drill",
       "status": "todo"
     },
     {
@@ -459,6 +494,7 @@
   "cutOrder": [
     "Concierge — already parked",
     "The chair's face (B9, V3)",
+    "The fire drill (B11, V5) — cut only if STT and the stage fallback both die",
     "Transcript features (E5, E6, B10)",
     "The second surface — demo one call surface, show the seam in the README",
     "The Nebius line (B6) — fall back to templates",
