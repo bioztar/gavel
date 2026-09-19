@@ -57,7 +57,9 @@ mechanics (line folding, `TZID=`, text escaping) — that is what differs betwee
 Outlook and a hand-written invite, and it is not worth re-implementing. It pulls title
 (`SUMMARY`), start/end (`DTSTART`/`DTEND`, normalized to UTC — a floating time with no
 `TZID` and no `Z` is *assumed* UTC), and attendees (`ATTENDEE` → name from `CN`, else the
-email's local part; `ORGANIZER` becomes the `host` attendee).
+email's local part; `ORGANIZER` becomes the `host` attendee). `parse_ics` reads one
+invite as a single occurrence; `parse_ics_occurrences` expands a recurring one — see
+[Recurring events](#recurring-events).
 
 Agenda topics are scraped from `DESCRIPTION`. Accepted line shapes (a few, on purpose):
 
@@ -169,13 +171,13 @@ calendar. It is never logged, never returned by `/health`, never put in an error
 code that needs to name a feed uses its index (`feed[0]`), never the URL. **Never commit
 a real feed URL** — `.env.example` carries the variable name only.
 
-`scheduler.py`'s `poll_feeds` fetches each feed every `SCHEDULER_POLL_SECONDS`, walks its
-`VEVENT`s, and — for each one whose `UID`+`SEQUENCE` hasn't been seen before — re-serializes
-that single `VEVENT` (plus any `VTIMEZONE` it references) and runs it through the *same*
-`ics_parser.parse_ics` → `agenda.build_agenda` path `POST /invite` uses. There is exactly
-one place that turns a `VEVENT` into an agenda, whether it arrived by hand or by feed.
+`scheduler.py`'s `poll_feeds` fetches each feed every `SCHEDULER_POLL_SECONDS`, groups its
+`VEVENT`s by `UID`, and re-serializes each group (plus any `VTIMEZONE` it references) into
+its own `.ics`, which it expands into occurrences and runs through the *same*
+`ics_parser` → `agenda.build_agenda` path `POST /invite` uses. There is exactly one place
+that turns a `VEVENT` into an agenda, whether it arrived by hand or by feed.
 
-- **Dedupe**: `UID`+`SEQUENCE`. An unchanged event is a no-op on re-poll. A bumped
+- **Dedupe**: occurrence id + `SEQUENCE`. An unchanged event is a no-op on re-poll. A bumped
   `SEQUENCE` updates the same `InviteRecord` in place — same `sessionId`, same join link —
   without resetting it to pending if it has already started (that would start a second
   `ears` session for the same meeting).
@@ -185,16 +187,61 @@ one place that turns a `VEVENT` into an agenda, whether it arrived by hand or by
 - **No topic lines**: skipped quietly, same as `POST /invite` would accept it — it just
   never gets pulled onto the board, since `agenda.build_agenda` needs at least the
   description to scrape.
-- **Recurring events (`RRULE`) are not expanded.** A weekly recurring meeting's `DTSTART`
-  is its *first* occurrence — if that was months ago, it will never fall inside the
-  forward window and the event will never be ingested. Only single, non-recurring events
-  (or a recurring series' very next un-elapsed instance, if the feed happens to list one)
-  are picked up. Worth checking on the actual demo calendar before relying on it.
+- **Recurring events are expanded** inside the forward window — see below.
 - **A down or malformed feed** only marks its own `/health` entry — the scheduler, the
   other feeds, and the manual `POST /invite` path are unaffected.
 
 Zero feeds configured: nothing changes. `POST /invite` remains the only way an invite
 arrives, exactly as before this feature existed.
+
+## Recurring events
+
+A weekly standup's `DTSTART` is its *first* occurrence, usually months in the past, so a
+series has to be expanded before anything about "the next one" is true.
+`ics_parser.parse_ics_occurrences` does that for the feed poller: it takes the master
+`VEVENT` plus any `RECURRENCE-ID` overrides sharing its `UID` and returns one
+`ParsedInvite` per occurrence starting inside the query window (the same
+`CALENDAR_FEED_WINDOW_HOURS` window, both ends inclusive). The recurrence maths is
+`python-dateutil`'s `rruleset` — none of it is hand-rolled here.
+
+Supported:
+
+- `RRULE` with `FREQ=DAILY|WEEKLY|MONTHLY|YEARLY`, `INTERVAL`, `COUNT`, `UNTIL`, and the
+  `BY*` parts dateutil implements (`BYDAY`, `BYMONTHDAY`, `BYMONTH`, …).
+- `RDATE` extra occurrences and `EXDATE` exclusions, date- or datetime-valued.
+- `RECURRENCE-ID` overrides: a moved or edited instance **replaces** the generated one
+  (same occurrence id, keyed on the instance's *original* start), wherever it moved to,
+  and never appears twice. An override dragged into the window from outside it shows up;
+  one dragged out of it does not.
+- Timezones: a `TZID` `DTSTART` expands in its own zone, so 09:30 Madrid stays 09:30
+  Madrid across a DST change; `UNTIL` is read as UTC-anchored even then; a floating
+  `DTSTART` (no `TZID`, no `Z`) is assumed UTC, same as everywhere else in this package;
+  an all-day (`VALUE=DATE`) series lands on UTC midnight and keeps its whole-day length.
+- Occurrence ids: `UID` for a single event, `UID::<start, UTC basic form>` for one
+  instance of a series, exposed as `ParsedInvite.occurrence_uid` and hashed into the
+  `sessionId` by `scheduler._session_id_for`. Deterministic, so polling the same
+  occurrence twice is the same meeting, and distinct, so two occurrences are never one
+  record. Dedupe is now `occurrence_uid`+`SEQUENCE` (a series shares the highest
+  `SEQUENCE` of its `VEVENT`s, so any edit re-ingests the whole series in place).
+- Runaway guard: an `RRULE` with neither `COUNT` nor `UNTIL` is infinite. Generation is
+  lazy and bounded first by the window and then by `ics_parser.MAX_OCCURRENCES_PER_EVENT`
+  (500), so a decade-wide window or a minutely rule cannot flood the board.
+
+Not implemented:
+
+- `RRULE` parts dateutil does not handle, and `BYSETPOS`-heavy or `WKST`-sensitive rules
+  are only as correct as dateutil is — untested here.
+- `RANGE=THISANDFUTURE` on a `RECURRENCE-ID`: the override is applied to that one
+  instance only, not to the rest of the series.
+- `VEVENT`s of the same series split across *different* feeds, or an override arriving in
+  a later poll than its master (it is applied from the poll where both are present).
+- `EXRULE` (deprecated in RFC 5545), `VALARM`, `DURATION` instead of `DTEND` (an event
+  with no `DTEND` is zero-length, as before), and non-Gregorian `CALSCALE`.
+- Nothing rewrites the calendar: this is read-only expansion, and occurrences live in the
+  in-memory store like any other invite.
+
+`tests/fixtures/*.ics` + `tests/test_recurrence.py` cover each of the supported cases
+against fixed dates. No test touches the network, and no fixture contains a feed URL.
 
 ## Tests
 
@@ -204,6 +251,10 @@ just test    # or: uv run pytest
 
 `tests/test_ics_parser.py` — three invite shapes (Google-style, Outlook-style,
 hand-written) plus malformed-line and timezone/all-day edge cases, offline.
+`tests/test_recurrence.py` — recurrence expansion against `tests/fixtures/*.ics`: a weekly
+`BYDAY` standup (including across a DST change), monthly, `COUNT`+`INTERVAL`, a UTC-anchored
+`UNTIL`, `EXDATE`, a `RECURRENCE-ID` override, an all-day series, a non-recurring event, and
+the window/cap bounds on an endless `RRULE` — all with exact expected datetimes, offline.
 `tests/test_agenda_schema.py` — `fixtures/demo.ics` → `build_agenda` → validated against
 the contract shape (`schema.py:ContractAgenda`), asserting exact field values (seconds
 not minutes, `totalSeconds` from event duration).

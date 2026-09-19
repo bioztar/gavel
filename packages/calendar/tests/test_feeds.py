@@ -210,6 +210,72 @@ async def test_unreachable_feed_does_not_block_other_feeds(httpx_mock: HTTPXMock
     assert pending[0].title == "Still works"
 
 
+def _recurring_vevent(
+    uid: str,
+    sequence: int,
+    start: datetime,
+    summary: str,
+    description: str,
+    rrule: str,
+) -> str:
+    return (
+        "BEGIN:VEVENT\r\n"
+        f"UID:{uid}\r\n"
+        "DTSTAMP:20260919T090000Z\r\n"
+        f"SEQUENCE:{sequence}\r\n"
+        f"DTSTART:{_dt(start)}\r\n"
+        f"DTEND:{_dt(start + timedelta(minutes=30))}\r\n"
+        f"RRULE:{rrule}\r\n"
+        f"SUMMARY:{summary}\r\n"
+        f"DESCRIPTION:{description}\r\n"
+        "END:VEVENT\r\n"
+    )
+
+
+async def test_recurring_event_ingests_every_occurrence_in_the_window(
+    httpx_mock: HTTPXMock,
+) -> None:
+    """The bug this guards: a series' DTSTART is its *first* occurrence, months
+    in the past, so before expansion the standup never reached the board.
+    """
+    now = datetime.now(UTC)
+    first_ever = now - timedelta(days=30) + timedelta(hours=1)
+    body = _feed(
+        _recurring_vevent("standup@feed", 0, first_ever, "Standup", WITH_TOPIC, "FREQ=DAILY")
+    )
+    _mock_feed(httpx_mock, body)
+
+    store = InviteStore()
+    registry = FeedRegistry()
+    await poll_feeds_once(store, registry, [FEED_URL], {}, timedelta(hours=26))
+
+    pending = sorted(store.pending(), key=lambda r: r.start)
+    assert [r.title for r in pending] == ["Standup", "Standup"]
+    assert pending[1].start - pending[0].start == timedelta(days=1)
+    assert pending[0].session_id != pending[1].session_id
+
+
+async def test_recurring_repoll_reuses_the_same_session_per_occurrence(
+    httpx_mock: HTTPXMock,
+) -> None:
+    now = datetime.now(UTC)
+    first_ever = now - timedelta(days=30) + timedelta(hours=1)
+    body = _feed(
+        _recurring_vevent("standup@feed", 0, first_ever, "Standup", WITH_TOPIC, "FREQ=DAILY")
+    )
+    _mock_feed(httpx_mock, body)
+    _mock_feed(httpx_mock, body)
+
+    store = InviteStore()
+    registry = FeedRegistry()
+    await poll_feeds_once(store, registry, [FEED_URL], {}, timedelta(hours=26))
+    first_ids = sorted(r.session_id for r in store.pending())
+
+    await poll_feeds_once(store, registry, [FEED_URL], {}, timedelta(hours=26))
+
+    assert sorted(r.session_id for r in store.pending()) == first_ids  # no duplicates
+
+
 def test_vtimezone_is_carried_into_the_single_event_ics() -> None:
     """A TZID= reference must still resolve once one VEVENT is pulled out of
     its feed — this is what `_single_event_ics` copying VTIMEZONE guards.
