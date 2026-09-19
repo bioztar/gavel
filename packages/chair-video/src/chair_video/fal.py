@@ -1,14 +1,25 @@
-"""Thin client for fal's queue API.
+"""Thin client for fal's queue API and its CDN upload.
 
-POST to `https://queue.fal.run/<model>` starts a job and returns a
+Queue: POST to `https://queue.fal.run/<model>` starts a job and returns a
 `status_url` and a `response_url`. Poll the former until `status ==
 "COMPLETED"`, then GET the latter for the result. See
 https://fal.ai/docs for the model-specific input/output shapes.
+
+Upload: fal's `*_url` input fields validate as URLs (~2KB max) — a base64
+data URI works only for trivial payloads, so any real image/audio/video goes
+through fal's CDN first. Two calls, confirmed against the official
+`fal-client` package's implementation (`fal_client/client.py`, functions
+`CDNTokenManager._refresh_token` and `_upload_v3`), since fal's own docs
+don't spell out the raw REST contract:
+  1. POST {REST_URL}/storage/auth/token?storage_type=fal-cdn-v3 with the
+     `FAL_KEY` header, body `{}` -> {"token", "token_type", "base_url", ...}
+  2. POST {CDN_URL}/files/upload with `Authorization: <token_type> <token>`,
+     `Content-Type: <content_type>`, `X-Fal-File-Name: <file_name>`, and the
+     raw bytes as the body -> {"access_url": "..."}
 """
 
 from __future__ import annotations
 
-import base64
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -16,6 +27,9 @@ from typing import Any
 import httpx
 
 from chair_video.settings import Settings
+
+REST_URL = "https://rest.fal.ai"
+CDN_URL = "https://v3.fal.media"
 
 
 class FalError(RuntimeError):
@@ -26,13 +40,6 @@ class FalError(RuntimeError):
 class FalResult:
     data: dict[str, Any]
     latency_ms: int
-
-
-def to_data_uri(content: bytes, content_type: str) -> str:
-    """Inline a small file as a data URI — fal accepts these anywhere a `*_url`
-    field is documented, so short audio clips need no separate upload step."""
-    encoded = base64.b64encode(content).decode("ascii")
-    return f"data:{content_type};base64,{encoded}"
 
 
 class FalClient:
@@ -69,6 +76,33 @@ class FalClient:
         response = self._client.get(status_url, headers=self._headers())
         response.raise_for_status()
         return response.json()
+
+    def upload(self, data: bytes, content_type: str, file_name: str) -> str:
+        """Upload bytes to fal's CDN, returns the `access_url` to pass as a
+        `*_url` model input. See module docstring for the two-step flow."""
+        token_response = self._client.post(
+            f"{REST_URL}/storage/auth/token?storage_type=fal-cdn-v3",
+            headers={
+                "Authorization": f"Key {self._settings.fal_key}",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            json={},
+        )
+        token_response.raise_for_status()
+        token = token_response.json()
+
+        upload_response = self._client.post(
+            f"{CDN_URL}/files/upload",
+            content=data,
+            headers={
+                "Authorization": f"{token['token_type']} {token['token']}",
+                "Content-Type": content_type,
+                "X-Fal-File-Name": file_name,
+            },
+        )
+        upload_response.raise_for_status()
+        return upload_response.json()["access_url"]
 
     def fetch_result(self, response_url: str) -> dict[str, Any]:
         response = self._client.get(response_url, headers=self._headers())

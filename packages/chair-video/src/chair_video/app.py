@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from chair_video.audio import decode_base64_audio, fetch_audio, wav_duration_ms
 from chair_video.cache import SpeakVideoCache, audio_key
-from chair_video.fal import FalClient, FalError, to_data_uri
+from chair_video.fal import FalClient, FalError
 from chair_video.settings import Settings, get_settings
 
 log = structlog.get_logger()
@@ -76,8 +76,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         except FalError as exc:
             raise HTTPException(500, str(exc)) from exc
 
-        audio_url = req.audio_url or to_data_uri(audio_bytes, f"audio/{req.format}")
-        image_url = _avatar_data_uri(settings)
+        try:
+            audio_url = req.audio_url or fal.upload(
+                audio_bytes, f"audio/{req.format}", f"speak.{req.format}"
+            )
+            image_url = _avatar_url(app, fal, settings)
+        except httpx.HTTPError as exc:
+            raise HTTPException(502, f"fal upload failed: {exc}") from exc
 
         try:
             result = fal.run(
@@ -126,12 +131,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return app
 
 
-def _avatar_data_uri(settings: Settings) -> str:
+def _avatar_url(app: FastAPI, fal: FalClient, settings: Settings) -> str:
+    """The chair's portrait doesn't change between requests — upload it once
+    per process and reuse fal's CDN URL rather than re-uploading every call."""
+    cached: str | None = getattr(app.state, "avatar_url", None)
+    if cached is not None:
+        return cached
     path = PACKAGE_ROOT / settings.avatar_image_path
     if not path.exists():
         raise HTTPException(500, f"avatar image not found at {path}")
     content_type = mimetypes.guess_type(str(path))[0] or "image/png"
-    return to_data_uri(path.read_bytes(), content_type)
+    url = fal.upload(path.read_bytes(), content_type, path.name)
+    app.state.avatar_url = url
+    return url
 
 
 app = create_app()
