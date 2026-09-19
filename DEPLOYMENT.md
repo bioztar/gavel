@@ -97,11 +97,16 @@ The whole host routes to `calendar`. What answers on it:
 | `https://gavel.pro7ocol.com/health` | 200 | `{"status":"ok","pending":0,"feeds":[]}` |
 | `https://gavel.pro7ocol.com/` | 307 → `/board` | A judge types the bare domain and lands on the board |
 | `https://gavel.pro7ocol.com/compose` | 200 | The compose front door — free-text brief → confirm → meeting |
+| `https://gavel.pro7ocol.com/watch` | 200 | The live stream page — judges open this one |
+| `https://gavel.pro7ocol.com/stream/status` | 200 | Read-only; what the watch page polls |
 | `https://gavel.pro7ocol.com/console` | 404 | Correct — the operator console is deliberately not exposed |
+| `https://gavel.pro7ocol.com/publisher` | 404 | Correct — starting a broadcast stays loopback-only |
+| `POST https://gavel.pro7ocol.com/stream/start` | 404 | Correct — creates sessions and archives, costs money |
 | `http://gavel.pro7ocol.com/board` | 301 → `https://…/board` | HTTP is redirected, not served |
 
 `ears`, `brain` and `chair-video` have **no** Traefik labels and are unreachable from the
-internet. They are reached only over the compose network by service name, or from the box
+internet. `stream-vonage` publishes exactly two read-only routes and nothing else (see
+Vonage wiring below). They are reached only over the compose network by service name, or from the box
 over loopback.
 
 ---
@@ -360,10 +365,31 @@ or Voice, JWT auth will succeed and session creation will still 4xx.
 
 ### Exposure
 
-`stream-vonage` binds `127.0.0.1:8792` only and carries no Traefik labels, so `/publisher`
-and `/watch` are **not reachable from the internet**. If judges are meant to open the watch
-page themselves, it needs a router label on `gavel.pro7ocol.com` the way `calendar` has one —
-a five-minute change, but a deliberate one, so it has not been made unasked.
+`stream-vonage` binds `127.0.0.1:8792` and publishes **exactly two routes** through the shared
+Traefik, on the same host as `calendar`:
+
+```yaml
+traefik.http.routers.gavel-watch.rule:
+  Host(`gavel.pro7ocol.com`) && (Path(`/watch`) || Path(`/stream/status`))
+traefik.http.routers.gavel-watch.priority: "100"
+```
+
+Exact `Path`, never `PathPrefix` — `/stream/status` is read-only, but `PathPrefix(/stream)`
+would have published `/stream/start` and `/stream/stop` with it, and those create Vonage
+sessions and archives. `/publisher`, `/healthz` and `/brain-state` stay loopback-only.
+
+The explicit `priority: 100` beats `calendar`'s bare `Host()` rule, which would otherwise
+swallow both paths. Traefik's default priority is rule length and this rule is already the
+longer one, but a demo is the wrong place to rely on that.
+
+`/stream/status` returns `sessionId` and `hlsUrl`. Neither is a credential on its own —
+joining a Vonage session needs a token signed with the private key, and that is minted
+server-side for the `/publisher` page only, which is not exposed. The HLS URL *is* the
+playback stream, so anyone who loads the watch page can watch: that is the point of it.
+
+Verified live after deploy: `/watch` 200, `/stream/status` 200, `/publisher` 404,
+`/healthz` 404, `/brain-state` 404, `POST /stream/start` 404, `POST /stream/stop` 404, and
+`calendar` untouched (`/` 307, `/board` 200, `/compose` 200, `/health` 200).
 
 ### Reference implementations from the Vonage team
 
@@ -403,6 +429,7 @@ a five-minute change, but a deliberate one, so it has not been made unasked.
 ## Links
 
 - Board (demo URL): https://gavel.pro7ocol.com/board
+- Live stream (judges): https://gavel.pro7ocol.com/watch
 - Health: https://gavel.pro7ocol.com/health
 - Repo: https://github.com/bioztar/gavel
 - This document, rendered: https://github.com/bioztar/gavel/blob/main/DEPLOYMENT.md
