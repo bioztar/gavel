@@ -203,6 +203,40 @@ services:
       retries: 6
       start_period: 5s
 
+  stream-vonage:
+    image: gavel-stream-vonage:local
+    build:
+      context: .
+      dockerfile: packages/stream-vonage/Dockerfile
+    init: true
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8792
+      VONAGE_APPLICATION_ID: ${VONAGE_APPLICATION_ID:-}
+      VONAGE_PRIVATE_KEY: ${VONAGE_PRIVATE_KEY:-}
+      VONAGE_API_KEY: ${VONAGE_API_KEY:-}
+      VONAGE_API_SECRET: ${VONAGE_API_SECRET:-}
+      BRAIN_STATE_URL: http://brain:8788/state
+      BRAIN_STATE_POLL_SECONDS: ${STREAM_BRAIN_STATE_POLL_SECONDS:-2.0}
+    ports:
+      - "127.0.0.1:${STREAM_PORT:-8792}:8792"
+    depends_on:
+      brain:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8792/healthz', timeout=7)",
+        ]
+      interval: 10s
+      timeout: 8s
+      retries: 6
+      start_period: 5s
+
 volumes:
   postgres_data:
 
