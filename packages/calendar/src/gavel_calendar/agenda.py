@@ -8,7 +8,7 @@ comes from the .ics itself.
 from __future__ import annotations
 
 from .ics_parser import ParsedInvite, TopicDraft
-from .schema import DEFAULT_POLICY, ContractAgenda
+from .schema import ContractAgenda
 
 
 def _purpose(invite: ParsedInvite, description: str) -> str:
@@ -56,6 +56,7 @@ def build_agenda(
     invite: ParsedInvite,
     session_id: str,
     attendee_map: dict[str, str] | None = None,
+    policy_overrides: dict[str, float | bool] | None = None,
 ) -> dict:
     attendee_map = attendee_map or {}
     total_seconds = invite.duration_seconds
@@ -77,15 +78,22 @@ def build_agenda(
     topics = []
     for i, (draft, budget) in enumerate(zip(invite.topics, budgets, strict=True), start=1):
         owner_id = by_name.get(draft.owner_name.strip().lower()) if draft.owner_name else None
+        # Unmatched names are dropped rather than passed through — the brain
+        # resolves mustHear against discordIds, not free text.
+        must_hear_ids = [
+            by_name[name.strip().lower()]
+            for name in draft.must_hear_names
+            if name.strip().lower() in by_name
+        ]
         topics.append(
             {
                 "id": f"t{i}",
                 "title": draft.title,
-                "goal": "",
+                "goal": draft.goal,
                 "budgetSeconds": budget,
                 "owner": owner_id,
-                "mustHear": [],
-                "questions": [],
+                "mustHear": must_hear_ids,
+                "questions": list(draft.questions),
             }
         )
 
@@ -95,8 +103,10 @@ def build_agenda(
         "totalSeconds": total_seconds,
         "attendees": attendees,
         "topics": topics,
-        "policy": dict(DEFAULT_POLICY),
     }
+    # Only present when the invite genuinely overrides something — see schema.py.
+    if policy_overrides:
+        agenda["policy"] = dict(policy_overrides)
     # Fails loudly, offline, before this ever reaches ears or the brain.
     ContractAgenda.model_validate(agenda)
     return agenda

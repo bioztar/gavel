@@ -53,7 +53,28 @@ def test_demo_agenda_matches_contract_shape() -> None:
     assert agenda["topics"][1]["owner"] == "vitaly@example.invalid"
     assert agenda["topics"][2]["owner"] is None
 
-    assert agenda["policy"]["floorShareThreshold"] == 0.6
+    # "must hear: Marc" / "goal: ..." / "q: ..." from the fixture's description.
+    assert agenda["topics"][0]["mustHear"] == ["marc@example.invalid"]
+    assert agenda["topics"][0]["goal"] == "one clear picture everyone agrees on"
+    assert agenda["topics"][1]["questions"] == ["what happens if launch slips a week?"]
+    assert agenda["topics"][2]["mustHear"] == []
+    assert agenda["topics"][2]["goal"] == ""
+    assert agenda["topics"][2]["questions"] == []
+
+    # No override was given — ears-discord's own defaults are left untouched.
+    assert "policy" not in agenda
+
+
+def test_policy_override_sends_only_the_overridden_keys() -> None:
+    invite = parse_ics(FIXTURE.read_bytes())
+    agenda = build_agenda(
+        invite,
+        session_id="hb26-demo-1",
+        attendee_map={},
+        policy_overrides={"silenceSeconds": 20},
+    )
+    assert agenda["policy"] == {"silenceSeconds": 20}
+    ContractAgenda.model_validate(agenda)
 
 
 def test_attendee_map_overrides_email_fallback() -> None:

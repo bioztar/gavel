@@ -10,16 +10,6 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
-# docs/CONTRACT.md §1 — the policy defaults, tunable on stage without a redeploy.
-DEFAULT_POLICY: dict[str, float] = {
-    "floorShareThreshold": 0.6,
-    "floorWindowSeconds": 120,
-    "floorMinSpeakingSeconds": 45,
-    "topicOverrunFactor": 1.2,
-    "silenceSeconds": 15,
-    "minSecondsBetweenInterventions": 45,
-}
-
 
 class Contract(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
@@ -49,4 +39,9 @@ class ContractAgenda(Contract):
     total_seconds: int = Field(ge=0)
     attendees: list[Attendee]
     topics: list[Topic]
-    policy: dict[str, float] = Field(default_factory=lambda: dict(DEFAULT_POLICY))
+    # No local default here on purpose: `ears-discord`'s own `Agenda.policy`
+    # (packages/ears-discord/src/ears/meetings.py) is the one source of truth for
+    # defaults, and its pydantic model does not deep-merge a supplied dict — it
+    # fully replaces its own. So this field is only ever set when an invite
+    # genuinely overrides specific keys, and then it carries only those keys.
+    policy: dict[str, float | bool] | None = None

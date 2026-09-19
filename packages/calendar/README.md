@@ -60,16 +60,29 @@ Agenda topics are scraped from `DESCRIPTION`. Accepted line shapes (a few, on pu
 - Pricing — 10m (owner: Artem)
 1. Pricing (10 min)
 * Pricing - 10 minutes
+- Pricing — 10m (owner: Artem, must hear: Marc, Ana)
 ```
 
-Any line that is not bulleted/numbered is not a topic and is silently skipped — it never
-raises. A topic line with no parseable duration gets an even split of whatever time is
-left after the topics that did state one (`agenda.py:_budget_seconds`).
+`owner` and `must hear` may appear together in the same `(...)`, in either order, both
+optional. A topic line may be followed by indented `goal:` (single line) and repeatable
+`q:` lines — they attach to the topic bullet directly above them:
+
+```
+- Pricing — 10m (owner: Artem, must hear: Marc, Ana)
+  goal: one honest number per region
+  q: what breaks if we wait a week?
+  q: who signs off?
+```
+
+Any line that is not bulleted/numbered, and not an indented `goal:`/`q:` line right after
+a topic, is not a topic and is silently skipped — it never raises. A topic line with no
+parseable duration gets an even split of whatever time is left after the topics that did
+state one (`agenda.py:_budget_seconds`).
 
 ## The attendee identity gap
 
 An `.ics` gives a name and an email. The contract agenda needs a Discord snowflake in
-`discordId` (attendees, `topics[].owner`, eventually `mustHear`). There is no directory
+`discordId` (attendees, `topics[].owner`, `topics[].mustHear`). There is no directory
 mapping one to the other, so:
 
 - An attendee's `discordId` defaults to their **email** — stable and unique, but it will

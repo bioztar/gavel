@@ -12,7 +12,8 @@ ATTENDEE;CN=Vitaly;ROLE=CHAIR:mailto:vitaly@example.invalid
 ATTENDEE;CN=Ana:mailto:ana@example.invalid
 ATTENDEE;CN=Marc:mailto:marc@example.invalid
 DESCRIPTION:Decide the launch date and name an owner for each blocker\n\nAg
- enda:\n- Where we actually are — 2m (owner: Ana)\n- The date - 2m (owner:
-  Vitaly)\n- Blocker owners (1 min)
+ enda:\n- Where we actually are — 2m (owner: Ana\, must hear: Marc)\n  goa
+ l: one clear picture everyone agrees on\n- The date - 2m (owner: Vitaly)
+ \n  q: what happens if launch slips a week?\n- Blocker owners (1 min)
 END:VEVENT
 END:VCALENDAR

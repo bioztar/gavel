@@ -142,3 +142,44 @@ def test_parse_topics_handles_missing_duration() -> None:
     assert topics[0].title == "Open floor"
     assert topics[0].budget_seconds is None
     assert topics[0].owner_name is None
+
+
+def test_must_hear_and_owner_order_free_in_same_group() -> None:
+    topics = parse_topics("- Pricing — 10m (must hear: Marc, Ana, owner: Vitaly)")
+    assert len(topics) == 1
+    assert topics[0].title == "Pricing"
+    assert topics[0].owner_name == "Vitaly"
+    assert topics[0].must_hear_names == ["Marc", "Ana"]
+
+
+def test_must_hear_alone_without_owner() -> None:
+    topics = parse_topics("- Open floor (must hear: Ana)")
+    assert topics[0].owner_name is None
+    assert topics[0].must_hear_names == ["Ana"]
+
+
+def test_goal_and_repeatable_questions_attach_to_preceding_topic() -> None:
+    description = (
+        "- Pricing — 10m (owner: Ana)\n"
+        "  goal: one honest number per region\n"
+        "  q: what breaks if we wait a week?\n"
+        "  q: who signs off?\n"
+        "- Rollout plan - 5 minutes\n"
+    )
+    topics = parse_topics(description)
+    assert [t.title for t in topics] == ["Pricing", "Rollout plan"]
+    assert topics[0].goal == "one honest number per region"
+    assert topics[0].questions == [
+        "what breaks if we wait a week?",
+        "who signs off?",
+    ]
+    # A goal/q line never attaches retroactively to an earlier topic once a new
+    # bullet has started.
+    assert topics[1].goal == ""
+    assert topics[1].questions == []
+
+
+def test_goal_and_questions_require_indentation_to_avoid_swallowing_prose() -> None:
+    # Not indented -> not a goal/q continuation, just skipped like other prose.
+    topics = parse_topics("- Pricing — 10m\ngoal: not indented, ignored\n")
+    assert topics[0].goal == ""
