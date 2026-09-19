@@ -301,6 +301,84 @@ Brain is connected to the wire:
 
 ---
 
+---
+
+## Vonage Video wiring
+
+The Application exists in the Vonage dashboard and uses **key auth** (private/public keypair,
+JWT), not the legacy key/secret pair:
+
+```
+VONAGE_APPLICATION_ID = c9a721b4-914b-49ef-9690-0f3b06da678e
+```
+
+That id is an identifier, not a credential — it is safe in this file. The **private key is
+not**, and never appears here, in `.env.example`, or in any log. `packages/stream-vonage`
+supports both auth styles and picks automatically (`vonage.py: detect_auth_style`): an
+Application id + private key means JWT auth (`vonage==4.9.0`), a bare key/secret means the
+legacy path (`opentok==3.15.0`).
+
+### Installing the private key
+
+`VONAGE_PRIVATE_KEY` holds the PEM **contents**, not a path — as a single line with literal
+`\n` between the PEM lines, which `settings.py: vonage_private_key_pem` unescapes on read.
+A multi-line value in a `.env` is parsed inconsistently by docker compose, so it is stored
+escaped on purpose.
+
+Do not hand-edit `.env`. Use the helper, which never lets the key reach a terminal, a log or
+a shell history entry:
+
+```bash
+# from a machine that can reach this box over ssh
+ssh coder@173.234.79.39 'umask 077; cat > ~/vonage_private.key && \
+  /home/coder/DEV/gavel/scripts/set-vonage-key.sh ~/vonage_private.key \
+    c9a721b4-914b-49ef-9690-0f3b06da678e' < ~/Downloads/private.key
+
+# or, when ssh to this box is not available, from a PLAIN SHELL on the box
+# (never an agent chat box — that would put the key in a conversation transcript):
+scripts/set-vonage-key.sh --paste c9a721b4-914b-49ef-9690-0f3b06da678e
+# paste the whole PEM including BEGIN/END lines, then Ctrl-D
+```
+
+It checks the `BEGIN … PRIVATE KEY` header, replaces rather than appends (re-running is
+safe), chmods `.env` to 600, and prints only the shape of what landed — byte count and PEM
+line count, never content.
+
+Then:
+
+```bash
+docker compose up -d --wait stream-vonage
+curl -s localhost:8792/healthz     # credentials: "present", authStyle: "jwt"
+```
+
+Until the key is installed, `/healthz` reports `{"credentials":"absent","authStyle":null}`
+and `POST /stream/start` fails with `VONAGE_API_SECRET is not set` — the setting name, never
+a value.
+
+**The Application needs the Video capability enabled.** If it was created with only Messages
+or Voice, JWT auth will succeed and session creation will still 4xx.
+
+### Exposure
+
+`stream-vonage` binds `127.0.0.1:8792` only and carries no Traefik labels, so `/publisher`
+and `/watch` are **not reachable from the internet**. If judges are meant to open the watch
+page themselves, it needs a router label on `gavel.pro7ocol.com` the way `calendar` has one —
+a five-minute change, but a deliberate one, so it has not been made unasked.
+
+### Reference implementations from the Vonage team
+
+- `Vonage-Community/demo-video-javascript-fal-starter` — Vonage Video + fal avatar
+  livestreaming. Uses **Broadcast** (watch page + RTMP out to YouTube/Twitch/LinkedIn),
+  **Archiving** to record, and **Signaling** for chat and avatar commands; the fal model is
+  `decart/lucy-2-5/realtime`. This is the closest match to what `stream-vonage` already
+  does, and its `setup.js` provisions the Vonage Application automatically.
+- `Vonage-Community/demo-video-javascript-mastra-starter` — Vonage Video + Mastra agents.
+  The interesting part for gavel is **Audio Connector**: it bridges call audio to and from an
+  AI voice agent over a WebSocket (`src/wsBridge.ts`), and uses Signaling to push the agent's
+  live transcript into the UI as captions. That is structurally what `packages/ears-discord`
+  does through Discord. It is a real alternative ears path, and a decision for Vitaly — not
+  a change to make two days before freeze.
+
 ## Known gaps
 
 1. **`RESEND_API_KEY` and `DISCORD_MEETING_URL` are unset in the container.** The compose
@@ -327,5 +405,9 @@ Brain is connected to the wire:
 - Board (demo URL): https://gavel.pro7ocol.com/board
 - Health: https://gavel.pro7ocol.com/health
 - Repo: https://github.com/bioztar/gavel
+- This document, rendered: https://github.com/bioztar/gavel/blob/main/DEPLOYMENT.md
+- Host: `uk-lon-1`, 173.234.79.39 — the box these containers run on *is* the VPS
+- Vonage fal starter: https://github.com/Vonage-Community/demo-video-javascript-fal-starter
+- Vonage Mastra starter: https://github.com/Vonage-Community/demo-video-javascript-mastra-starter
 - Contract between the halves: `docs/CONTRACT.md`
 - Session state: `HANDOVER.md`
