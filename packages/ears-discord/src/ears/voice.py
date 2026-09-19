@@ -14,11 +14,13 @@ import asyncio
 import io
 import time
 import warnings
+from collections import Counter
 from typing import Any, Protocol
 
 import discord
 from discord.channel import VocalGuildChannel
 from discord.sinks import Sink
+from discord.voice.receive import reader as _reader
 
 from .frames import Participant
 from .logging import get_logger
@@ -31,6 +33,50 @@ logger = get_logger(__name__)
 warnings.filterwarnings(
     "ignore", message="Voice reception is currently broken", category=RuntimeWarning
 )
+
+
+# --- receive hardening -------------------------------------------------------------
+# The pinned py-cord decodes whatever it holds when the DAVE session is not ready yet
+# (right after joining, and on every key rotation when someone joins or leaves): the
+# payload is still end-to-end encrypted, and Opus turns ciphertext into noise that STT
+# then transcribes as nonsense. DAVE frames end in the 0xFAFA magic marker, so drop
+# those while the session is not ready, and let genuinely unencrypted passthrough
+# audio through. Every packet is counted by outcome for the console.
+
+DAVE_MAGIC = b"\xfa\xfa"
+RECEIVE_STATS: Counter[str] = Counter()
+_original_decrypt = _reader.PacketDecryptor.decrypt_rtp
+
+
+def _decrypt_rtp(self: Any, packet: Any) -> bytes:
+    state = self.client._connection
+    dave = state.dave_session
+    if dave is not None and not dave.ready:
+        raw = self._decryptor_rtp(packet)
+        if raw.endswith(DAVE_MAGIC):
+            RECEIVE_STATS["dropped_dave_not_ready"] += 1
+            packet.decrypted_data = b""
+            return b""
+        RECEIVE_STATS["passthrough"] += 1
+        packet.decrypted_data = raw
+        return raw
+    known = state.ssrc_user_map.get(packet.ssrc) is not None
+    data = _original_decrypt(self, packet)
+    if data:
+        RECEIVE_STATS["ok"] += 1
+    else:
+        RECEIVE_STATS["dropped_dave_failed" if known else "dropped_unknown_ssrc"] += 1
+    return data
+
+
+_reader.PacketDecryptor.decrypt_rtp = _decrypt_rtp  # type: ignore[method-assign]
+
+
+def take_receive_stats() -> dict[str, int]:
+    """Counts since the last call. Written from py-cord's socket thread; read on the loop."""
+    snapshot = dict(RECEIVE_STATS)
+    RECEIVE_STATS.subtract(snapshot)
+    return {k: v for k, v in snapshot.items() if v}
 
 
 class VoiceEvents(Protocol):
@@ -138,6 +184,9 @@ class Voice:
         # py-cord calls `after(error)`; its type stub claims `after(sink)`.
         vc.play(source, after=after)  # type: ignore[arg-type]
         return True
+
+    def receive_stats(self) -> dict[str, int]:
+        return take_receive_stats()
 
     def stop_playback(self) -> None:
         if self._vc is not None and self._vc.is_playing():

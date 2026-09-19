@@ -62,6 +62,9 @@ class Transcript(Frame):
     final: bool
     turn_id: str | None
     confidence: float | None
+    # Diarization label within this Discord user's audio ("0", "1", …) — several people
+    # on one account (a room mic). None when the model gave none (HTTP mode).
+    speaker: str | None = None
 
 
 class Spoken(Frame):

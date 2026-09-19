@@ -52,7 +52,7 @@ A no-auth operator page, served by ears itself:
 | `ready`, `participants` | joining, and anyone joining/leaving; re-sent to every brain that connects |
 | `speaking.start` / `.end` | py-cord's per-SSRC speaking timer (packets, 200 ms timeout) |
 | `turn.start` / `.tick` / `.end` | speaking smoothed over pauses < `TURN_GAP_MS`; a tick every `TURN_TICK_MS` while someone holds the floor |
-| `transcript` | per-speaker PCM, cut on `UTTERANCE_GAP_MS` of silence or every `CHUNK_MAX_MS`, → SLNG `deepgram/nova:3` with participants' names as `keyterm`s |
+| `transcript` | one streaming SLNG socket per Discord user, diarization on (`speaker` = voice within that user's audio — a room on one mic); names as keyterms. `STT_MODE=http` falls back to per-utterance chunks |
 | `spoken` | a `speak` finished playing, was `stop`ped (`interrupted`), or failed (`error`) |
 
 Every frame goes to three places: the WebSocket at `/`, Redis
@@ -76,6 +76,30 @@ the brain's replay fixture (plan chunk E4).
 | `wire.py`, `console.html` | WebSockets (brain `/`, console `/live`), REST API, the console page |
 | `meetings.py`, `tts.py` | agenda schema; SLNG TTS for the say-box |
 | `bus.py`, `db/` | Redis; Postgres (queued writer, alembic migrations) |
+
+## Speech-to-text
+
+Streaming by default: each Discord user gets one SLNG WebSocket while they talk. The
+model keeps context across a turn, finals land ~0.6-0.8 s after a pause, and
+diarization labels stay stable within the stream, so two people sharing one account
+come out as `speaker` "0" and "1". Discord sends no packets during silence, so ears
+sends 1.2 s of zeros after each pause to let the model finalize; idle sockets close
+after 45 s.
+
+| `SLNG_STT_MODEL` | Notes (bake-off on two voices, one track) |
+|---|---|
+| `deepgram/nova:3` (default) | 0% WER, 2/2 voices, names via `keyterm`, endpointing 300 ms |
+| `soniox/speech-ai:rt-v5` | same voices, digits for numbers, gets the meeting's title/purpose/context as vocabulary context |
+
+`just stt-check --stream` replays two synthesized voices through the real path.
+SLNG quirks found by probing (docs differ): Soniox config must have **no** `type`;
+keepalive is `KeepAlive` for Nova and `keepalive` for Soniox; `finalize`/`close`
+controls are rejected — end of speech is silence, end of stream is closing the socket.
+
+The console log shows `voice.receive` every 5 s: packets decrypted (`ok`) vs dropped.
+`dropped_dave_not_ready` means Discord's E2EE was still negotiating — ears drops those
+frames rather than decoding ciphertext into noise (which is what garbled the first
+lines of a call before).
 
 ## Why py-cord from a git commit
 

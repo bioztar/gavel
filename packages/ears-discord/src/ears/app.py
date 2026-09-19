@@ -48,6 +48,7 @@ from .meetings import Meeting
 from .segmenter import Chunk, Segmenter
 from .settings import Settings
 from .stt import SlngStt, SttError
+from .stt_stream import Segment, StreamingStt, make_provider
 from .tts import SlngTts, TtsError
 from .turns import TurnTracker
 from .wire import Hub
@@ -58,6 +59,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 CLOCK_SECONDS = 0.1
+RECEIVE_STATS_EVERY = 5.0
 # What a console that connects late gets replayed.
 RECENT_LIMIT = 1_000
 
@@ -102,6 +104,18 @@ class Ears:
         self._playback: deque[_Utterance] = deque()
         self._playing: _Utterance | None = None
         self._interrupted = False
+        # Streaming STT (default) replaces the segmenter + HTTP path.
+        self.stream: StreamingStt | None = None
+        if settings.stt_mode == "stream" and settings.stt_enabled:
+            self.stream = StreamingStt(
+                settings,
+                make_provider(settings),
+                on_segments=self._on_segments,
+                debug=self.debug,
+                keyterms=self._keyterms,
+                context=self._stt_context,
+            )
+        self._utterance: dict[str, tuple[str, int]] = {}  # discord_id → (utterance id, next seq)
 
     # --- fan-out ---------------------------------------------------------------------
 
@@ -145,7 +159,11 @@ class Ears:
             "consoles": len(self.console),
             "postgres": self.store.enabled,
             "redis": self.bus.enabled,
-            "stt": self.stt is not None,
+            "stt": (
+                f"stream · {self.settings.slng_stt_model}"
+                if self.stream
+                else ("http" if self.stt else None)
+            ),
             "tts": self.tts.model if self.tts else None,
             "playback": {"playing": self._playing is not None, "queued": len(self._playback)},
         }
@@ -225,20 +243,31 @@ class Ears:
             self.emit(frame)
 
     def on_pcm(self, discord_id: str, pcm: bytes, at: float) -> None:
+        if self.stream is not None:
+            self.stream.feed(discord_id, pcm, at)
+            return
         for chunk in self.segmenter.push(discord_id, pcm, at):
             self._transcribe(chunk)
 
     # --- the clock ------------------------------------------------------------------------
 
     async def run_clock(self) -> None:
-        """Closes turns and utterances on silence, and emits `turn.tick`s."""
+        """Closes turns and utterances on silence, emits `turn.tick`s, reports receive health."""
+        last_stats = time.time()
         while True:
             await asyncio.sleep(CLOCK_SECONDS)
             now = time.time()
             for frame in self.turns.tick(now):
                 self._emit_turn(frame)
+            if self.stream is not None:
+                self.stream.tick(now)
             for chunk in self.segmenter.tick(now):
                 self._transcribe(chunk)
+            if now - last_stats >= RECEIVE_STATS_EVERY:
+                last_stats = now
+                stats = self.voice.receive_stats() if self.voice is not None else {}
+                if stats:
+                    self.debug("voice.receive", **stats)
 
     def _emit_turn(self, frame: EarsFrame) -> None:
         self.emit(frame)
@@ -334,6 +363,68 @@ class Ears:
                 stt_ms=result.latency_ms,
             )
         )
+
+    # --- streaming transcription ------------------------------------------------------
+
+    def _keyterms(self) -> list[str]:
+        names = {p.name for p in self.participants.values()}
+        if self.meeting is not None:
+            names |= {a.name for a in self.meeting.agenda.attendees if a.name}
+        return sorted(names)[:50]
+
+    def _stt_context(self) -> str:
+        m = self.meeting
+        if m is None:
+            return ""
+        topics = "; ".join(t.title for t in m.agenda.topics if t.title)
+        return " ".join(x for x in (m.title, m.agenda.purpose, m.context, topics) if x)
+
+    def _on_segments(self, discord_id: str, segments: list[Segment]) -> None:
+        person = self.participants.get(discord_id)
+        turn_id = self.turns.current_turn_id(discord_id)
+        now = time.time()
+        for seg in segments:
+            utterance_id, seq = self._utterance.get(discord_id) or (str(uuid.uuid4()), 0)
+            frame = Transcript(
+                discord_id=discord_id,
+                name=person.name if person else discord_id,
+                text=seg.text,
+                started_at=iso(seg.started_at),
+                ended_at=iso(seg.ended_at),
+                utterance_id=utterance_id,
+                seq=seq,
+                final=seg.utterance_end,
+                turn_id=turn_id,
+                confidence=seg.confidence,
+                speaker=seg.speaker,
+            )
+            self._utterance[discord_id] = (
+                (str(uuid.uuid4()), 0) if seg.utterance_end else (utterance_id, seq + 1)
+            )
+            self.debug(
+                "stt.final",
+                discordId=discord_id,
+                utteranceId=utterance_id,
+                seq=seq,
+                speaker=seg.speaker,
+                lagMs=int((now - seg.ended_at) * 1000),
+            )
+            self.emit(frame)
+            logger.info("transcript", who=frame.name, speaker=seg.speaker, text=seg.text)
+            self.store.add(
+                TranscriptChunk(
+                    discord_id=discord_id,
+                    utterance_id=uuid.UUID(utterance_id),
+                    seq=seq,
+                    turn_id=uuid.UUID(turn_id) if turn_id else None,
+                    started_at=parse_iso(frame.started_at),
+                    ended_at=parse_iso(frame.ended_at),
+                    text=seg.text,
+                    confidence=seg.confidence,
+                    audio_ms=int((seg.ended_at - seg.started_at) * 1000),
+                    stt_ms=int((now - seg.ended_at) * 1000),
+                )
+            )
 
     # --- speaking into the call ---------------------------------------------------------
 
@@ -433,6 +524,8 @@ class Ears:
 
     async def shutdown(self) -> None:
         self._close_open_speech()
+        if self.stream is not None:
+            await self.stream.close()
         if self._tasks:
             await asyncio.wait(self._tasks, timeout=5)
         self.end_session()

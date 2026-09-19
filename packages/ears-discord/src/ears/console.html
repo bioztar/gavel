@@ -70,6 +70,8 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin:
 .utt .text { margin-top: 2px; font-size: 14px; }
 .utt.chair .who { color: var(--chair); }
 .utt.chair .text { font-style: italic; }
+.utt.partial .text { color: var(--muted); font-style: italic; }
+.voice-tag { font-size: 11px; color: var(--muted); font-weight: 500; }
 .utt .badge { font-family: var(--mono); font-size: 10.5px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 .divider { padding: 6px 12px; font-size: 11px; color: var(--accent); background: var(--panel-2);
   border-bottom: 1px solid var(--line); }
@@ -111,7 +113,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin:
   <span class="pill"><span class="dot" id="d-brain"></span><span id="s-brain">brain</span></span>
   <span class="pill"><span class="dot" id="d-pg"></span>postgres</span>
   <span class="pill"><span class="dot" id="d-redis"></span>redis</span>
-  <span class="pill"><span class="dot" id="d-stt"></span>stt</span>
+  <span class="pill"><span class="dot" id="d-stt"></span><span id="s-stt">stt</span></span>
   <span class="pill"><span class="dot" id="d-tts"></span><span id="s-tts">tts</span></span>
 </header>
 
@@ -184,7 +186,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin:
       <div class="counter"><b id="c-start">0</b><span>turn.start</span></div>
       <div class="counter"><b id="c-tick">0</b><span>turn.tick</span></div>
       <div class="counter"><b id="c-end">0</b><span>turn.end</span></div>
-      <div class="counter"><b id="c-stt">–</b><span>stt p50 ms</span></div>
+      <div class="counter"><b id="c-stt">–</b><span>stt p50 ms (lag)</span></div>
     </div>
     <h2><span class="grow">Signals &amp; debug</span><button class="small" id="b-clear-log">clear</button></h2>
     <div class="pad" style="padding-bottom:4px"><div class="chips" id="filters"></div></div>
@@ -221,7 +223,8 @@ function renderStatus() {
     ? `session ${status.sessionId.slice(0, 8)}${status.meeting ? " · " + status.meeting.title : ""}` : "no session";
   setDot("d-brain", status.brains > 0 ? true : "warn");
   $("s-brain").textContent = `brain ×${status.brains}`;
-  setDot("d-pg", status.postgres); setDot("d-redis", status.redis); setDot("d-stt", status.stt);
+  setDot("d-pg", status.postgres); setDot("d-redis", status.redis); setDot("d-stt", !!status.stt);
+  $("s-stt").textContent = status.stt ? `stt · ${status.stt}` : "stt off";
   setDot("d-tts", !!status.tts); $("s-tts").textContent = status.tts ? "tts" : "tts off";
   for (const p of status.participants) names[p.discordId] = p.name;
   if (status.voice) present = status.participants.map((p) => p.discordId);
@@ -407,23 +410,40 @@ setInterval(renderFloor, 250);
 
 // transcript
 const utterances = new Map(); // utteranceId → element
+const voices = {}; // discordId → Set of diarization labels seen
+const partials = new Map(); // discordId → live partial element
 const sttMs = new Map(); // `${utteranceId}:${seq}` → ms (stt.result arrives before its transcript)
 function follow() { if ($("autoscroll").checked) $("transcript").scrollTop = 1e9; }
 function addDivider(text) { const d = document.createElement("div"); d.className = "divider"; d.textContent = text; $("transcript").append(d); follow(); }
+function voiceTag(f) {
+  if (f.speaker == null) return "";
+  (voices[f.discordId] ??= new Set()).add(f.speaker);
+  return voices[f.discordId].size > 1 ? ` <span class="voice-tag">· voice ${esc(f.speaker)}</span>` : "";
+}
+function setPartial(discordId, text) {
+  let el = partials.get(discordId);
+  if (!text) { el?.remove(); partials.delete(discordId); return; }
+  if (!el) { el = document.createElement("div"); el.className = "utt partial"; partials.set(discordId, el); }
+  el.innerHTML = `<div class="meta"><span class="who" style="color:${colorOf(discordId)}">${esc(who(discordId))}</span><span class="badge">listening…</span></div><div class="text">${esc(text)}</div>`;
+  $("transcript").append(el); follow();
+}
 function addTranscript(f) {
-  let el = utterances.get(f.utteranceId);
+  setPartial(f.discordId, "");
+  // A new diarized voice starts its own row.
+  const key = f.speaker == null ? f.utteranceId : `${f.utteranceId}:${f.speaker}`;
+  let el = utterances.get(key);
   if (!el) {
     el = document.createElement("div"); el.className = "utt"; el.dataset.parts = "[]";
-    utterances.set(f.utteranceId, el); $("transcript").append(el);
+    utterances.set(key, el); $("transcript").append(el);
   }
   const parts = JSON.parse(el.dataset.parts); parts[f.seq] = f.text; el.dataset.parts = JSON.stringify(parts);
   const stt = sttMs.get(`${f.utteranceId}:${f.seq}`);
-  el.innerHTML = `<div class="meta"><span class="who" style="color:${colorOf(f.discordId)}">${esc(f.name || who(f.discordId))}</span>
+  el.innerHTML = `<div class="meta"><span class="who" style="color:${colorOf(f.discordId)}">${esc(f.name || who(f.discordId))}${voiceTag(f)}</span>
     <span>${hhmmss(Date.parse(f.startedAt))}</span>
     <span class="badge">${parts.filter((x) => x != null).length} chunk${parts.length > 1 ? "s" : ""}</span>
     ${f.final ? `<span class="badge">final</span>` : `<span class="badge" style="color:var(--warn)">…</span>`}
     ${f.confidence != null ? `<span class="badge">conf ${f.confidence.toFixed(2)}</span>` : ""}
-    ${stt ? `<span class="badge">stt ${stt}ms</span>` : ""}</div>
+    ${stt != null ? `<span class="badge" title="final text arrived this long after the words ended">+${stt}ms</span>` : ""}</div>
     <div class="text">${esc(parts.filter((x) => x != null).join(" "))}</div>`;
   follow();
 }
@@ -441,8 +461,8 @@ function chairState(uid, text, color) {
 // log
 const GROUPS = { speaking: "speaking", turn: "turn", transcript: "transcript", session: "session", participants: "session",
   ready: "session", voice: "session", spoken: "playback", speak: "playback", tts: "playback", stt: "stt", command: "bad" };
-const groupOf = (f) => f.type === "debug" ? (GROUPS[f.kind.split(".")[0]] || "debug") : (GROUPS[f.type.split(".")[0]] || "other");
-const FILTERS = ["turn", "speaking", "transcript", "stt", "playback", "session"];
+const groupOf = (f) => f.type === "debug" ? (f.kind === "stt.partial" ? "partial" : GROUPS[f.kind.split(".")[0]] || "debug") : (GROUPS[f.type.split(".")[0]] || "other");
+const FILTERS = ["turn", "speaking", "transcript", "stt", "partial", "playback", "session"];
 const active = new Set(["turn", "transcript", "stt", "playback", "session"]);
 $("filters").innerHTML = FILTERS.map((f) => `<span class="chip ${active.has(f) ? "on" : ""}" data-filter="${f}">${f}</span>`).join("");
 $("filters").onclick = (e) => {
@@ -465,6 +485,9 @@ function summary(f) {
     case "debug": {
       const d = { ...f }; for (const k of ["type", "kind", "at", "atMs", "discordId", "utteranceId"]) delete d[k];
       if (f.kind === "stt.result") return `${w}#${f.seq} ${f.audioMs}ms audio → ${f.sttMs}ms stt · rms ${f.rms}${f.empty ? " · EMPTY" : ""}`;
+      if (f.kind === "stt.final") return `${w}#${f.seq}${f.speaker != null ? " voice " + f.speaker : ""} final +${f.lagMs}ms after speech`;
+      if (f.kind === "stt.partial") return `${w}… ${f.text}`;
+      if (f.kind === "voice.receive") return Object.entries(d).map(([k, v]) => `${k}=${v}`).join(" ");
       if (f.kind === "stt.skipped") return `${w}#${f.seq} ${f.audioMs}ms below silence floor (rms ${f.rms})`;
       return `${w}${Object.entries(d).map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`).join(" ")}`;
     }
@@ -474,7 +497,7 @@ function summary(f) {
 function log(f) {
   const g = groupOf(f), row = document.createElement("div");
   const kind = f.type === "debug" ? f.kind : f.type;
-  const bad = /failed|error|ignored/.test(kind) || f.error;
+  const bad = /failed|error|ignored/.test(kind) || f.error || (kind === "voice.receive" && Object.keys(f).some((k) => k.startsWith("dropped")));
   row.className = `ev ${g}${bad ? " bad" : ""}`; row.dataset.g = g;
   row.style.display = active.has(g) || bad ? "" : "none";
   row.innerHTML = `<span class="t">${hhmmss(f.atMs)}</span><span class="k" title="${esc(kind)}">${esc(kind)}</span><span>${esc(summary(f))}</span><pre>${esc(JSON.stringify(f, null, 2))}</pre>`;
@@ -501,6 +524,8 @@ function handle(f) {
     case "session.ended": addDivider(`■ session ${f.sessionId.slice(0, 8)} ended · ${hhmmss(f.atMs)}`); break;
     case "spoken": chairState(f.utteranceId, f.error ? "error: " + f.error : f.interrupted ? "stopped" : "played", f.error ? "var(--bad)" : f.interrupted ? "var(--warn)" : "var(--ok)"); break;
     case "debug":
+      if (f.kind === "stt.final") { sttMs.set(`${f.utteranceId}:${f.seq}`, f.lagMs); sttLatencies.push(f.lagMs); if (sttLatencies.length > 50) sttLatencies.shift(); }
+      if (f.kind === "stt.partial") setPartial(f.discordId, f.text);
       if (f.kind === "stt.result") { sttLatencies.push(f.sttMs); if (sttLatencies.length > 50) sttLatencies.shift();
         sttMs.set(`${f.utteranceId}:${f.seq}`, f.sttMs); }
       if (f.kind === "tts.request") addChair(f.text, "console", f.utteranceId, f.atMs);

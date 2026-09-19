@@ -42,7 +42,7 @@ class FakeVoice:
 
 
 def make_ears(stt: Any = None) -> Ears:
-    settings = Settings(_env_file=None, slng_api_key="k")  # type: ignore[call-arg]
+    settings = Settings(_env_file=None, slng_api_key="k", stt_mode="http")  # type: ignore[call-arg]
     return Ears(settings, Store(None), Bus(None, "t", 10), stt)
 
 

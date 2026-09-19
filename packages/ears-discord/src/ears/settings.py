@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     # --- SLNG speech-to-text -----------------------------------------------
     slng_api_key: str = ""
     slng_base_url: str = "https://eu-west.api.slng.ai"
+    # `stream` (default): one WebSocket per speaker, diarization on — models:
+    # `deepgram/nova:3` or `soniox/speech-ai:rt-v5`. `http`: per-utterance chunks, Nova 3 only.
+    stt_mode: str = "stream"
     slng_stt_model: str = "deepgram/nova:3"
     slng_stt_language: str = "en"
     slng_timeout_seconds: float = 10.0
@@ -66,6 +69,11 @@ class Settings(BaseSettings):
     chunk_max_ms: int = 15_000
     # Shorter chunks are coughs and clicks, not worth an STT call.
     chunk_min_ms: int = 400
+    # Streaming: silence that counts as a pause, how much silence to send so the model
+    # finalizes (Discord sends none), and when an idle socket is closed.
+    stt_flush_ms: int = 400
+    stt_flush_silence_ms: int = 1200
+    stt_idle_close_s: float = 45.0
     # Chunks quieter than this (16-bit RMS) are silence frames, not speech. Speech sits
     # in the hundreds to thousands.
     silence_rms: float = 60.0

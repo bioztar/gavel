@@ -24,6 +24,7 @@ dependencies = [
     "redis[hiredis]>=8.1",
     # http
     "httpx>=0.28",
+    "websockets>=15.0",
     # logging
     "structlog>=26.1",
 ]
@@ -35,7 +36,6 @@ dev = [
     "fakeredis>=2.33",
     "pytest-httpx>=0.36",
     "aiosqlite>=0.22",
-    "websockets>=15.0",
     "ruff>=0.15",
     "pyright>=1.1.408",
 ]
