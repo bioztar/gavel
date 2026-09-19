@@ -1,0 +1,19 @@
+{"atMs": 0, "type": "ready", "channelId": "900000000000000001", "participants": [{"discordId": "100000000000000001", "name": "Vitaly"}, {"discordId": "100000000000000002", "name": "Ana"}, {"discordId": "100000000000000003", "name": "Marc"}]}
+{"atMs": 2000, "type": "speaking.start", "discordId": "100000000000000001"}
+{"atMs": 19000, "type": "speaking.end", "discordId": "100000000000000001"}
+{"atMs": 20000, "type": "speaking.start", "discordId": "100000000000000002"}
+{"atMs": 26000, "type": "speaking.end", "discordId": "100000000000000002"}
+{"atMs": 27000, "type": "speaking.start", "discordId": "100000000000000001"}
+{"atMs": 71000, "type": "speaking.end", "discordId": "100000000000000001"}
+{"atMs": 72000, "type": "speaking.start", "discordId": "100000000000000003"}
+{"atMs": 77000, "type": "speaking.end", "discordId": "100000000000000003"}
+{"atMs": 78000, "type": "speaking.start", "discordId": "100000000000000001"}
+{"atMs": 132000, "type": "speaking.end", "discordId": "100000000000000001"}
+{"atMs": 133000, "type": "speaking.start", "discordId": "100000000000000002"}
+{"atMs": 150000, "type": "speaking.end", "discordId": "100000000000000002"}
+{"atMs": 151000, "type": "speaking.start", "discordId": "100000000000000003"}
+{"atMs": 163000, "type": "speaking.end", "discordId": "100000000000000003"}
+{"atMs": 190000, "type": "speaking.start", "discordId": "100000000000000001"}
+{"atMs": 214000, "type": "speaking.end", "discordId": "100000000000000001"}
+{"atMs": 215000, "type": "speaking.start", "discordId": "100000000000000001"}
+{"atMs": 268000, "type": "speaking.end", "discordId": "100000000000000001"}

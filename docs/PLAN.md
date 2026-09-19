@@ -1,130 +1,149 @@
 # Build plan
 
 **HackBarna AI Summit 26.** Hacking opened 11:30 Saturday. Doors close 23:00. Code
-freeze **Sunday 11:00**, demos 14:00, judging 16:00, awards 17:30. All times Barcelona.
+freeze **Sunday 11:00**, demos 14:00, judging 16:00, awards 17:30. Barcelona time.
 
-That is roughly 11 hours on Saturday and 2 on Sunday morning. The plan is sized for 13
-hours, not for 24, and it has cut lines in it on purpose.
+Roughly eleven hours Saturday and two Sunday morning. This plan is sized for thirteen
+and has cut lines in it on purpose.
 
-## The one thing that must work
+## The spine
 
-A live call where the agent says, out loud, something like *"Vitaly, you've had eight
-of the last ten minutes — Ana, you had a point on this."* Everything else is support.
-If the demo shows the talk-time meter moving and the agent cutting in at the right
-moment, it lands. If it shows a beautiful agenda and no intervention, it does not.
+Everything below is ordered around one demo: **the agent cuts in on someone who has been
+talking too long, by name, out loud, while the meter moves on screen.**
 
-Build toward that moment and cut away from it.
+The spine that produces it is shorter than it looks:
 
-## Two sides
+```
+join voice → speaking events → talk-time clock → policy fires → TTS → audio in the call
+```
 
-| | **Side A — Concierge** | **Side B — Chair** |
+Note what is *not* in that line: no audio decoding, no speech-to-text, no video. The
+voice gateway reports who is speaking without a single audio packet being decoded.
+Talk-time, monologue detection, topic budgets and the interrupt all run on speaking
+events plus a clock plus the agenda file.
+
+So **transcription is tier 2, not the foundation.** It buys content-aware lines ("Ana,
+you said QA needs two weeks"), topic-coverage detection and minutes. Real value, bought
+after the spine is standing, and if it fails nothing else falls over.
+
+## Two halves
+
+| | **ears** | **brain** |
 |---|---|---|
-| Owner | colleague's agents | helm crewmates |
-| Package | `packages/concierge` | `packages/chair` |
-| Surface | Discord text and DMs | Discord voice + web stage |
-| Sponsors | Mastra, Nebius | SLNG, Nebius, fal |
-| Demo moment | A stranger DMs the bot and gets a real agenda back | The agent interrupts a monologue |
+| Owns | The Discord voice connection | Every decision |
+| Imports discord.js | yes, exclusively | never |
+| Risk | The undocumented parts of voice receive | Almost none — replayable offline |
+| Blocked by the other | no | no |
 
-They meet at [CONTRACT.md](CONTRACT.md) and nowhere else.
+Seam: [CONTRACT.md](CONTRACT.md). The brain develops against
+`packages/contract/fixtures/replay.jsonl` from minute one and does not wait for a voice
+channel to exist.
 
-## Side A — Concierge (chunks)
-
-| # | Chunk | Effort | Depends on |
-|---|---|---|---|
-| A1 | Discord application, bot online in the guild, `/meeting` slash command registered | 45m | — |
-| A2 | **Hosted** — public URL, stays up. Mastra's judge DMs it cold from a phone and it must answer at 17:30 Sunday | 45m | A1 |
-| A3 | Intake conversation: purpose, attendees, duration, in DM or channel | 1.5h | A1 |
-| A4 | Attendee info collection — DMs each attendee the questions, chases non-responders once | 1.5h | A3 |
-| A5 | Agenda drafting on Nebius: purpose + attendee answers → topics with time budgets | 1.5h | A3 |
-| A6 | `POST /v1/sessions` to the Chair, and post the agenda to the text channel as a fallback | 30m | A5, contract |
-| A7 | Receive call events, post live notes, post minutes when the call ends | 1h | A6 |
-| A8 | Mastra polish — the cold-start path from a stranger with no context | 1h | A2, A3 |
-
-A2 is first among equals. Mastra's rubric gives 30 points to "works from a stranger's
-phone" and the tie-break is whichever bot still answers at 17:00 Sunday. A bot on
-localhost scores zero on both.
-
-## Side B — Chair (chunks)
+## ears — chunks
 
 | # | Chunk | Effort | Depends on |
 |---|---|---|---|
-| B1 | **Spike: per-speaker audio.** Second Discord app joins a voice channel, one decoded PCM stream per speaker, two people talking at once. Prove it or fall back | 1h | — |
-| B2 | Talk-time state machine — seconds per participant, share of floor, rolling window | 1h | B1 |
-| B3 | SLNG STT on each speaker's stream → attributed transcript | 1.5h | B1 |
-| B4 | Agenda engine — current topic, time spent vs budget, what is at risk of being skipped | 1h | contract |
-| B5 | Interrupt policy — the rules that decide *when* to speak. Deterministic triggers, model only for *what to say* | 1.5h | B2, B4 |
-| B6 | SLNG TTS → agent speaks into the voice channel | 1h | B1 |
-| B7 | Nebius call — given transcript window + state, produce one sentence of chairing | 1h | B3, B4 |
-| B8 | Web stage — agenda, live talk-time bars, transcript, served from the Chair's state | 1.5h | B2 |
+| E1 | **Spike, first thing:** bot joins a voice channel, logs `speaking start/end` per user, plays a WAV into the channel. Both directions proven | 1h | — |
+| E2 | WebSocket server, emits the ears→brain frames from the contract | 45m | E1 |
+| E3 | `speak` handler — accept base64 audio, play it, emit `spoken` | 45m | E2 |
+| E4 | Record a real session to `replay.jsonl` so the fixture stops being hand-written | 30m | E2 |
+| E5 | Tier 2 — per-speaker Opus decode to PCM, one decoder per SSRC, two simultaneous speakers | 1.5h | E1 |
+| E6 | Tier 2 — SLNG STT per utterance → `transcript` frames | 1.5h | E5 |
+
+E1 is the only genuinely unknown thing in the build and it is an hour. Do it before
+anything else, including reading the rest of this file. If speaking events or playback
+do not work, the shape of the whole day changes and it is better to know at 13:00.
+
+E5 is where the documented weirdness lives — per-SSRC packets separate fine but each
+speaker needs its own decoder and jitter buffer, and funnelling them through one player
+drops packets. It sits behind the spine deliberately.
+
+## brain — chunks
+
+| # | Chunk | Effort | Depends on |
+|---|---|---|---|
+| B1 | Load and validate the agenda file. Session state object | 45m | contract |
+| B2 | Talk-time state machine — seconds per person, rolling-window share, from speaking events | 1h | contract |
+| B3 | Replay harness — run `replay.jsonl` through the state machine at speed or real time | 45m | B2 |
+| B4 | Agenda clock — current topic, spent vs budget, which topics are now at risk | 1h | B1 |
+| B5 | **Interrupt policy** — the triggers. Deterministic, tunable from the agenda's `policy` block | 1.5h | B2, B4 |
+| B6 | Nebius — given the trigger + state, one sentence in the chair's voice. Falls back to a template if the call is slow or fails | 1h | B5 |
+| B7 | SLNG TTS → `speak` frame over the wire | 1h | B6 |
+| B8 | Web stage — agenda, live talk-time bars, current topic, what the chair just said | 1.5h | B2, B4 |
 | B9 | fal live video of the chair on the stage | 1.5h | B8 |
+| B10 | Tier 2 — consume `transcript`, topic-coverage detection, content-aware lines, minutes | 1.5h | E6 |
 
-B1 is the load-bearing assumption of this entire half. Discord's voice receive is
-undocumented and the common failure is handling only one speaker at a time — per-SSRC
-packets are separable but each speaker needs its own decoder and jitter buffer, and
-funnelling them through one player drops packets. **Prove two simultaneous speakers in
-the first hour.** If it will not hold, the fallback is each participant running a
-browser page that captures their own mic — worse demo, but it cannot fail in the room.
+B6 always has a template fallback. A model call inside a live interruption is a latency
+risk on stage, and a chair that says a slightly generic sentence on time beats a clever
+one that arrives after the moment has passed.
 
-## Interrupt policy — get this right, it is the product
+## The interrupt policy — this is the product
 
-Deterministic triggers, so it fires predictably on stage:
+Deterministic triggers, so it fires predictably in front of judges. Thresholds come from
+the agenda's `policy` block so they can be tuned in the room:
 
-- **Speaker overrun** — one participant holds more than ~60% of the floor over a rolling
-  three minutes while others are present and quiet.
+- **Floor hog** — one person holds more than 60% of speaking time over a rolling two
+  minutes, has spoken at least 45 seconds, and someone else present has been quiet.
 - **Topic overrun** — a topic passes its budget by 20%.
-- **Topic at risk** — remaining time is less than the budget of the topics not yet
+- **Topics at risk** — time remaining is less than the summed budget of topics not yet
   started.
-- **Silence** — more than ~15 seconds of nobody speaking during an active topic.
+- **Unheard attendee** — someone in `mustHear` has not spoken on the current topic and
+  the topic is 70% spent.
+- **Silence** — 15 seconds of nobody speaking inside an active topic.
 
-The model never decides *whether* to interrupt, only *what to say* — one sentence, in
-the chair's voice, naming a person and a topic. A model deciding when to speak will
-either never fire on stage or fire constantly.
+Plus one rule that matters as much as the triggers: **at least 45 seconds between
+interventions.** An agent that chimes in constantly reads as broken.
+
+The model never decides *whether* to speak — only *what to say*. A model deciding when
+either never fires on stage or fires every eight seconds.
 
 ## Schedule
 
-| Barcelona time | Side A | Side B |
+| Barcelona | ears | brain |
 |---|---|---|
-| 12:00–13:00 | A1 bot online | **B1 spike — go/no-go on per-speaker audio** |
-| 13:00–14:00 | A2 hosted and reachable | B2 talk-time machine |
-| 14:00–16:00 | A3 intake, A4 collection | B3 STT, B4 agenda engine |
-| 16:00–18:00 | A5 agenda drafting on Nebius | B5 interrupt policy, B6 TTS out |
-| 18:00–19:00 | dinner — A6 wired over dinner | dinner — B7 Nebius chairing line |
-| 19:00–20:00 | **Integration: A6 → B. First end-to-end run** | |
-| 20:00 | **CUT LINE — is the agent interrupting live?** If no, everything else stops and both sides work on B5/B6 until it does | |
-| 20:00–22:00 | A7 minutes, A8 Mastra cold-start polish | B8 stage, then B9 fal video if B8 is done |
-| 22:00–23:00 | Full dry run with four people in a call. Record it | |
-| Sun 09:00–10:00 | Fix whatever the dry run broke | |
-| Sun 10:00–11:00 | READMEs, 60-second recording, repo public, submit | |
+| 12:15–13:15 | **E1 spike — join, speaking events, playback** | B1 agenda + state, B2 talk-time |
+| 13:15–14:15 | E2 wire | B3 replay harness — full offline loop running |
+| 14:15–16:00 | E3 speak handler, E4 record fixture | B4 agenda clock, B5 policy |
+| 16:00–17:00 | **Integration: real voice → real interrupt.** Both people, one call | |
+| 17:00–18:30 | E5 per-speaker decode | B6 Nebius line, B7 TTS |
+| 18:30–19:30 | dinner | dinner |
+| 19:30–21:00 | E6 SLNG STT | B8 stage |
+| 21:00 | **CUT LINE — is the agent interrupting live, on stage, reliably?** If not, both people work on the spine until it is. Nothing else matters | |
+| 21:00–22:30 | E6 finish, feed B10 | B9 fal video, B10 transcript features |
+| 22:30–23:00 | Dry run with four people in a call. Record it | |
+| Sun 09:00–10:00 | Fix what the dry run broke | |
+| Sun 10:00–11:00 | READMEs, 60-second recording, submit | |
 
 ## Cut lines
 
-In this order, drop first when time runs out:
+Drop in this order:
 
-1. **fal video (B9)** — decoration. The stage without a face still shows the meters.
-2. **Attendee chasing (A4)** — collect from whoever answers, mock the rest.
-3. **Minutes (A7)** — the call ending well matters less than the call running well.
-4. Never cut: B1, B2, B5, B6. That is the demo.
+1. **Concierge** — already parked. The agenda is a prepared file.
+2. **fal video (B9)** — decoration. The stage without a face still shows the meters.
+3. **Transcript features (E5, E6, B10)** — the whole tier 2. The spine does not need them.
+4. **Nebius line (B6)** — fall back to templates. Keep Nebius in the agenda-drafting path
+   so the track still applies.
+5. Never cut: E1, E2, E3, B2, B4, B5, B7. That is the demo.
 
 ## Risks
 
-- **Discord bot video is blocked.** Not a risk, a fact — the chair's face is on the web
-  stage, never in the voice channel. Do not spend an hour rediscovering this.
-- **Discord voice receive is unofficial.** See B1. Spike first, decide by 13:00.
-- **SLNG latency.** Measure it in the first hour alongside B1. If round-trip STT→LLM→TTS
-  is over ~3 seconds the interruption lands after the moment has passed; shorten the
-  transcript window and pre-warm the TTS.
-- **"Built during the event — prior ideas fine, prior code is not."** This repo starts
+- **E1 is the unknown.** One hour, first thing, before anything is built on it.
+- **Discord blocks bot video.** A fact, not a risk — the chair's face is on the browser
+  stage, never a camera in the call. Do not spend an hour rediscovering it.
+- **Latency on the intervention.** Measure TTS round-trip early. Over ~3 seconds and the
+  interruption lands after the moment. Pre-warm the TTS and template the common lines.
+- **"Built during the event — prior ideas fine, prior code is not."** This repo started
   empty today. Nothing gets lifted from an existing codebase.
-- Two people, one repo, thirteen hours — see [WORKING-AGREEMENT.md](WORKING-AGREEMENT.md).
 
-## Tracks this build is eligible for
+## Tracks
 
-| Track | What qualifies it | Who owns it |
+| Track | Qualifies via | Status |
 |---|---|---|
-| **Mastra** | Agent reachable cold on Discord, answers a stranger from their phone, still live 17:30 Sunday | A |
-| **SLNG** | STT on every speaker, TTS for the chair's voice | B |
-| **Nebius** | Token Factory for agenda drafting and in-call chairing decisions | both |
-| **fal.ai** | Live-generated video on the stage — browser-viewable, not pre-rendered | B |
+| **SLNG** | TTS for the chair's voice; STT per speaker if tier 2 lands | core |
+| **Nebius** | Token Factory for what the chair says | core |
+| **fal.ai** | Live-generated video on the stage | stretch |
+| **Mastra** | Only if the Concierge gets built and hosted | parked |
 
-Vonage's Video API track is not reachable from a Discord build. That is the price of
-the Discord decision and it was taken with eyes open.
+Parking the Concierge gives up the Mastra track, and Vonage's gold Video API track was
+already out of reach the moment the call surface became Discord. SLNG, Nebius and fal
+remain, and the overall prize does not care which sponsor track you entered.

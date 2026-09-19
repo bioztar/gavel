@@ -1,91 +1,104 @@
-# The seam
+# The contract
 
-The two halves of gavel are separate processes, written by separate people, running on
-separate machines. This file is the only thing they share. Change it and both sides
-have to agree — everything else either side can rewrite without telling anyone.
+Two things are shared: the **agenda file** and the **ears↔brain wire**. Everything else
+either side can rewrite without telling anyone.
 
-Transport is HTTP + JSON. Every request carries `X-Gavel-Secret: $SEAM_SHARED_SECRET`.
-A request without it gets a 401 and nothing else.
+Freeze both before writing code against them. Additive changes are free afterwards;
+renaming or removing a field is a conversation.
 
-## The agenda
+---
 
-Produced by the Concierge, consumed by the Chair. This is the contract's centre of
-gravity — if only one thing is right, make it this.
+## 1. The agenda
+
+Prepared before the call and handed to the brain. For the demo it is a committed file.
+If the Concierge ever gets built, it writes this same shape and nothing downstream
+changes.
+
+Times are in **seconds**, so a demo agenda can be three minutes long without fractions.
 
 ```json
 {
-  "sessionId": "hb26-standup-1",
-  "purpose": "Decide the Q4 launch date and who owns the blockers",
-  "scheduledStart": "2026-09-20T15:00:00Z",
-  "totalMinutes": 30,
+  "sessionId": "hb26-demo-1",
+  "purpose": "Decide the launch date and name an owner for each blocker",
+  "totalSeconds": 300,
   "attendees": [
-    { "discordId": "1234567890", "name": "Vitaly", "role": "host" },
-    { "discordId": "9876543210", "name": "Ana", "role": "attendee" }
+    { "discordId": "100000000000000001", "name": "Vitaly", "role": "host" },
+    { "discordId": "100000000000000002", "name": "Ana", "role": "attendee" }
   ],
   "topics": [
     {
       "id": "t1",
-      "title": "Launch date",
-      "goal": "A date everyone commits to",
-      "budgetMinutes": 12,
-      "owner": "1234567890",
-      "questions": ["What is blocking a date today?"],
-      "priorInput": { "9876543210": "QA needs two more weeks" }
+      "title": "Where we actually are",
+      "goal": "One honest status per workstream",
+      "budgetSeconds": 120,
+      "owner": "100000000000000002",
+      "mustHear": ["100000000000000002"],
+      "questions": ["What is not done that you expected to be done?"]
     }
-  ]
-}
-```
-
-`budgetMinutes` across topics should sum to roughly `totalMinutes`. The Chair does not
-correct the arithmetic; it runs what it is given.
-
-## Chair API
-
-| Method | Path | Body | Does |
-|---|---|---|---|
-| `POST` | `/v1/sessions` | agenda + `voiceChannelId` + `textChannelId` | Registers a meeting. Chair joins the voice channel and starts the clock when it sees people in it |
-| `PATCH` | `/v1/sessions/:id/agenda` | partial agenda | Replaces topics mid-call. The Chair re-budgets the remaining time |
-| `GET` | `/v1/sessions/:id/state` | — | Live state. The web stage polls this too |
-| `POST` | `/v1/sessions/:id/end` | — | Ends the call, returns the minutes payload |
-
-### State shape
-
-```json
-{
-  "sessionId": "hb26-standup-1",
-  "phase": "in_call",
-  "currentTopicId": "t1",
-  "elapsedSeconds": 412,
-  "topics": [ { "id": "t1", "spentSeconds": 412, "budgetSeconds": 720, "status": "active" } ],
-  "talkTime": [
-    { "discordId": "1234567890", "name": "Vitaly", "seconds": 340, "share": 0.83 },
-    { "discordId": "9876543210", "name": "Ana", "seconds": 72, "share": 0.17 }
   ],
-  "lastIntervention": { "kind": "speaker_overrun", "at": "2026-09-20T15:06:52Z", "said": "Vitaly, let's hear Ana on this." }
+  "policy": {
+    "floorShareThreshold": 0.6,
+    "floorWindowSeconds": 120,
+    "floorMinSpeakingSeconds": 45,
+    "topicOverrunFactor": 1.2,
+    "silenceSeconds": 15,
+    "minSecondsBetweenInterventions": 45
+  }
 }
 ```
 
-`phase` is one of `scheduled`, `waiting`, `in_call`, `ended`.
+`policy` is tunable on stage without a redeploy — lower the thresholds and the agent
+fires inside a three-minute demo. `mustHear` lists people who should say something on
+this topic; the chair invites them if they have not.
 
-## Events the Chair sends back
+---
 
-`POST` to `$CONCIERGE_WEBHOOK_URL`, same secret header, fire-and-forget. The Concierge
-must not block the call by being slow or down — the Chair retries once and drops it.
+## 2. The ears↔brain wire
 
-```json
-{ "sessionId": "hb26-standup-1", "kind": "intervention", "at": "...", "payload": { } }
-```
+Two processes, a WebSocket on localhost. JSON frames, `{ "type": ..., ... }`.
+Sub-millisecond on one machine, and it means either half runs alone.
 
-| `kind` | When | Payload |
+**`ears` owns the Discord voice connection exclusively. `brain` never imports
+discord.js. `ears` never makes a decision.**
+
+### ears → brain
+
+| `type` | When | Fields |
 |---|---|---|
-| `call.started` | First two humans in the channel | attendees present |
-| `topic.changed` | Chair moves to the next topic | from, to, reason |
-| `intervention` | Chair speaks up | `speaker_overrun` \| `topic_overrun` \| `topic_at_risk` \| `silence`, what it said |
-| `call.ended` | Call over | per-topic coverage, talk-time split, decisions, actions |
+| `ready` | Voice connection up | `channelId`, `participants[]` |
+| `participants` | Someone joins or leaves | `participants[]` — `{discordId, name}` |
+| `speaking.start` | A participant starts speaking | `discordId`, `at` |
+| `speaking.end` | They stop | `discordId`, `at` |
+| `transcript` | Tier 2 — an utterance was transcribed | `discordId`, `text`, `startedAt`, `endedAt` |
+| `spoken` | Playback of a `speak` finished | `utteranceId` |
 
-## Rules
+`speaking.start` / `speaking.end` come from the voice gateway's speaking state and do
+**not** require decoding audio. That is deliberate: talk-time, monologue detection and
+the whole interrupt policy run on these two events plus a clock. Transcription is a
+later, separate capability.
 
-- Additive changes to the JSON are free. Renaming or removing a field is a conversation.
-- Either side may be down. The Concierge posts the agenda to the text channel as well,
-  so a dead Chair degrades to "a bot that wrote you an agenda" rather than nothing.
-- `sessionId` is generated by the Concierge and is the only identifier either side uses.
+### brain → ears
+
+| `type` | Does | Fields |
+|---|---|---|
+| `speak` | Play this audio into the voice channel | `utteranceId`, `audio` (base64), `format` |
+| `stop` | Stop current playback | — |
+
+The brain does its own TTS and hands over finished audio. The ears do not know what a
+sentence is.
+
+### Rules
+
+- Either side may restart. The brain re-sends nothing; the ears re-announce `ready` and
+  `participants` on reconnect.
+- The brain keeps all state. The ears keep none beyond the live connection.
+- If the wire drops mid-call the ears stay in the channel silently rather than leaving.
+
+---
+
+## 3. The replay fixture
+
+`packages/contract/fixtures/replay.jsonl` is a recorded stream of ears→brain frames with
+timestamps. `brain` replays it to develop the entire policy with no Discord, no voice
+channel and no second person. Commit it before either side starts, and keep it honest —
+if the real ears emit something the fixture does not, add it to the fixture.

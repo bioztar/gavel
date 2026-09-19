@@ -1,23 +1,12 @@
-# concierge — side A
+# concierge — parked
 
-The Discord bot people talk to. Owns everything before and after the call: the intake
-conversation, collecting what attendees know, drafting the agenda, and posting the
-minutes afterwards.
+The stretch half: a Discord bot that interviews the host, DMs attendees for what they
+know, and writes `agenda.json` — the same file the brain already reads from disk.
 
-Also the entry point a stranger hits cold — Mastra's judge will DM this bot from their
-own phone with no context, so the no-context path has to be good and it has to be
-hosted somewhere public that stays up until 17:30 Sunday.
+**Parked deliberately.** The agenda being prepared in advance is a fine assumption for
+the demo, and the moderation loop is the product. Build this only if the spine is
+finished and stable with hours to spare.
 
-Produces the agenda described in [../../docs/CONTRACT.md](../../docs/CONTRACT.md) and
-hands it to the Chair. Consumes call events back.
-
-Chunks A1–A8 in [../../docs/PLAN.md](../../docs/PLAN.md).
-
-## Env
-
-`DISCORD_CONCIERGE_TOKEN`, `NEBIUS_API_KEY`, `CHAIR_BASE_URL`, `SEAM_SHARED_SECRET`.
-
-## Build against a fake Chair
-
-Do not wait for side B. A stub that accepts `POST /v1/sessions` and returns the state
-shape from the contract is enough to build the whole of A against.
+If it does get built: separate Discord application, separate token, and it must be
+hosted somewhere public that stays up — that is what the Mastra track asks for, and a
+bot on localhost scores nothing there.

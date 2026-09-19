@@ -1,8 +1,7 @@
 {
   "sessionId": "hb26-demo-1",
-  "purpose": "Decide the Q4 launch date and name an owner for each blocker",
-  "scheduledStart": "2026-09-20T13:00:00Z",
-  "totalMinutes": 20,
+  "purpose": "Decide the launch date and name an owner for each blocker",
+  "totalSeconds": 300,
   "attendees": [
     { "discordId": "100000000000000001", "name": "Vitaly", "role": "host" },
     { "discordId": "100000000000000002", "name": "Ana", "role": "attendee" },
@@ -13,31 +12,36 @@
       "id": "t1",
       "title": "Where we actually are",
       "goal": "One honest status per workstream",
-      "budgetMinutes": 6,
+      "budgetSeconds": 90,
       "owner": "100000000000000002",
-      "questions": ["What is not done that you expected to be done?"],
-      "priorInput": {
-        "100000000000000002": "QA has two weeks of work left, not one",
-        "100000000000000003": "Payments integration is blocked on their side"
-      }
+      "mustHear": ["100000000000000002", "100000000000000003"],
+      "questions": ["What is not done that you expected to be done?"]
     },
     {
       "id": "t2",
       "title": "The date",
       "goal": "A date everyone in the call commits to out loud",
-      "budgetMinutes": 8,
+      "budgetSeconds": 120,
       "owner": "100000000000000001",
-      "questions": ["What date can you defend?"],
-      "priorInput": {}
+      "mustHear": ["100000000000000002"],
+      "questions": ["What date can you defend?"]
     },
     {
       "id": "t3",
       "title": "Blocker owners",
       "goal": "A name against each blocker",
-      "budgetMinutes": 6,
+      "budgetSeconds": 90,
       "owner": "100000000000000001",
-      "questions": [],
-      "priorInput": {}
+      "mustHear": [],
+      "questions": []
     }
-  ]
+  ],
+  "policy": {
+    "floorShareThreshold": 0.6,
+    "floorWindowSeconds": 120,
+    "floorMinSpeakingSeconds": 45,
+    "topicOverrunFactor": 1.2,
+    "silenceSeconds": 15,
+    "minSecondsBetweenInterventions": 45
+  }
 }
