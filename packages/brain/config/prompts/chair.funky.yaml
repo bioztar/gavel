@@ -13,24 +13,24 @@
 kinds:
   offAgenda:
     templates:
-      - "{{name}}, I've bagged {{summary}} for later — the agenda's a little jealous. Back to {{topicTitle}}: {{question}}"
-      - "Ooh, tempting, {{name}}, but {{topicTitle}} is still waiting on us. {{summary}}, parked. {{question}}"
-      - "{{name}}, {{summary}} goes in the parking lot with a little bow on it. {{topicTitle}}: {{question}}"
-      - "Nice detour, {{name}}. Meter's running on {{topicTitle}} though. {{question}}"
+      - "{{name}}, I've bagged {{summary}}; the agenda's jealous. {{topicTitle}}: {{question?}}"
+      - "Ooh, tempting, {{name}}, but {{topicTitle}} is still waiting on us. {{summary}}, parked. {{question?}}"
+      - "{{name}}, {{summary}} goes in the parking lot with a little bow on it. {{topicTitle}}: {{question?}}"
+      - "Nice detour, {{name}}. Meter's running on {{topicTitle}} though. {{question?}}"
 
   otherTopic:
     templates:
-      - "{{name}}, {{otherTopicTitle}} is up next, I promise it hasn't been cancelled. First, {{topicTitle}}: {{question}}"
-      - "Patience, {{name}} — {{otherTopicTitle}} gets its own spotlight later. For now, {{topicTitle}}: {{question}}"
-      - "{{name}}, that's a trailer for {{otherTopicTitle}}. Back to {{topicTitle}}: {{question}}"
-      - "Love the ambition, {{name}}, but {{otherTopicTitle}} waits its turn. {{topicTitle}} first: {{question}}"
+      - "{{name}}, {{otherTopicTitle}} is up next, I promise it hasn't been cancelled. First, {{topicTitle}}: {{question?}}"
+      - "Patience, {{name}} — {{otherTopicTitle}} gets its own spotlight later. For now, {{topicTitle}}: {{question?}}"
+      - "{{name}}, that's a trailer for {{otherTopicTitle}}. Back to {{topicTitle}}: {{question?}}"
+      - "Love the ambition, {{name}}, but {{otherTopicTitle}} waits its turn. {{topicTitle}} first: {{question?}}"
 
   floorHog:
     templates:
-      - "Thanks {{name}}, love the passion. {{addresseeName}}, floor's yours before this becomes a podcast. {{question}}"
-      - "{{name}}, you've officially out-talked the agenda. {{addresseeName}}, rescue us. {{question}}"
-      - "Got it, {{name}} — {{recap}}. {{addresseeName}}, your turn. {{question}}"
-      - "{{name}}, I'm gently confiscating the mic. {{addresseeName}}: {{question}}"
+      - "Thanks {{name}}, love the passion. {{addresseeName}}, floor's yours before this becomes a podcast. {{question?}}"
+      - "{{name}}, you've officially out-talked the agenda. {{addresseeName}}, rescue us. {{question?}}"
+      - "Got it, {{name}} — {{recap}}. {{addresseeName}}, your turn. {{question?}}"
+      - "{{name}}, I'm gently confiscating the mic. {{addresseeName}}: {{question?}}"
 
   escalateMute:
     templates:
@@ -41,17 +41,17 @@ kinds:
 
   escalateFirm:
     templates:
-      - "{{name}}, cutting in — {{topicTitle}} filed a missing-persons report. {{question}}"
-      - "{{name}}, second interruption's on me, but {{topicTitle}} needs you back. {{question}}"
-      - "Okay {{name}}, chair's pulling rank now. {{topicTitle}}: {{question}}"
-      - "{{name}}, we've circled back to this twice — {{topicTitle}} wins. {{question}}"
+      - "{{name}}, cutting in — {{topicTitle}} filed a missing-persons report. {{question?}}"
+      - "{{name}}, second interruption's on me, but {{topicTitle}} needs you back. {{question?}}"
+      - "Okay {{name}}, chair's pulling rank now. {{topicTitle}}: {{question?}}"
+      - "{{name}}, we've circled back to this twice — {{topicTitle}} wins. {{question?}}"
 
   topicOverrun:
     templates:
-      - "{{topicTitle}} just got a red card for overtime. Onward to {{nextTopicTitle}}. {{nextQuestion}}"
-      - "The clock beat {{topicTitle}}. Say hello to {{nextTopicTitle}}. {{nextQuestion}}"
-      - "{{topicTitle}}, your time's up, thanks for playing. {{nextTopicTitle}}: {{nextQuestion}}"
-      - "Moving on before {{topicTitle}} moves in permanently. {{nextTopicTitle}}: {{nextQuestion}}"
+      - "{{topicTitle}} just got a red card for overtime. Onward to {{nextTopicTitle}}. {{nextQuestion?}}"
+      - "The clock beat {{topicTitle}}. Say hello to {{nextTopicTitle}}. {{nextQuestion?}}"
+      - "{{topicTitle}}, your time's up, thanks for playing. {{nextTopicTitle}}: {{nextQuestion?}}"
+      - "Moving on before {{topicTitle}} moves in permanently. {{nextTopicTitle}}: {{nextQuestion?}}"
 
   wrapUp:
     templates:
@@ -62,14 +62,14 @@ kinds:
 
   silence:
     templates:
-      - "{{name}}, you've been suspiciously quiet on {{notHeardOn}}. {{question}}"
-      - "{{name}}, is that you on mute or just enjoying the quiet? {{question}}"
-      - "{{name}}, the floor is yours, no pressure, some pressure. {{question}}"
-      - "{{name}}, your turn — the silence was getting loud. {{question}}"
+      - "{{name}}, you've been suspiciously quiet on {{notHeardOn}}. {{question?}}"
+      - "{{name}}, is that you on mute or just enjoying the quiet? {{question?}}"
+      - "{{name}}, the floor is yours, no pressure, some pressure. {{question?}}"
+      - "{{name}}, your turn — the silence was getting loud. {{question?}}"
 
   roundRobin:
     templates:
-      - "Speed round, one sentence, no filibusters: {{names}}. {{question}}"
-      - "Lightning round! {{names}}, in that order. {{question}}"
-      - "Quick fire, one line each: {{names}}. {{question}}"
-      - "Round robin time, keep it snappy: {{names}}. {{question}}"
+      - "Speed round, one sentence, no filibusters: {{names}}. {{question?}}"
+      - "Lightning round! {{names}}, in that order. {{question?}}"
+      - "Quick fire, one line each: {{names}}. {{question?}}"
+      - "Round robin time, keep it snappy: {{names}}. {{question?}}"
