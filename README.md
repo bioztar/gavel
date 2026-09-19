@@ -1,9 +1,11 @@
 # gavel
 
-An AI chair for meetings. You add it to a Discord voice call, hand it the agenda, and
-it runs the meeting: it keeps time per topic, keeps any one person from holding the
-floor, and speaks up when a topic is about to get skipped. A live web stage shows the
-agenda, the talk-time split and the chair's face.
+Karen is an AI chair for meetings. Add her to a Discord voice call, hand her the agenda,
+gather the attendees, and say “Karen, let's start the meeting.” She opens with the agenda,
+hands the first topic to a named person, keeps time, redirects shared tangents, balances
+the floor, and answers when someone addresses her. The ears console shows the live
+transcript, Karen's exact words, agenda progress, facts, decisions, open items, and the
+parking lot.
 
 Built at **HackBarna AI Summit 26**, Norrsken House Barcelona, 19–20 September 2026.
 
@@ -41,13 +43,13 @@ load-bearing.
   │  owns the session    │   speak()   │  · agenda clock      │
   │                      │             │  · interrupt policy  │
   │  · who is speaking   │             │  · what to say       │
-  │  · plays audio back  │             │                      │
+  │  · plays audio back  │             │  · meeting notes     │
   └──────────────────────┘             └──────────┬───────────┘
                                                   │
                                        ┌──────────▼───────────┐
-                                       │  STAGE (browser)     │
+                                       │  EARS CONSOLE        │
                                        │  agenda · talk-time  │
-                                       │  · live fal video    │
+                                       │  transcript · notes  │
                                        └──────────────────────┘
 
   CONCIERGE (stretch) — a Discord bot that interviews attendees and writes agenda.json
@@ -65,16 +67,16 @@ publish video at all.
 
 ## Sponsor stack
 
-| Sponsor | Used for | Tier |
+| Sponsor | Used for | Status |
 |---|---|---|
-| **SLNG** | Speech-to-text per speaker, text-to-speech for the chair's voice | core |
-| **Nebius** | Token Factory inference — what the chair says, and why | core |
-| **Vonage** | The second call surface — the chair joins a session as a real participant | core |
-| **fal.ai** | Live-generated video of the chair — called as a Mastra tool, shown on the stage and published into the Vonage call | stretch |
-| **Mastra** | The harness the chair's brain runs on — tool-calls Nebius, SLNG and fal, and gives a trace to show a judge | core |
+| **SLNG** | Speech-to-text per speaker and Karen's text-to-speech voice | implemented |
+| **Nebius** | Token Factory inference for relevance, meeting notes, and Karen's spoken lines | implemented |
+| **Mastra** | Agents and the traced intervention workflow | implemented |
+| **Vonage** | Planned second call surface with custom audio/video tracks | planned |
+| **fal.ai** | Planned generated face/video for the second surface | planned |
 
-Discord blocks video publishing from bots, so on Discord the chair's face lives on the
-web stage. On Vonage it is in the call.
+Discord blocks video publishing from bots. The implemented Discord experience therefore
+uses the ears operator console; the Vonage and generated-video surfaces remain planned.
 
 ## Layout
 
@@ -82,7 +84,7 @@ web stage. On Vonage it is in the call.
 |---|---|---|
 | `packages/ears-discord` | one person | Discord voice: join, speaking events, STT, audio playback |
 | `packages/ears-vonage` | one person | Vonage session: join as a participant, audio levels, publish voice + face |
-| `packages/brain` | the other | Talk-time, agenda clock, interrupt policy, Nebius, stage |
+| `packages/brain` | the other | Meeting lifecycle, talk-time, agenda, moderation, notes, Nebius |
 | `packages/concierge` | whoever is free | Stretch: Discord bot that writes the agenda |
 | `packages/contract` | both | Shared schema and fixtures. Changes need both to agree |
 
@@ -92,8 +94,16 @@ Join the test Discord server: **https://discord.gg/qR6RwKuAh** — hop into a vo
 while `ears-discord` is running and the bot joins you. Setup and the operator console:
 [packages/ears-discord/README.md](packages/ears-discord/README.md).
 
+Start ears with `just run`, start brain with `pnpm start`, open
+`http://127.0.0.1:8787/console`, and create a meeting. Starting a session creates a
+gathering lobby; Karen does not start agenda timers until everyone expected is present
+and somebody explicitly asks her to begin.
+
 ## Docs
 
 - [docs/PLAN.md](docs/PLAN.md) — chunks, dependencies, hour-by-hour, cut lines
 - [docs/CONTRACT.md](docs/CONTRACT.md) — the agenda file and the ears↔brain wire
+- [HANDOVER.md](HANDOVER.md) — current implementation state, limits, and next live test
+- [docs/QUALITY.md](docs/QUALITY.md) — verification results and eval strategy
+- [docs/CREDENTIALS.md](docs/CREDENTIALS.md) — required accounts and environment names
 - [docs/WORKING-AGREEMENT.md](docs/WORKING-AGREEMENT.md) — two people, one repo, thirteen hours

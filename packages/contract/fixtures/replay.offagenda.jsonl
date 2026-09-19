@@ -1,5 +1,6 @@
 {"atMs": 0, "type": "ready", "channelId": "900000000000000001", "participants": [{"discordId": "100000000000000001", "name": "Vitaly"}, {"discordId": "100000000000000002", "name": "Ana"}, {"discordId": "100000000000000003", "name": "Marc"}]}
 {"atMs": 500, "type": "session.started", "sessionId": "replay-offagenda", "meetingId": null, "title": "Launch sync", "context": null, "agenda": null}
+{"atMs": 750, "type": "transcript", "discordId": "100000000000000001", "name": "Vitaly", "text": "Karen, let's start the meeting", "final": true, "utteranceId": "meeting-start"}
 {"atMs": 2000, "type": "speaking.start", "discordId": "100000000000000002"}
 {"atMs": 11000, "type": "transcript", "discordId": "100000000000000002", "name": "Ana", "text": "Status from my side, the QA workstream is mostly finished but the load tests are not.", "final": false, "utteranceId": "2-2"}
 {"atMs": 20000, "type": "transcript", "discordId": "100000000000000002", "name": "Ana", "text": "Honest status is we expected the payment flow to be done and it is not done yet.", "final": true, "utteranceId": "2-2"}

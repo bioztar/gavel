@@ -71,7 +71,58 @@ function offAgenda(s: Snapshot): Intervention | null {
     .filter(({ p, episode }) => p?.holding && s.now - episode.offSince >= grace)
     .sort((a, b) => a.episode.offSince - b.episode.offSince)[0];
   if (!due?.p) return null;
+  // A tangent often changes speakers. If another participant has an open episode for
+  // the same tangent, redirect the room instead of making the current speaker look like
+  // the sole offender. Episodes remain open for the grace window after a handover.
+  const group = s.episodes
+    .map(({ id, episode }) => ({ p: person(s, id), episode }))
+    .filter(({ p, episode }) => p && sameTangent(due.episode, episode, grace * 2)) as Array<{ p: PersonView; episode: Episode }>;
+  if (group.length > 1) return groupRedirectFor(s, group);
   return redirectFor(s, due.p, due.episode);
+}
+
+function sameTangent(a: Episode, b: Episode, conversationWindowMs: number): boolean {
+  if (a.verdict !== b.verdict) return false;
+  if (a.verdict === "otherTopic") return a.topicId === b.topicId;
+  const words = (text: string) => new Set(text.toLowerCase().match(/[\p{L}\p{N}]{4,}/gu) ?? []);
+  const left = words(a.summary);
+  return [...words(b.summary)].some((word) => left.has(word)) ||
+    Math.abs(a.offSince - b.offSince) <= conversationWindowMs;
+}
+
+function groupRedirectFor(s: Snapshot, group: Array<{ p: PersonView; episode: Episode }>): Intervention {
+  const question = nextQuestion(s, s.topic);
+  const names = joinNames(group.map(({ p }) => p.name));
+  const summaries = [...new Set(group.map(({ episode }) => episode.summary))].join(" / ");
+  const first = group[0]!.episode;
+  const other = first.verdict === "otherTopic" ? s.topics.findIndex((t) => t.id === first.topicId) : -1;
+  if (other >= 0) {
+    return {
+      trigger: "offAgenda",
+      kind: "groupOtherTopic",
+      topicId: topicId(s),
+      vars: { ...base(s), names, summary: summaries, question, otherTopicTitle: s.topics[other]!.title },
+      actions: ["speak"],
+      priority: true,
+      question,
+    };
+  }
+  return {
+    trigger: "offAgenda",
+    kind: "groupOffAgenda",
+    topicId: topicId(s),
+    vars: { ...base(s), names, summary: summaries, question },
+    actions: ["park", "speak"],
+    priority: true,
+    question,
+    parks: group.map(({ p, episode }) => ({
+      discordId: p.id,
+      name: p.name,
+      summary: episode.summary,
+      quote: episode.quote,
+      topicId: topicId(s),
+    })),
+  };
 }
 
 /**
@@ -231,6 +282,12 @@ function base(s: Snapshot, who?: PersonView): Record<string, string> {
     topicGoal: s.topic?.goal ?? "",
     purpose: s.purpose,
   };
+}
+
+function joinNames(names: string[]): string {
+  if (names.length < 2) return names[0] ?? "Everyone";
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
 }
 
 /** The first of the topic's questions not yet put to the room; then they cycle. */

@@ -35,6 +35,7 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
+import httpx
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
@@ -195,6 +196,20 @@ def create_api(ears: Ears) -> FastAPI:
     @api.get("/api/status")
     async def status() -> dict[str, Any]:
         return ears.status()
+
+    @api.get("/api/brain-state")
+    async def brain_state() -> dict[str, Any]:
+        """Same-origin bridge for the console; brain itself remains call-SDK agnostic."""
+        try:
+            async with httpx.AsyncClient(timeout=1.5) as client:
+                response = await client.get(ears.settings.brain_state_url)
+            response.raise_for_status()
+            data = response.json()
+            if not isinstance(data, dict):
+                raise ValueError("brain returned a non-object state")
+            return data
+        except (httpx.HTTPError, ValueError) as exc:
+            raise HTTPException(503, f"brain state unavailable: {exc}") from exc
 
     # --- meetings ---------------------------------------------------------------------
 

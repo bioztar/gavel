@@ -59,7 +59,7 @@ export function parseEarsFrame(raw: unknown): EarsFrame | null {
 }
 
 export type BrainFrame =
-  | { type: "speak"; utteranceId: string; audio: string; format?: string; priority?: boolean }
+  | { type: "speak"; utteranceId: string; audio: string; text?: string; format?: string; priority?: boolean }
   | { type: "stop" }
   | { type: "mute"; discordId: string; seconds: number; reason?: string }
   | { type: "unmute"; discordId: string };

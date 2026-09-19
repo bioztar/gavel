@@ -1,4 +1,5 @@
 {"atMs": 0, "type": "ready", "channelId": "900000000000000001", "participants": [{"discordId": "100000000000000001", "name": "Vitaly"}, {"discordId": "100000000000000002", "name": "Ana"}, {"discordId": "100000000000000003", "name": "Marc"}]}
+{"atMs": 500, "type": "transcript", "discordId": "100000000000000001", "name": "Vitaly", "text": "Karen, let's start the meeting", "final": true, "utteranceId": "meeting-start"}
 {"atMs": 2000, "type": "speaking.start", "discordId": "100000000000000001"}
 {"atMs": 19000, "type": "speaking.end", "discordId": "100000000000000001"}
 {"atMs": 20000, "type": "speaking.start", "discordId": "100000000000000002"}

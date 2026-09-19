@@ -55,6 +55,7 @@ describe("engine on replay.offagenda.jsonl", () => {
   it("prompts the quiet, moves the agenda, parks the tangent, escalates, wraps up", async () => {
     const { engine, sent, store } = await replay();
     expect(engine.history.map((h) => h.kind)).toEqual([
+      "startMeeting",
       "silence",
       "topicOverrun",
       "offAgenda",
@@ -64,11 +65,12 @@ describe("engine on replay.offagenda.jsonl", () => {
       "wrapUp",
     ]);
     const speaks = sent.filter((f) => f.type === "speak");
-    expect(speaks.map((f) => f.type === "speak" && f.priority)).toEqual([false, false, true, true, false, false, false]);
+    expect(speaks.every((f) => f.text && f.text.length > 0)).toBe(true);
+    expect(speaks.map((f) => f.type === "speak" && f.priority)).toEqual([false, false, false, true, true, false, false, false]);
     expect(store.memories).toHaveLength(1);
     expect(store.memories[0]).toMatchObject({ discordId: "100000000000000001", kind: "parked", sessionId: "replay-offagenda" });
-    expect(store.interventions).toHaveLength(7);
-    expect(engine.history[6]?.line).toContain("Parked for later: Vitaly on");
+    expect(store.interventions).toHaveLength(8);
+    expect(engine.history[7]?.line).toContain("Parked for later: Vitaly on");
     // Minimum gap between interventions (escalation excepted) held throughout.
     const gaps = engine.history.slice(1).map((h, i) => [h.kind, h.at - engine.history[i]!.at] as const);
     for (const [kind, gap] of gaps) if (!kind.startsWith("escalate")) expect(gap).toBeGreaterThanOrEqual(45_000);
@@ -97,7 +99,7 @@ describe("a meeting with a purpose but no topics", () => {
     const engine = new Engine({
       config: () => config,
       clock: () => now,
-      wire: { connected: true, send: (f) => (sent.push(f), true) },
+      wire: { connected: false, send: (f) => (sent.push(f), false) },
       store: new MemoryStore(),
       llm: new StubLlm(),
       tts: new SilentTts(),
@@ -112,12 +114,52 @@ describe("a meeting with a purpose but no topics", () => {
       agenda: { purpose: "Present the AI moderator", topics: [], attendees: [], policy: {}, totalSeconds: 0 },
       atMs: 0,
     });
+    expect(engine.view()).toMatchObject({ phase: "gathering", readyToStart: true });
+    engine.handle({
+      type: "transcript",
+      discordId: "a",
+      text: "Karen, let's start the meeting",
+      final: true,
+      utteranceId: "start",
+      atMs: 0,
+    });
     expect(engine.topic()).toMatchObject({ id: "main", title: "An AI meeting moderator demo", budgetSeconds: 0 });
     for (now = 0; now <= 20_000; now += 250) {
       engine.tick();
       await engine.idle();
     }
-    expect(engine.history.map((h) => h.kind)).toEqual(["silence"]);
+    expect(engine.history.map((h) => h.kind)).toEqual(["startMeeting"]);
     expect(engine.history[0]?.line).toContain("Artem");
+  });
+});
+
+describe("Karen and the meeting lobby", () => {
+  it("waits for expected people, then starts only on an explicit instruction", async () => {
+    const config = loadConfig();
+    let now = 0;
+    const engine = new Engine({
+      config: () => config,
+      clock: () => now,
+      wire: { connected: false, send: () => false },
+      store: new MemoryStore(),
+      llm: new StubLlm(),
+      tts: new SilentTts(),
+      fallbackAgenda: null,
+    });
+    const agenda = loadAgendaFile(resolve(FIXTURES, "agenda.demo.json"));
+    engine.handle({ type: "ready", channelId: "c", participants: [{ discordId: "100000000000000001", name: "Vitaly" }], atMs: 0 });
+    engine.handle({ type: "session.started", sessionId: "s", title: "Sync", agenda, atMs: 0 });
+    now = 60_000;
+    expect(engine.tick()).toBeNull(); // no timer-based opening or silence prompt in the lobby
+    engine.handle({ type: "transcript", discordId: "100000000000000001", text: "Karen, let's start the meeting", final: true, utteranceId: "early", atMs: now });
+    expect(engine.tick()?.kind).toBe("waitingForPeople");
+    await engine.idle();
+    expect(engine.phase).toBe("gathering");
+
+    engine.handle({ type: "participants", participants: agenda.attendees.map(({ discordId, name }) => ({ discordId, name })), atMs: now });
+    engine.handle({ type: "transcript", discordId: "100000000000000001", text: "Karen, please begin the meeting", final: true, utteranceId: "ready", atMs: now });
+    expect(engine.tick()?.kind).toBe("startMeeting");
+    await engine.idle();
+    expect(engine.view()).toMatchObject({ chairName: "Karen", phase: "active", readyToStart: false });
   });
 });

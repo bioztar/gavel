@@ -20,6 +20,8 @@ import { type Classification, RelevanceTracker } from "./state/relevance";
 import { TalkLedger } from "./state/talk";
 import { render } from "./template";
 
+export type MeetingPhase = "idle" | "gathering" | "active" | "finished";
+
 export interface EngineDeps {
   config: () => Config;
   clock: () => number;
@@ -49,10 +51,12 @@ interface Precomposed {
 export class Engine {
   sessionId: string | null = null;
   agenda: Agenda | null = null;
+  phase: MeetingPhase = "idle";
   private title: string | null = null;
   private meetingContext: string | null = null;
   private people = new Map<string, Participant>();
   private topicIndex = 0;
+  private agendaCompleted = false;
   private topicStartedAt = 0;
   private sessionStartedAt = 0;
   private ledger: TalkLedger;
@@ -71,6 +75,11 @@ export class Engine {
   private carried: Memory[] = [];
   private muted = new Map<string, number>();
   private precomposed = new Map<string, Precomposed>();
+  private directQueue: Intervention[] = [];
+  private handledUtterances = new Set<string>();
+  private facts: string[] = [];
+  private decisions: string[] = [];
+  private openItems: string[] = [];
   private inFlight = new Set<Promise<unknown>>();
   readonly history: Array<Intervention & { at: number; line?: string; source?: string }> = [];
   readonly usage = { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 };
@@ -106,6 +115,7 @@ export class Engine {
         if (frame.sessionId === this.sessionId) {
           log.info("session.ended", { sessionId: frame.sessionId });
           this.agenda = null;
+          this.phase = this.agendaCompleted ? "finished" : "idle";
         }
         break;
       case "speaking.start":
@@ -117,6 +127,7 @@ export class Engine {
         this.ledger.end(frame.discordId, at);
         break;
       case "transcript":
+        this.maybeAddressKaren(frame.discordId, frame.text, frame.utteranceId, frame.final);
         this.relevance.addTranscript(frame.discordId, frame.text);
         this.maybeClassify(frame.discordId);
         break;
@@ -137,7 +148,9 @@ export class Engine {
     this.sessionId = sessionId;
     this.title = title;
     this.agenda = this.withImplicitTopic(agenda, title);
+    this.phase = this.agenda ? "gathering" : "idle";
     this.topicIndex = 0;
+    this.agendaCompleted = false;
     this.topicStartedAt = at;
     this.sessionStartedAt = at;
     this.chairLastSpokeAt = 0;
@@ -149,6 +162,11 @@ export class Engine {
     this.parked = [];
     this.carried = [];
     this.precomposed.clear();
+    this.directQueue = [];
+    this.handledUtterances.clear();
+    this.facts = [];
+    this.decisions = [];
+    this.openItems = [];
     this.ledger.reset();
     this.relevance.resetAll();
     log.info("session.started", {
@@ -156,6 +174,7 @@ export class Engine {
       title,
       topics: agenda?.topics.map((t) => t.title) ?? [],
       policy: this.policy(),
+      phase: this.phase,
     });
     this.track(this.loadCarried());
   }
@@ -217,7 +236,12 @@ export class Engine {
     for (const id of this.people.keys()) this.maybeClassify(id);
     this.ledger.prune(now, this.policy().floorWindowSeconds * 2000);
 
-    if (!this.agenda) return null;
+    if (this.directQueue.length && !this.pending && !this.composing) {
+      const direct = this.directQueue.shift()!;
+      this.launch(direct);
+      return direct;
+    }
+    if (!this.agenda || this.phase !== "active") return null;
     const iv = evaluate(this.snapshot());
     if (iv) this.launch(iv);
     return iv;
@@ -308,7 +332,7 @@ export class Engine {
 
   private maybeClassify(id: string): void {
     const now = this.now();
-    if (!this.agenda || !this.topic()) return;
+    if (!this.agenda || !this.topic() || this.phase !== "active") return;
     // Nothing could act on a verdict while the chair is mid-sentence.
     if (this.pending) return;
     const since = this.ledger.holdingSince(id, now, this.cfg.policy.engine.floorGapMs);
@@ -341,6 +365,7 @@ export class Engine {
 
   private afterVerdict(id: string, key: string, raw: Classification | null, cached: boolean): void {
     const result = raw && this.checkVerdict(raw);
+    if (result) this.absorbInsights(result);
     const change = this.relevance.finish(id, this.now(), key, result);
     if (result) log.debug("relevance", { who: this.nameOf(id), ...result, cached });
     if (change === "opened") {
@@ -379,7 +404,10 @@ export class Engine {
     } else if (iv.redirects && iv.targetId) {
       this.redirect = { targetId: iv.targetId, topicId: iv.topicId, spokenAt: null };
     }
-    if (iv.trigger === "offAgenda" && iv.targetId) this.relevance.clear(iv.targetId);
+    if (iv.trigger === "offAgenda") {
+      if (iv.targetId) this.relevance.clear(iv.targetId);
+      for (const p of iv.parks ?? []) this.relevance.clear(p.discordId);
+    }
     const entry = { ...iv, at: now };
     this.history.push(entry);
     log.info("chair.intervene", {
@@ -407,8 +435,11 @@ export class Engine {
     return composed;
   }
 
-  private lineKey(iv: Pick<Intervention, "kind" | "targetId" | "addresseeId" | "topicId">): string {
-    return `${iv.kind}:${iv.targetId ?? iv.addresseeId ?? "-"}:${iv.topicId ?? "-"}`;
+  private lineKey(iv: Pick<Intervention, "kind" | "targetId" | "addresseeId" | "topicId" | "vars">): string {
+    // Direct questions from the same person must not reuse the answer to their previous
+    // question. Policy interventions intentionally keep the shorter reusable key.
+    const direct = iv.kind === "addressed" ? `:${iv.vars.request ?? ""}` : "";
+    return `${iv.kind}:${iv.targetId ?? iv.addresseeId ?? "-"}:${iv.topicId ?? "-"}${direct}`;
   }
 
   private precompose(iv: Intervention): void {
@@ -448,11 +479,21 @@ export class Engine {
 
   private async generate(iv: Intervention): Promise<string | null> {
     const kind = this.cfg.chair.kinds[iv.kind];
+    // Only an explicit question to Karen needs the live notes. Supplying them to routine
+    // redirects and wrap-ups tempts smaller models to improvise extra commitments.
+    const enrichedVars = iv.kind === "addressed"
+      ? {
+          ...iv.vars,
+          knownFacts: this.facts.join("; "),
+          knownDecisions: this.decisions.join("; "),
+          knownOpenItems: this.openItems.join("; "),
+        }
+      : iv.vars;
     const user = render(this.cfg.chair.user, {
-      instruction: render(kind.instruction, iv.vars),
+      instruction: render(kind.instruction, enrichedVars),
       examples: kind.examples.map((e) => `- ${e}`).join("\n"),
       // Every fact is listed, empty ones as "(none)": a missing fact invites the model to invent it.
-      facts: Object.entries(iv.vars)
+      facts: Object.entries(enrichedVars)
         .filter(([k]) => k !== "quote")
         .map(([k, v]) => `${k}: ${v?.trim() || "(none)"}`)
         .join("\n"),
@@ -478,12 +519,14 @@ export class Engine {
   /** Park, speak, mute, advance — whichever the intervention calls for, in that order. */
   async act(iv: Intervention, line: string): Promise<{ ttsMs?: number; utteranceId?: string }> {
     if (iv.actions.includes("park") && iv.park) await this.park(iv.park);
+    if (iv.actions.includes("park")) for (const p of iv.parks ?? []) await this.park(p);
     let out: { ttsMs?: number; utteranceId?: string } = {};
     if (iv.actions.includes("speak")) out = await this.speak(line, iv.priority);
     if (iv.actions.includes("mute") && iv.targetId && iv.muteSeconds) {
       this.mute(iv.targetId, iv.muteSeconds, `gavel: ${iv.kind}`);
     }
     if (iv.actions.includes("advance")) this.advanceTopic();
+    if (iv.actions.includes("start")) this.activateMeeting();
     const entry = this.history[this.history.length - 1];
     if (entry) entry.line = line;
     return out;
@@ -533,6 +576,7 @@ export class Engine {
         type: "speak",
         utteranceId,
         audio: speech.audio.toString("base64"),
+        text,
         format: speech.format,
         priority,
       });
@@ -572,6 +616,10 @@ export class Engine {
     this.redirect = null;
     this.lastPromptedId = null;
     const topic = this.topic();
+    if (!topic) {
+      this.agendaCompleted = true;
+      this.phase = "finished";
+    }
     log.info("topic.advanced", { to: topic?.title ?? "(agenda done)" });
   }
 
@@ -587,6 +635,109 @@ export class Engine {
     this.pending = null;
     this.chairLastSpokeAt = at;
     if (this.redirect && this.redirect.spokenAt === null) this.redirect.spokenAt = at;
+  }
+
+  private activateMeeting(): void {
+    const now = this.now();
+    this.phase = "active";
+    this.topicStartedAt = now;
+    this.sessionStartedAt = now;
+    // Lobby chatter must not count toward meeting talk time or relevance.
+    this.ledger.reset();
+    this.relevance.resetAll();
+    log.info("meeting.started", { sessionId: this.sessionId, topic: this.topic()?.title });
+  }
+
+  private maybeAddressKaren(id: string, text: string, utteranceId?: string, final?: boolean): void {
+    if (final === false || !/\bkaren\b/i.test(text)) return;
+    const key = utteranceId ?? `${id}:${text.toLowerCase().replace(/\s+/g, " ").trim()}`;
+    if (this.handledUtterances.has(key)) return;
+    this.handledUtterances.add(key);
+
+    const who = this.nameOf(id);
+    const request = text.replace(/^.*?\bkaren\b[\s,:-]*/i, "").trim();
+    const wantsStart = /\b(start|begin|kick\s*off)\b/i.test(request) &&
+      (/\b(meeting|agenda|session)\b/i.test(request) || /\blet'?s\s+(start|begin)\b/i.test(request));
+
+    if (wantsStart && this.phase === "gathering") {
+      const missing = this.missingAttendees();
+      if (missing.length) {
+        this.directQueue.push({
+          trigger: "meetingStart",
+          kind: "waitingForPeople",
+          topicId: this.topic()?.id ?? null,
+          targetId: id,
+          vars: { name: who, missingNames: joinNames(missing), topicTitle: this.topic()?.title ?? "" },
+          actions: ["speak"],
+          priority: false,
+        });
+        return;
+      }
+
+      const starter = this.startingPerson(id);
+      const topic = this.topic();
+      const question = topic?.questions[0] ?? render(this.cfg.chair.fallbackQuestion, {
+        topicTitle: topic?.title ?? "the first topic",
+        topicGoal: topic?.goal ?? "",
+      });
+      this.directQueue.push({
+        trigger: "meetingStart",
+        kind: "startMeeting",
+        topicId: topic?.id ?? null,
+        addresseeId: starter.id,
+        vars: {
+          name: who,
+          agendaList: (this.agenda?.topics ?? []).map((t, i) => `${i + 1}, ${t.title}`).join("; "),
+          topicTitle: topic?.title ?? "",
+          topicGoal: topic?.goal ?? "",
+          addresseeName: starter.name,
+          question,
+          purpose: this.agenda?.purpose ?? "",
+        },
+        actions: ["speak", "start"],
+        priority: false,
+        question,
+      });
+      return;
+    }
+    if (wantsStart && this.phase === "active") return;
+
+    this.directQueue.push({
+      trigger: "addressed",
+      kind: "addressed",
+      topicId: this.topic()?.id ?? null,
+      targetId: id,
+      vars: {
+        name: who,
+        request: request || text,
+        topicTitle: this.topic()?.title ?? "",
+        topicGoal: this.topic()?.goal ?? "",
+        question: this.topic()?.questions[0] ?? "",
+        phase: this.phase,
+      },
+      actions: ["speak"],
+      priority: false,
+    });
+  }
+
+  private missingAttendees(): string[] {
+    const present = new Set(this.people.keys());
+    return (this.agenda?.attendees ?? [])
+      .filter((a) => a.discordId && !present.has(a.discordId))
+      .map((a) => a.name);
+  }
+
+  private startingPerson(fallbackId: string): { id: string; name: string } {
+    const topic = this.topic();
+    const candidates = [topic?.owner, ...(topic?.mustHear ?? []), ...this.people.keys()].filter(Boolean) as string[];
+    const id = candidates.find((candidate) => this.people.has(candidate)) ?? fallbackId;
+    return { id, name: this.nameOf(id) };
+  }
+
+  private absorbInsights(result: Classification): void {
+    addUnique(this.facts, result.facts);
+    addUnique(this.decisions, result.decisions);
+    addUnique(this.openItems, result.openItems);
   }
 
   // --- model usage ------------------------------------------------------------------------------
@@ -620,6 +771,11 @@ export class Engine {
       sessionId: this.sessionId,
       title: this.title,
       purpose: s.purpose,
+      chairName: "Karen",
+      phase: this.phase,
+      readyToStart: this.phase === "gathering" && this.missingAttendees().length === 0,
+      missingAttendees: this.missingAttendees(),
+      agendaFinished: this.agendaCompleted,
       topic: s.topic && {
         index: s.topicIndex,
         id: s.topic.id,
@@ -643,11 +799,33 @@ export class Engine {
       silenceSeconds: Math.round(s.silenceMs / 1000),
       parked: this.parked,
       carried: s.carried,
+      understanding: {
+        facts: [...this.facts],
+        decisions: [...this.decisions],
+        openItems: [...this.openItems],
+        later: [...this.openItems, ...this.parked.map((p) => p.summary)],
+        offTopics: [...this.parked],
+      },
       interventions: this.history.slice(-20).map((h) => ({ at: h.at, kind: h.kind, line: h.line, source: h.source })),
       usage: { ...this.usage, costUsd: Number(this.usage.costUsd.toFixed(6)) },
       policy: s.policy,
     };
   }
+}
+
+function addUnique(target: string[], values: string[] | undefined): void {
+  for (const raw of values ?? []) {
+    const value = raw.trim();
+    if (!value || target.some((x) => x.toLowerCase() === value.toLowerCase())) continue;
+    target.push(value);
+    if (target.length > 50) target.shift();
+  }
+}
+
+function joinNames(names: string[]): string {
+  if (names.length < 2) return names[0] ?? "everyone";
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
 }
 
 function clean(text: string): string {

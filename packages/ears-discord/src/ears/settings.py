@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     # --- wire to the brain -------------------------------------------------
     wire_host: str = "127.0.0.1"
     wire_port: int = 8787
+    # Read-only live state exposed by brain; proxied to the operator console.
+    brain_state_url: str = "http://127.0.0.1:8788/state"
 
     # --- data --------------------------------------------------------------
     postgres_dsn: str = "postgresql+asyncpg://gavel:gavel@localhost:5432/gavel"

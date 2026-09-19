@@ -74,6 +74,7 @@ class _Utterance:
     audio: bytes
     source: str  # "brain" | "console"
     priority: bool = False
+    text: str | None = None
 
 
 class Ears:
@@ -453,7 +454,15 @@ class Ears:
                     Spoken(utterance_id=frame.utterance_id, error="audio is not valid base64")
                 )
                 return
-            self.enqueue(_Utterance(frame.utterance_id, audio, "brain", frame.priority))
+            self.enqueue(
+                _Utterance(
+                    frame.utterance_id,
+                    audio,
+                    "brain",
+                    frame.priority,
+                    frame.text,
+                )
+            )
         elif isinstance(frame, Mute):
             self._spawn(self._mute(frame.discord_id, frame.seconds, frame.reason))
         elif isinstance(frame, Unmute):
@@ -500,6 +509,7 @@ class Ears:
             bytes=len(item.audio),
             queued=len(self._playback),
             priority=item.priority,
+            text=item.text,
         )
         playing = self._playing
         if item.priority and playing is not None and not playing.priority and self.voice:

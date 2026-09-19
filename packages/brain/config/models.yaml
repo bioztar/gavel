@@ -8,7 +8,7 @@ profiles:
   fast:
     model: Qwen/Qwen3-30B-A3B-Instruct-2507
     temperature: 0
-    maxOutputTokens: 60
+    maxOutputTokens: 160
     timeoutMs: 4000
     # Nebius models are not flagged for native structured output in Mastra's catalog:
     # put the JSON instructions in the prompt instead of relying on response_format.
@@ -31,6 +31,9 @@ profiles:
 #   nvidia/Nemotron-3_5-Lightning, deepseek-ai/DeepSeek-V4-Flash-0731, zai-org/GLM-5.3-Flash:
 #     reasoning models — they spend the whole token budget thinking and return no JSON. Avoid
 #     for these short, latency-bound calls.
+# Full replay with note extraction, 2026-09-19: Gemma averaged faster spoken-line calls
+# (~0.4-0.9 s versus Qwen's ~0.5-1.2 s), but ignored the constrained wrap-up and spoke as
+# if Karen would send a follow-up. Keep Qwen as the default; Gemma remains an env-override A/B.
 prices:
   nvidia/Nemotron-3_5-Lightning: { input: 0.06, output: 0.24 }
   Qwen/Qwen3-30B-A3B-Instruct-2507: { input: 0.10, output: 0.30 }

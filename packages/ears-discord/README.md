@@ -41,6 +41,8 @@ A no-auth operator page, served by ears itself:
 - **Sessions** — *Start new session with this meeting* ends the current run and sends the
   brain `session.started` with the agenda. Joining voice starts one automatically.
 - **Live transcript** — per-speaker utterances as chunks land, with STT latency and confidence.
+- **What Karen understands** — lobby/meeting state, agenda completion, extracted facts,
+  decisions, unresolved items, and off-topic points parked for later (proxied from brain).
 - **Floor & signals** — who is speaking, open turns ticking, talk-time share (silent
   attendees included), turn counters, STT p50, and a filterable log of every frame plus
   debug events (`stt.result` / `stt.skipped` / `tts.*` / `speak.*`). Click a row for JSON.
@@ -63,8 +65,9 @@ Every frame goes to three places: the WebSocket at `/`, Redis
 `transcripts`, `participants`, `sessions`). The brain can also send `speak` / `stop` via
 `PUBLISH gavel:ears:commands`.
 
-The brain sends `speak` (with `priority: true` to jump the queue and duck the room as
-priority speaker), `stop`, `mute {discordId, seconds}` (capped at 60 s) and `unmute`.
+The brain sends `speak` (with the exact `text` for the console, and `priority: true` to
+jump the queue and duck the room as priority speaker), `stop`,
+`mute {discordId, seconds}` (capped at 60 s) and `unmute`.
 
 ears is also the brain's store — one Postgres for everything. The brain writes parked
 points and notes per person (`/api/memories`), what the chair said (`/api/interventions`)

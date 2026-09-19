@@ -9,24 +9,25 @@ import { INTERVENTION_KINDS, TRIGGERS } from "../../config";
 import type { Intervention } from "../../policy/snapshot";
 import { getEngine } from "../../runtime";
 
+const Park = z.object({
+  discordId: z.string(),
+  name: z.string(),
+  summary: z.string(),
+  quote: z.string(),
+  topicId: z.string().nullable(),
+});
+
 export const InterventionSchema = z.object({
-  trigger: z.enum(TRIGGERS),
+  trigger: z.union([z.enum(TRIGGERS), z.enum(["addressed", "meetingStart"])]),
   kind: z.enum(INTERVENTION_KINDS),
   topicId: z.string().nullable(),
   targetId: z.string().optional(),
   addresseeId: z.string().optional(),
   vars: z.record(z.string(), z.string()),
-  actions: z.array(z.enum(["park", "speak", "mute", "advance"])),
+  actions: z.array(z.enum(["park", "speak", "mute", "advance", "start"])),
   priority: z.boolean(),
-  park: z
-    .object({
-      discordId: z.string(),
-      name: z.string(),
-      summary: z.string(),
-      quote: z.string(),
-      topicId: z.string().nullable(),
-    })
-    .optional(),
+  park: Park.optional(),
+  parks: z.array(Park).optional(),
   muteSeconds: z.number().optional(),
   redirects: z.boolean().optional(),
   question: z.string().optional(),

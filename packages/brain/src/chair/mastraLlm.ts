@@ -13,6 +13,9 @@ const Verdict = z.object({
   verdict: z.enum(["current", "otherTopic", "offAgenda", "unclear"]),
   topicId: z.string().nullish(),
   summary: z.string().nullish(),
+  facts: z.array(z.string()).default([]),
+  decisions: z.array(z.string()).default([]),
+  openItems: z.array(z.string()).default([]),
 });
 
 interface UsageLike {

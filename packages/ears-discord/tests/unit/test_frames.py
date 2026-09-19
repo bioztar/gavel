@@ -23,8 +23,11 @@ def test_stamp_is_camel_case_with_timestamps() -> None:
 
 
 def test_parse_brain_frames() -> None:
-    speak = parse_brain_frame('{"type":"speak","utteranceId":"u1","audio":"AAAA","format":"wav"}')
+    speak = parse_brain_frame(
+        '{"type":"speak","utteranceId":"u1","audio":"AAAA","text":"Karen says hello","format":"wav"}'
+    )
     assert isinstance(speak, Speak) and speak.utterance_id == "u1"
+    assert speak.text == "Karen says hello"
     assert isinstance(parse_brain_frame('{"type":"stop"}'), Stop)
     assert parse_brain_frame('{"type":"speak"}') is None
     assert parse_brain_frame("not json") is None

@@ -53,10 +53,10 @@ export interface Snapshot {
   fallbackQuestion: string;
 }
 
-export type Action = "park" | "speak" | "mute" | "advance";
+export type Action = "park" | "speak" | "mute" | "advance" | "start";
 
 export interface Intervention {
-  trigger: TriggerName;
+  trigger: TriggerName | "addressed" | "meetingStart";
   kind: InterventionKind;
   topicId: string | null;
   /** Who it is about (the talker being redirected). */
@@ -69,6 +69,8 @@ export interface Intervention {
   /** Speak as priority speaker, cutting in. */
   priority: boolean;
   park?: { discordId: string; name: string; summary: string; quote: string; topicId: string | null };
+  /** A shared tangent can involve several people; preserve each person's memory. */
+  parks?: Array<{ discordId: string; name: string; summary: string; quote: string; topicId: string | null }>;
   muteSeconds?: number;
   /** Counts as a redirect the target must follow (escalation watches it). */
   redirects?: boolean;

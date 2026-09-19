@@ -19,8 +19,8 @@ Discord Developer Portal → New Application → Bot.
 - **Bot token** → `DISCORD_EARS_TOKEN`
 - **Privileged intents:** none needed. ears uses Guilds and Guild Voice States, which are not privileged.
 - **Invite it** with the **`bot`** scope, not just `applications.commands`:
-  `https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot&permissions=36701184`
-  (View Channel, Connect, Speak, Use Voice Activity).
+  `https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot&permissions=40895744`
+  (View Channel, Connect, Speak, Use Voice Activity, Mute Members, Priority Speaker).
 - **Server id** → `DISCORD_GUILD_ID`, only needed if the bot is in several servers.
 - Test server: **https://discord.gg/qR6RwKuAh**
 
@@ -55,14 +55,16 @@ TTS endpoint. `packages/ears-discord/src/ears/tts.py` shows the request shape.
 - Also ask about **latency** — round-trip matters more here than quality. An
   interruption that lands three seconds late is not an interruption.
 
-## 4. Nebius — blocks what the chair actually says
+## 4. Nebius — powers what Karen says — ✅ done
 
 Silver sponsor, Token Factory.
 
-- **API key** → `NEBIUS_API_KEY`, base URL → `NEBIUS_BASE_URL`
-- **Which model** to use → `NEBIUS_MODEL`. Ask the mentor which of their hosted models is
-  fastest for a one-sentence completion; the chair's line is short and latency-sensitive,
-  so the biggest model is the wrong choice.
+- **API key** → `NEBIUS_API_KEY`
+- Models live in `packages/brain/config/models.yaml`; `BRAIN_MODEL_FAST` and
+  `BRAIN_MODEL_NORMAL` override them for an A/B run. The selected defaults are
+  `Qwen/Qwen3-30B-A3B-Instruct-2507` for relevance/notes and
+  `Qwen/Qwen3-235B-A22B-Instruct-2507` for spoken lines.
+- The recorded bake-off kept Qwen: Gemma was faster but broke the constrained wrap-up.
 - Their track wants Token Factory used "meaningfully, contributing to core
   functionality" — generating what the chair says qualifies; make sure the README says so.
 

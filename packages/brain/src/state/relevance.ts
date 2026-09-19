@@ -11,6 +11,10 @@ export interface Classification {
   verdict: Verdict;
   topicId?: string | null;
   summary?: string | null;
+  /** Small, displayable pieces of meeting understanding extracted with the same call. */
+  facts?: string[];
+  decisions?: string[];
+  openItems?: string[];
 }
 
 export interface Episode {

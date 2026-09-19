@@ -102,11 +102,17 @@ def test_speak_plays_and_reports_spoken() -> None:
     voice = FakeVoice()
     ears.voice = voice  # type: ignore[assignment]
     sent: list[dict[str, Any]] = []
+    debug: list[dict[str, Any]] = []
     ears.hub.broadcast = sent.append  # type: ignore[method-assign]
+    ears.console.broadcast = debug.append  # type: ignore[method-assign]
     audio = base64.b64encode(b"RIFF....").decode()
-    ears.command(f'{{"type":"speak","utteranceId":"u1","audio":"{audio}"}}')
+    ears.command(
+        f'{{"type":"speak","utteranceId":"u1","audio":"{audio}","text":"Karen says hello"}}'
+    )
     ears.command(f'{{"type":"speak","utteranceId":"u2","audio":"{audio}"}}')
     assert len(voice.played) == 1  # queued, not overlapped
+    queued = next(f for f in debug if f.get("kind") == "speak.queued")
+    assert queued["text"] == "Karen says hello"
     voice.done(None)
     assert sent[-1] == sent[-1] | {"type": "spoken", "utteranceId": "u1", "interrupted": False}
     assert len(voice.played) == 2

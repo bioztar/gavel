@@ -91,6 +91,20 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin:
 .counter b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; }
 .counter span { font-size: 10.5px; color: var(--muted); }
 
+/* brain understanding */
+.brain-panel { border-bottom: 1px solid var(--line); max-height: 46%; overflow: auto; }
+.brain-state { padding: 9px 12px; border-bottom: 1px solid var(--line); }
+.brain-state strong { font-size: 14px; }
+.phase { text-transform: uppercase; letter-spacing: .06em; font: 10px var(--mono); color: var(--accent); }
+.agenda-row { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 6px; padding: 3px 0; color: var(--muted); }
+.agenda-row.current { color: var(--text); font-weight: 600; }
+.agenda-row.done { text-decoration: line-through; opacity: .65; }
+.understanding { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; padding: 9px 12px; }
+.insight { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 7px; min-height: 58px; }
+.insight h3 { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 4px; }
+.insight ul { margin: 0; padding-left: 16px; }
+.insight li + li { margin-top: 3px; }
+
 /* log */
 .log { font-family: var(--mono); font-size: 11.5px; }
 .ev { display: grid; grid-template-columns: 62px 118px minmax(0, 1fr); padding: 3px 12px; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); cursor: pointer; }
@@ -180,6 +194,16 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin:
 
   <!-- ───────────── floor + triggers ───────────── -->
   <section>
+    <h2><span class="grow">What Karen understands</span><span class="phase" id="brain-phase">offline</span></h2>
+    <div class="brain-panel">
+      <div class="brain-state" id="brain-state"><span class="muted">Waiting for brain state…</span></div>
+      <div class="understanding">
+        <div class="insight"><h3>Facts</h3><div id="brain-facts" class="muted">Nothing captured yet.</div></div>
+        <div class="insight"><h3>Decisions</h3><div id="brain-decisions" class="muted">Nothing decided yet.</div></div>
+        <div class="insight"><h3>Left to discuss</h3><div id="brain-later" class="muted">Nothing open.</div></div>
+        <div class="insight"><h3>Off-topics parked</h3><div id="brain-offtopics" class="muted">Nothing parked.</div></div>
+      </div>
+    </div>
     <h2><span class="grow">Floor</span><span class="muted" id="floor-window" style="text-transform:none;letter-spacing:0"></span></h2>
     <div id="floor"></div>
     <div class="counters">
@@ -213,6 +237,7 @@ async function api(method, path, body) {
 
 /* ═════════════ status ═════════════ */
 let status = null;
+let brainState = null;
 function setDot(id, state) { $(id).className = "dot " + (state === true ? "ok" : state === false ? "bad" : state || ""); }
 function renderStatus() {
   if (!status) return;
@@ -232,6 +257,33 @@ function renderStatus() {
 }
 async function pollStatus() { try { status = await api("GET", "/api/status"); renderStatus(); } catch {} }
 setInterval(pollStatus, 3000);
+
+function insightList(values, empty) {
+  if (!values?.length) return `<span class="muted">${esc(empty)}</span>`;
+  return `<ul>${values.map((value) => `<li>${esc(typeof value === "string" ? value : `${value.name}: ${value.summary}`)}</li>`).join("")}</ul>`;
+}
+function renderBrain() {
+  const b = brainState;
+  if (!b) { $("brain-phase").textContent = "offline"; return; }
+  $("brain-phase").textContent = b.agendaFinished ? "agenda finished" : b.phase;
+  const lobby = b.phase === "gathering"
+    ? (b.readyToStart ? `Everyone is here. Say “Karen, let's start the meeting.”` : `Waiting for ${b.missingAttendees.join(", ")}.`)
+    : b.agendaFinished ? "The full agenda is complete." : b.topic ? `Current: ${b.topic.title} · ${clock(b.topic.elapsedSeconds * 1000)}` : "No active topic.";
+  $("brain-state").innerHTML = `<div class="row"><strong class="grow">${esc(b.title || b.purpose || "Meeting")}</strong><span class="phase">${esc(b.phase)}</span></div>
+    <div class="muted" style="margin:3px 0 6px">${esc(lobby)}</div>
+    ${(b.topics || []).map((t, i) => `<div class="agenda-row ${t.done ? "done" : b.topic?.index === i ? "current" : ""}"><span>${t.done ? "✓" : i + 1}</span><span>${esc(t.title)}</span></div>`).join("")}`;
+  $("brain-facts").innerHTML = insightList(b.understanding?.facts, "Nothing captured yet.");
+  $("brain-decisions").innerHTML = insightList(b.understanding?.decisions, "Nothing decided yet.");
+  $("brain-later").innerHTML = insightList(b.understanding?.later, "Nothing open.");
+  $("brain-offtopics").innerHTML = insightList(b.understanding?.offTopics, "Nothing parked.");
+}
+async function pollBrain() {
+  try {
+    brainState = await api("GET", "/api/brain-state");
+    renderBrain();
+  } catch { brainState = null; renderBrain(); }
+}
+setInterval(pollBrain, 1500);
 
 /* ═════════════ meetings ═════════════ */
 const POLICY_DEFAULTS = { floorShareThreshold: 0.6, floorWindowSeconds: 120, floorMinSpeakingSeconds: 45,
@@ -449,7 +501,7 @@ function addTranscript(f) {
 }
 function addChair(text, source, uid, atMs) {
   const el = document.createElement("div"); el.className = "utt chair"; el.id = "say-" + uid;
-  el.innerHTML = `<div class="meta"><span class="who">Chair</span><span>${hhmmss(atMs)}</span>
+  el.innerHTML = `<div class="meta"><span class="who">Karen</span><span>${hhmmss(atMs)}</span>
     <span class="badge">${esc(source)}</span><span class="badge" data-state>synthesizing…</span></div><div class="text">${esc(text)}</div>`;
   $("transcript").append(el); follow();
 }
@@ -531,7 +583,7 @@ function handle(f) {
       if (f.kind === "tts.request") addChair(f.text, "console", f.utteranceId, f.atMs);
       if (f.kind === "tts.result") chairState(f.utteranceId, `tts ${f.ttsMs}ms`);
       if (f.kind === "tts.failed") chairState(f.utteranceId, "tts failed", "var(--bad)");
-      if (f.kind === "speak.queued" && f.source === "brain") { addChair("(audio from brain)", "brain", f.utteranceId, f.atMs); chairState(f.utteranceId, "queued"); }
+      if (f.kind === "speak.queued" && f.source === "brain") { addChair(f.text || "(audio from brain)", "brain", f.utteranceId, f.atMs); chairState(f.utteranceId, "queued"); }
       if (f.kind === "speak.playing") chairState(f.utteranceId, "playing…", "var(--accent)");
       break;
   }
@@ -570,6 +622,7 @@ $("b-clear-log").onclick = () => { $("log").innerHTML = ""; };
 
 (async () => {
   await pollStatus();
+  await pollBrain();
   await loadMeetings(status?.meeting?.id).catch((e) => toast(e.message));
   connect();
 })();

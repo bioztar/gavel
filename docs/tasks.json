@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-19T13:23:02+00:00",
+  "updated": "2026-09-19T15:57:46+02:00",
   "freeze": "2026-09-20T11:00:00+02:00",
   "demos": "2026-09-20T14:00:00+02:00",
   "people": {
@@ -227,7 +227,7 @@
       ],
       "status": "done",
       "spine": false,
-      "note": "http://localhost:8787/console: meeting + agenda setup, start/end session, live transcript, floor/turn debug, signal log, say-box through SLNG TTS. Every frame recorded to Postgres."
+      "note": "http://localhost:8787/console: meeting + agenda setup, lobby readiness, Karen's exact lines, live transcript, facts/decisions/open items/parking lot, floor/turn debug, signal log, and say-box."
     },
     {
       "id": "B1",
@@ -289,7 +289,7 @@
       ],
       "status": "done",
       "spine": true,
-      "note": "escalate / offAgenda (park + priority redirect) / floorHog / topicOverrun / silence (named invite, round robin). Pure, tested."
+      "note": "Gathering lobby + addressed start; escalate / individual or group offAgenda / floorHog / topicOverrun / silence. Pure policy, tested."
     },
     {
       "id": "B6a",
@@ -329,21 +329,21 @@
       ],
       "status": "done",
       "spine": true,
-      "note": "SLNG TTS (fish, ~1.2 s), cached per line → speak frame with priority."
+      "note": "SLNG TTS (fish, ~1.2 s), cached per line → speak frame with priority and exact text for the ears transcript."
     },
     {
       "id": "B8",
       "lane": "brain",
-      "title": "Web stage — agenda, live talk-time bars, what the chair said",
-      "owner": "vitaly",
+      "title": "Operator view — agenda, talk-time, Karen's lines and meeting understanding",
+      "owner": "artem",
       "effort": "1.5h",
       "deps": [
         "B2",
         "B4"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": false,
-      "note": "The visible half of the judged moment."
+      "note": "Delivered in the ears console: agenda status/completion, live talk-time, Karen's exact lines, facts, decisions, open items, and parked off-topics."
     },
     {
       "id": "B11",
@@ -384,9 +384,9 @@
       "deps": [
         "E6"
       ],
-      "status": "doing",
+      "status": "done",
       "spine": false,
-      "note": "Transcripts drive off-agenda detection + parking lot; minutes not yet."
+      "note": "Transcripts drive relevance, individual/group tangent detection, parking, content-aware lines, and structured facts/decisions/open items shown in ears."
     },
     {
       "id": "V1",
@@ -485,9 +485,9 @@
       "deps": [
         "Q1"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": false,
-      "note": "CONTRACT vs frames.py, .env.example vs settings actually read, README's dead packages/chair layout, new package endpoints."
+      "note": "Docs audited: contract/wire/lifecycle/state UI, env names, root README, plan, quality record, credentials, handover, and board now match the implemented code."
     },
     {
       "id": "G1",

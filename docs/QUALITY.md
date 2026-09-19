@@ -32,15 +32,21 @@ the documentation fixes are the ones worth chasing on a hackathon clock:
 | Documentation — missing docstring, stale README, an undocumented env var, a contract field that no longer matches the code | Fix in the same pass. These are the cheap ones and they are exactly what drifts fastest in a 13-hour build |
 | Style / complexity / dead code | Note here, fix only after code freeze risk is zero |
 
-**Documentation fixes we already know we owe**, before any tool tells us:
+**Documentation audit completed 2026-09-19:**
 
-- [ ] `docs/CONTRACT.md` vs `packages/ears-discord/src/ears/frames.py` — the additive fields
-      (`seq`, `final`, `turnId`, `speaker`, `confidence`) must match the code exactly.
-- [ ] `.env.example` vs every setting actually read — `DISCORD_VOICE_CHANNEL_ID`, `STT_MODE`,
-      `CHUNK_MAX_MS`, `TURN_GAP_MS` appear in code or README but not in `.env.example`.
-- [ ] `README.md` still describes a `packages/chair` layout that no longer exists.
-- [ ] The two new packages (`chair-video`, `calendar`) need their endpoints in `CONTRACT.md`.
-- [ ] `fleet`-style docs list Vonage as forfeit in one place and core in another.
+- [x] `docs/CONTRACT.md` matches the additive transcript, turn, moderation, persistence,
+      exact-spoken-text, meeting-lifecycle, and brain-state fields used by the code.
+- [x] `.env.example` includes the active brain/ears seam and `BRAIN_STATE_URL`; package
+      READMEs document the remaining optional settings and defaults.
+- [x] Root README reflects the actual `packages/brain` and `packages/ears-discord` layout
+      and separates implemented sponsor integrations from planned ones.
+- [x] Planned packages that do not exist (`chair-video`, `calendar`) are no longer described
+      as implemented endpoints. Vonage/fal are consistently marked planned.
+- [x] `HANDOVER.md`, `PLAN.md`, and `tasks.json` now reflect the implemented brain and UI.
+
+**Local quality gate:** brain has 26 passing Vitest tests plus `tsc --noEmit`; ears has
+41 passing pytest tests plus Ruff and Pyright with zero findings. The only test output is
+two dependency deprecation warnings from Starlette's current TestClient stack.
 
 ## Galtea — evals of the chair
 

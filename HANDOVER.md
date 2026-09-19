@@ -1,27 +1,55 @@
-# HANDOVER — gavel — 2026-09-19 13:10
-## State: docs-and-plan complete, board live, zero code written, zero credentials obtained.
+# HANDOVER — gavel — 2026-09-19 15:57
 
-## Done this session
-- Repo created, public, `bioztar/gavel`. README, CONTRACT (agenda schema + wire frames), PLAN, WORKING-AGREEMENT.
-- ears/brain seam designed: ears owns one call connection and decides nothing, brain decides everything and imports no call SDK.
-- Two ears packages — `ears-discord`, `ears-vonage` — interchangeable behind the wire.
-- `docs/CREDENTIALS.md` — six blockers in blocking order.
-- Build board live at https://bioztar.github.io/gavel/ (Pages from `main` `/docs`), data in `docs/tasks.json`.
+## State
 
-## In flight / partially done
-- Nothing running. Next action is human: credentials + the split.
+The Discord meeting spine and the full brain are implemented. Karen can gather a room,
+start only on an explicit addressed instruction, run the agenda, balance participation,
+park individual or shared tangents, answer direct questions, and expose structured meeting
+understanding in the ears console. The next milestone is a real multi-person end-to-end
+call, not more offline policy work.
 
-## Next steps (ordered)
-1. Vitaly: Discord app + token + test server (S2), then sponsor keys from mentors on site (S1).
-2. Get Artem's GitHub handle, add as collaborator, agree owners on the board (S3).
-3. E1 spike — join voice, speaking events per user, play a WAV. One hour. Everything depends on it.
-4. B1/B2 in parallel — agenda state + talk-time machine, offline against `packages/contract/fixtures/replay.jsonl`.
+## Implemented
 
-## Blockers / needs human
-- All six credentials. Mentors are on site today only.
-- Owner assignment on the board: every task currently `vitaly` / `Artem` / `either` is provisional.
+- `ears-discord`: Discord/DAVE voice receive, per-user streaming SLNG STT with diarization,
+  playback/priority/mute commands, turn shaping, Postgres/Redis recording, meeting/session
+  CRUD, and the operator console.
+- `brain`: validated agendas, `gathering → active → finished` lifecycle, explicit wake/start
+  instruction, talk ledger, deterministic triggers, group off-topic handling, persistent
+  parking lot, Nebius relevance/notes and spoken-line generation, template fallback, SLNG
+  TTS, and Mastra workflow traces.
+- Console: exact text Karen is speaking, transcript and floor meters, agenda completion,
+  missing-attendee/readiness state, facts, decisions, unresolved items, and parked topics.
+- Contract: `speak.text` carries the exact spoken line for operator UIs; ears proxies brain's
+  read-only state at `/api/brain-state`.
+- Verification: brain 26 tests + TypeScript; ears 41 tests + Ruff + Pyright; deterministic
+  stub replay and two real Nebius model replays.
 
-## Key files touched
-- docs/CONTRACT.md — the only thing both halves must agree on; change it together or not at all.
-- docs/tasks.json — the board's data. Edit a status, push, board updates.
-- docs/PLAN.md — chunks, deps, schedule, cut order.
+## Model decision
+
+Keep the configured Qwen pair. On the six-minute replay, the final Qwen run used 33 calls,
+16,676 input tokens, 1,921 output tokens, and approximately $0.0027. Gemma returned lines
+faster but violated the constrained wrap-up and spoke as if Karen would do follow-up work.
+
+## Next steps
+
+1. Run S4: ears + brain in one real Discord call with all expected attendees.
+2. Verify the spoken opening, direct-address response, shared tangent redirect, and console
+   understanding in the browser.
+3. Export the real session with `just export-replay` and complete E4.
+4. Record the short demo/dry run. Only then spend time on Vonage, fal video, or the fire drill.
+
+## Known limits
+
+- Meeting understanding is session-memory in brain; durable rows currently cover transcripts,
+  interventions, model calls, and parked memories, not the extracted facts/decisions list.
+- Vonage, fal video, calendar ingestion, concierge, and emergency-demo SMS are planned but
+  not implemented in this repository state.
+- The ears test suite emits two upstream deprecation warnings from Starlette's TestClient;
+  project lint/type checks are clean.
+
+## Run
+
+1. `cd packages/ears-discord && just run`
+2. `cd packages/brain && pnpm start`
+3. Open `http://127.0.0.1:8787/console`, create/start a meeting session, gather everyone,
+   then say “Karen, let's start the meeting.”

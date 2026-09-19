@@ -1,6 +1,6 @@
 # brain — the chair
 
-Every decision gavel makes. It tracks who has held the floor and for how long, keeps the
+Every decision Karen, gavel's chair, makes. She tracks who has held the floor and for how long, keeps the
 meeting on its agenda, parks off-agenda points for later, invites quiet people by name,
 decides when to cut in, writes the sentence, turns it into speech, and moderates through
 ears.
@@ -31,6 +31,12 @@ can decide, but it cannot speak.
 
 ## What the chair does
 
+A voice connection opens a **gathering lobby**, not the meeting clock. Karen waits until
+every expected attendee is present and someone says an addressed instruction such as
+“Karen, let's start the meeting.” She then states the agenda, invites a named person to
+open the first topic, and starts moderation. Other requests addressed to Karen get a
+spoken answer as well.
+
 Code decides **whether** to act and **what action** to take. The model only writes **what
 to say**, and a YAML template is always there as a fallback. Triggers, checked every 250 ms
 in this order, with at most one per tick:
@@ -38,7 +44,7 @@ in this order, with at most one per tick:
 | Trigger | When | Does |
 |---|---|---|
 | **escalate** | Someone redirected is still talking `escalateAfterSeconds` after the chair finished | Firm redirect. With `allowMute`, it announces the mute out loud and then mutes for `muteSeconds`. The host is never muted |
-| **offAgenda** | The floor holder has been off the agenda for `offAgendaGraceSeconds` | **Parks** the point under their name in ears, then cuts in as priority speaker: acknowledge → "parked for later" → back to the topic with a question. A jump to a *later* agenda item gets "we'll get there" instead, and nothing is parked |
+| **offAgenda** | The floor holder has been off the agenda for `offAgendaGraceSeconds` | **Parks** the point under their name in ears, then cuts in as priority speaker: acknowledge → "parked for later" → back to the topic with a question. When several people share the tangent, Karen addresses the room and parks it for everyone involved. A jump to a *later* agenda item gets "we'll get there" instead, and nothing is parked |
 | **floorHog** | Over `floorShareThreshold` of the recent window, with others quiet | Thanks them, recaps, and hands the floor to someone by name |
 | **topicOverrun** | Topic at budget × `topicOverrunFactor` | Moves on. After the last topic it wraps up and reads the parking lot back |
 | **silence** | Nobody has spoken for `silenceSeconds` | Invites a specific person with one of the topic's questions: mustHear first, then the owner, then whoever has spoken least on this topic. If everyone has spoken, it runs a quick round |
@@ -51,7 +57,8 @@ never embarrassing anyone.
 **Memory.** Parked points go into ears' `memories` table under the person who raised them
 and stay open across meetings. At the next session's start the chair loads the open ones
 for everyone expected, and `/state` shows them. Every intervention lands in
-`interventions`, and every model call in `llm_calls` with tokens and cost.
+`interventions`, and every model call in `llm_calls` with tokens and cost. `/state` also
+exposes session facts, decisions, open items, and parked topics to the ears console.
 
 ## Tuning: everything is YAML (`config/`, hot-reloaded)
 
@@ -68,8 +75,8 @@ the last good config stays. To A/B a change, copy `config/` and run
 
 ## Cost
 
-Measured on `replay.offagenda.jsonl`, a 6-minute, three-person meeting: **32 model calls,
-~12.6k input and ~0.9k output tokens, $0.0019.**
+Measured on `replay.offagenda.jsonl`, a 6-minute, three-person meeting after adding note
+extraction: **33 model calls, 16.7k input and 1.9k output tokens, $0.0027.**
 
 - **Stable prefix.** Every call is `system prompt + session context block + short tail`.
   The context block (purpose, agenda, attendees) is built once per session and stays
@@ -85,7 +92,8 @@ Measured on `replay.offagenda.jsonl`, a 6-minute, three-person meeting: **32 mod
 
 Model bake-off notes are in `config/models.yaml`. Reasoning models (Nemotron-Lightning,
 DeepSeek-V4-Flash, GLM-5.3-Flash) spend their whole token budget thinking; avoid them for
-these calls.
+these calls. Gemma was faster in the full replay but broke the constrained wrap-up, so the
+Qwen pair remains the default.
 
 ## Layout
 

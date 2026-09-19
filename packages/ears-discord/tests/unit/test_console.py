@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi.testclient import TestClient
+from pytest_httpx import HTTPXMock
 
 from ears.app import Ears
 from ears.bus import Bus
@@ -117,4 +118,16 @@ def test_console_page_is_served() -> None:
     _, client, _ = make()
     page = client.get("/console")
     assert page.status_code == 200 and "ears console" in page.text
+    assert "What Karen understands" in page.text
     assert client.get("/", follow_redirects=False).headers["location"] == "/console"
+
+
+def test_brain_state_is_proxied_for_the_console(httpx_mock: HTTPXMock) -> None:
+    _, client, _ = make()
+    httpx_mock.add_response(
+        url="http://127.0.0.1:8788/state",
+        json={"chairName": "Karen", "phase": "gathering", "readyToStart": True},
+    )
+    response = client.get("/api/brain-state")
+    assert response.status_code == 200
+    assert response.json() == {"chairName": "Karen", "phase": "gathering", "readyToStart": True}

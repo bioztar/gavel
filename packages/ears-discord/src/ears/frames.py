@@ -160,6 +160,8 @@ class Speak(Frame):
     type: Literal["speak"] = "speak"
     utterance_id: str
     audio: str  # base64
+    # Additive: lets the operator console show exactly what the brain is saying.
+    text: str | None = None
     format: str | None = None
     # additive: jump the queue, cut off non-priority playback, duck the room.
     priority: bool = False

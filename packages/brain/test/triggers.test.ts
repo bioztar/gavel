@@ -35,6 +35,18 @@ describe("offAgenda", () => {
     expect(iv?.vars.otherTopicTitle).toBe("The date");
   });
 
+  it("redirects a shared tangent as a group and parks it for everyone involved", () => {
+    const episodes = [
+      { id: "ana", episode: { ...episode(now - 24_000), summary: "pricing page redesign" } },
+      { id: "marc", episode: { ...episode(now - 22_000), summary: "pricing redesign" } },
+    ];
+    const people = [person("vit"), person("ana"), person("marc", { holding: true })];
+    const iv = evaluate(snap({ people, episodes }));
+    expect(iv).toMatchObject({ kind: "groupOffAgenda", actions: ["park", "speak"], priority: true });
+    expect(iv?.targetId).toBeUndefined();
+    expect(iv?.parks?.map((p) => p.discordId)).toEqual(["ana", "marc"]);
+  });
+
   it("respects the gap between interventions and never talks over itself", () => {
     const ep = [{ id: "marc", episode: episode(now - 30_000) }];
     expect(evaluate(snap({ people: talking, episodes: ep, lastInterventionAt: now - 10_000 }))).toBeNull();

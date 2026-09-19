@@ -6,11 +6,13 @@ freeze **Sunday 11:00**, demos 14:00, judging 16:00, awards 17:30. Barcelona tim
 Roughly eleven hours Saturday and two Sunday morning. This plan is sized for thirteen
 and has cut lines in it on purpose.
 
-## Where we are — Saturday 14:30
+## Where we are — Saturday 15:57
 
-**ears-discord is done through tier 2.** E1, E2, E3, E5 and E6 have landed, plus an
-operator console that wasn't in the plan. E4 has its script but still needs a real call
-recorded. The brain can now integrate against a live call instead of the fixture.
+**The Discord spine and brain are implemented and tested.** ears-discord has live voice,
+streaming STT, playback, persistence, and the operator console. Brain has the gathering
+lobby, explicit addressed start, agenda/talk-time policy, group tangent detection,
+cross-session parking, structured meeting notes, Nebius composition, SLNG TTS, Mastra
+traces, and an offline replay. The next critical task is the real end-to-end call (S4).
 
 - **Voice in and out works on Discord, E2EE included.** Discord enforces DAVE end-to-end
   encryption on voice, and no released library decrypts it on receive. ears is Python on
@@ -28,15 +30,18 @@ recorded. The brain can now integrate against a live call instead of the fixture
   Postgres. The brain can send `speak`/`stop` on Redis as well as the WebSocket.
 - **Operator console** at `http://localhost:8787/console`: set up the meeting and agenda,
   start and end sessions, watch the live transcript, see floor/turn state and a signal log,
-  and use a say-box that speaks into the call through SLNG TTS.
-- **Credentials:** Discord, SLNG and fal are in hand. Vonage is in progress. Nebius and
-  Mastra are still marked todo on the board.
+  see Karen's exact spoken lines and live understanding (facts, decisions, open items,
+  agenda completion, parking lot), and use a say-box through SLNG TTS.
+- **Meeting start is explicit.** A session is a lobby until expected attendees are present
+  and somebody says “Karen, let's start the meeting.” No timer starts it accidentally.
+- **Model bake-off:** Qwen remains the default. Gemma was faster but violated constrained
+  wrap-up behavior. The final Qwen replay used 33 calls and about $0.0027.
 
 Run it with `just setup && just run` in `packages/ears-discord`
 ([README](../packages/ears-discord/README.md)). Test server: https://discord.gg/qR6RwKuAh.
 
-**Next for ears:** record a real multi-person call for E4, then stand by for the 16:00
-integration checkpoint (S4).
+**Next:** run S4 on a real multi-person Discord call, export that session for E4, then
+decide whether the remaining time goes to the second surface or demo polish.
 
 ## The spine
 
@@ -102,8 +107,8 @@ are dropped rather than decoded into noise.
 The second call surface. Same wire, so the brain is untouched. It is a **browser tab**
 that joins the session as an ordinary participant — no headless Chrome, no deployment.
 
-| # | Chunk | Effort | Depends on |
-|---|---|---|---|
+| # | Chunk | Effort | Depends on | Status |
+|---|---|---|---|---|
 | V1 | Join a session, subscribe to everyone, threshold `audioLevelUpdated` into `speaking.start/end` frames over the wire | 1h | contract |
 | V2 | Publish the chair's voice — `AudioContext` destination as the publisher's `audioSource`, fed by the brain's `speak` frames | 1h | V1 |
 | V3 | Publish the chair's face — canvas `captureStream()` as the video source, painted with fal frames | 1h | V1, B9 |
@@ -121,18 +126,18 @@ one where the chair's face can be in the call.
 
 | # | Chunk | Effort | Depends on |
 |---|---|---|---|
-| B1 | Load and validate the agenda file. Session state object | 45m | contract |
-| B2 | Talk-time state machine — seconds per person, rolling-window share, from speaking events | 1h | contract |
-| B3 | Replay harness — run `replay.jsonl` through the state machine at speed or real time | 45m | B2 |
-| B4 | Agenda clock — current topic, spent vs budget, which topics are now at risk | 1h | B1 |
-| B5 | **Interrupt policy** — the triggers. Deterministic, tunable from the agenda's `policy` block | 1.5h | B2, B4 |
-| B6a | Mastra harness — the chair as a Mastra agent: Nebius as the model, SLNG and fal as tools, traces on. Deterministic triggers stay outside it | 45m | B5 |
-| B6 | Nebius — given the trigger + state, one sentence in the chair's voice, generated through the Mastra agent. Falls back to a template if the call is slow or fails | 1h | B6a |
-| B7 | SLNG TTS → `speak` frame over the wire | 1h | B6 |
-| B8 | Web stage — agenda, live talk-time bars, current topic, what the chair just said | 1.5h | B2, B4 |
-| B11 | Fire drill — hazard word in a transcript, chair breaks in, offers to alert emergency services, host confirms, SMS goes out. Demo number only | 1h | E6, V5, B6a |
-| B9 | fal lip-sync video of the chair — driven by the TTS audio the chair is about to speak, called as a Mastra tool. Idle is a still frame | 1.5h | B8, B6a, B7 |
-| B10 | Tier 2 — consume `transcript`, topic-coverage detection, content-aware lines, minutes | 1.5h | E6 |
+| B1 | Load and validate the agenda file. Session state object | 45m | contract | done |
+| B2 | Talk-time state machine — seconds per person, rolling-window share, from speaking events | 1h | contract | done |
+| B3 | Replay harness — run `replay.jsonl` through the state machine at speed or real time | 45m | B2 | done |
+| B4 | Agenda clock — current topic, spent vs budget, which topics are now at risk | 1h | B1 | done |
+| B5 | **Interrupt policy** — deterministic triggers, including group tangents | 1.5h | B2, B4 | done |
+| B6a | Mastra harness — agents, tools, traced intervention workflow | 45m | B5 | done |
+| B6 | Nebius — relevance/notes plus one sentence in Karen's voice, with template fallback | 1h | B6a | done |
+| B7 | SLNG TTS → `speak` frame over the wire, including exact display text | 1h | B6 | done |
+| B8 | Operator view — agenda, talk-time, Karen's lines, facts, decisions and parking lot | 1.5h | B2, B4 | done in ears console |
+| B11 | Fire drill — hazard heard, host confirms, demo SMS goes out | 1h | E6, V5, B6a | todo |
+| B9 | fal face/video | 1.5h | B8, B6a, B7 | todo |
+| B10 | Transcripts, relevance, content-aware lines and structured minutes-lite | 1.5h | E6 | done |
 
 B6 always has a template fallback. A model call inside a live interruption is a latency
 risk on stage, and a chair that says a slightly generic sentence on time beats a clever
@@ -143,6 +148,13 @@ one that arrives after the moment has passed.
 Deterministic triggers, so it fires predictably in front of judges. Thresholds come from
 the agenda's `policy` block so they can be tuned in the room:
 
+- **Explicit opening** — before the active phase Karen only answers direct requests. Once
+  everyone expected is present, an addressed start instruction makes her read the agenda
+  and hand the first topic to a named person.
+- **Off agenda** — after a grace period, park the tangent and return to the current topic.
+  If several people share it, address the room rather than blaming the current speaker.
+- **Escalation** — if a redirected speaker continues, issue a firm follow-up; optionally
+  announce and apply a short mute, never to the host.
 - **Floor hog** — one person holds more than 60% of speaking time over a rolling two
   minutes, has spoken at least 45 seconds, and someone else present has been quiet.
 - **Topic overrun** — a topic passes its budget by 20%.

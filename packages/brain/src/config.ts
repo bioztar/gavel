@@ -80,8 +80,13 @@ export const PolicyConfig = z.object({
 export type PolicyConfig = z.infer<typeof PolicyConfig>;
 
 export const INTERVENTION_KINDS = [
+  "startMeeting",
+  "waitingForPeople",
+  "addressed",
   "offAgenda",
+  "groupOffAgenda",
   "otherTopic",
+  "groupOtherTopic",
   "floorHog",
   "escalateMute",
   "escalateFirm",

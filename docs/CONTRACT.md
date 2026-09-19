@@ -94,7 +94,7 @@ frames from both surfaces and that is the entire point of the seam.
 
 | `type` | Does | Fields |
 |---|---|---|
-| `speak` | Play this audio into the voice channel | `utteranceId`, `audio` (base64), `format` |
+| `speak` | Play this audio into the voice channel | `utteranceId`, `audio` (base64), `format`; additive `text` is the exact spoken line for operator UIs |
 | `stop` | Stop current playback | — |
 
 The brain does its own TTS and hands over finished audio. The ears do not know what a
@@ -123,6 +123,12 @@ sentence is.
 | `session.started` | A run of a meeting begins — from the ears console, or on joining voice. Also re-sent on connect | `sessionId`, `meetingId`, `title`, `context`, `agenda` (§1 shape with `sessionId` filled, or `null`) |
 | `session.ended` | Console ended it, or a new one started | `sessionId` |
 
+`session.started` opens a **gathering lobby**, not the agenda clock. Brain waits for all
+`agenda.attendees` to appear in the latest participant set and for a final transcript
+addressed to Karen with an explicit start instruction (for example, “Karen, let's start
+the meeting”). It then speaks the agenda, names the first speaker, and enters the active
+phase. Joining voice or reaching a wall-clock time never starts moderation by itself.
+
 ### Additive — moderation (brain → ears, and back)
 
 The chair's hands in the call. ears decides nothing: it does what it is told, and owns
@@ -150,6 +156,13 @@ transcripts; Mastra's own storage uses the same database in a `mastra` schema.
 | `POST /api/interventions` | `sessionId`, `kind`, `targetId?`, `addresseeId?`, `topicId?`, `line`, `source` (`llm` \| `template` \| `cache`), `actions[]`, `composeMs?`, `ttsMs?` | What the chair said, and why |
 | `POST /api/llm-calls` | `sessionId`, `agent`, `model`, `inputTokens`, `outputTokens`, `cachedTokens`, `latencyMs`, `costUsd`, `cacheHit` | Token accounting; returns the session's running totals |
 | `GET /api/sessions/{id\|current}/usage` | — | Totals for a session |
+| `GET /api/brain-state` | — | Same-origin proxy to brain's live `/state` view for the ears console; URL comes from `BRAIN_STATE_URL` |
+
+Brain's read-only `GET http://127.0.0.1:8788/state` view includes the meeting phase
+(`idle`, `gathering`, `active`, `finished`), readiness/missing attendees, agenda completion,
+topic and talk-time state, Karen's interventions, model usage, and `understanding`:
+`facts`, `decisions`, `openItems`, `later`, and `offTopics`. This is a UI/read model, not
+an additional command channel.
 
 ### Additive — policy
 
@@ -167,7 +180,8 @@ The same frames are also on Redis (`XADD` / `PUBLISH gavel:ears:events`), and `s
 
 - Either side may restart. The brain re-sends nothing; the ears re-announce `ready` and
   `participants` on reconnect.
-- The brain keeps all state. The ears keep none beyond the live connection.
+- Brain keeps live moderation state. ears owns durable transcripts, memories,
+  interventions, and model-usage rows in its store.
 - If the wire drops mid-call the ears stay in the channel silently rather than leaving.
 
 ---
