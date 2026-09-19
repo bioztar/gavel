@@ -8,7 +8,7 @@ comes from the .ics itself.
 from __future__ import annotations
 
 from .ics_parser import ParsedInvite, TopicDraft
-from .schema import ContractAgenda
+from .schema import EARS_DEFAULT_POLICY, ContractAgenda
 
 
 def _purpose(invite: ParsedInvite, description: str) -> str:
@@ -104,9 +104,13 @@ def build_agenda(
         "attendees": attendees,
         "topics": topics,
     }
-    # Only present when the invite genuinely overrides something — see schema.py.
+    # Only present when the invite genuinely overrides something — see
+    # schema.py. `ears`'s Agenda.policy does not deep-merge a supplied dict,
+    # so we merge the override onto its full default table ourselves: the
+    # wire payload always carries all ten keys, only the overridden ones
+    # changed, never a partial dict that would drop the rest for this session.
     if policy_overrides:
-        agenda["policy"] = dict(policy_overrides)
+        agenda["policy"] = {**EARS_DEFAULT_POLICY, **policy_overrides}
     # Fails loudly, offline, before this ever reaches ears or the brain.
     ContractAgenda.model_validate(agenda)
     return agenda

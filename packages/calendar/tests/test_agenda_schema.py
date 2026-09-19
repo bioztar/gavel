@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import ast
+import re
 from pathlib import Path
 
 from gavel_calendar.agenda import build_agenda
 from gavel_calendar.ics_parser import parse_ics
-from gavel_calendar.schema import ContractAgenda
+from gavel_calendar.schema import EARS_DEFAULT_POLICY, ContractAgenda
 
 FIXTURE = Path(__file__).parent.parent / "fixtures" / "demo.ics"
+EARS_MEETINGS = (
+    Path(__file__).parent.parent.parent / "ears-discord" / "src" / "ears" / "meetings.py"
+)
 
 
 def test_demo_ics_parses() -> None:
@@ -65,7 +70,10 @@ def test_demo_agenda_matches_contract_shape() -> None:
     assert "policy" not in agenda
 
 
-def test_policy_override_sends_only_the_overridden_keys() -> None:
+def test_policy_override_is_merged_onto_the_full_default_table() -> None:
+    # ears's Agenda.policy does not deep-merge -- a partial dict would drop
+    # the other nine keys for this session. A single-key override must still
+    # produce all ten on the wire.
     invite = parse_ics(FIXTURE.read_bytes())
     agenda = build_agenda(
         invite,
@@ -73,8 +81,21 @@ def test_policy_override_sends_only_the_overridden_keys() -> None:
         attendee_map={},
         policy_overrides={"silenceSeconds": 20},
     )
-    assert agenda["policy"] == {"silenceSeconds": 20}
+    assert len(agenda["policy"]) == 10
+    assert agenda["policy"] == {**EARS_DEFAULT_POLICY, "silenceSeconds": 20}
+    assert agenda["policy"]["floorShareThreshold"] == EARS_DEFAULT_POLICY["floorShareThreshold"]
     ContractAgenda.model_validate(agenda)
+
+
+def test_policy_defaults_match_ears_exactly() -> None:
+    # Guards against drift: this package keeps its own copy of ears's
+    # defaults (schema.py:EARS_DEFAULT_POLICY) solely to merge overrides
+    # before sending. If ears's table ever changes, this test catches it.
+    source = EARS_MEETINGS.read_text()
+    match = re.search(r"DEFAULT_POLICY:.*?=\s*(\{.*?\n\})", source, re.DOTALL)
+    assert match, "could not find DEFAULT_POLICY in ears-discord's meetings.py"
+    ears_default_policy = ast.literal_eval(match.group(1))
+    assert ears_default_policy == EARS_DEFAULT_POLICY
 
 
 def test_attendee_map_overrides_email_fallback() -> None:
