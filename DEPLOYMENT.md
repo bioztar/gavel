@@ -2,8 +2,8 @@
 
 **Status:** live and validated
 **Host:** `uk-lon-1` (173.234.79.39) · **Domain:** https://gavel.pro7ocol.com
-**Deployed commit:** `862b666` (`merge: chair/director — Director livestream spike, stage page, fal-proxy`)
-**Deployed at:** 2026-09-19 16:08 UTC · **Last validated:** 2026-09-19 16:09 UTC
+**Deployed commit:** `673cae8` + the calendar env wiring below (`merge: chair/compose — the compose front door`)
+**Deployed at:** 2026-09-19 16:20 UTC · **Last validated:** 2026-09-19 16:21 UTC
 **Checkout on the box:** `/home/coder/DEV/gavel` · **Compose project:** `gavel`
 
 ---
@@ -94,7 +94,8 @@ The whole host routes to `calendar`. What answers on it:
 |---|---|---|
 | `https://gavel.pro7ocol.com/board` | 200 | The invite board — this is the demo URL |
 | `https://gavel.pro7ocol.com/health` | 200 | `{"status":"ok","pending":0,"feeds":[]}` |
-| `https://gavel.pro7ocol.com/` | **404** | Known gap, see below |
+| `https://gavel.pro7ocol.com/` | 307 → `/board` | A judge types the bare domain and lands on the board |
+| `https://gavel.pro7ocol.com/compose` | 200 | The compose front door — free-text brief → confirm → meeting |
 | `https://gavel.pro7ocol.com/console` | 404 | Correct — the operator console is deliberately not exposed |
 | `http://gavel.pro7ocol.com/board` | 301 → `https://…/board` | HTTP is redirected, not served |
 
@@ -301,11 +302,10 @@ Brain is connected to the wire:
 
 ## Known gaps
 
-1. **`https://gavel.pro7ocol.com/` returns 404.** Traefik routes the whole host to `calendar`,
-   but the board lives at `/board` and a judge types the bare domain. The `307 → /board`
-   redirect is written and committed on the `chair/compose` branch (`29c81b6`); it goes live
-   when that branch merges. Not fixed on `main` in parallel because it would have conflicted
-   with that branch.
+1. **`RESEND_API_KEY` and `DISCORD_MEETING_URL` are unset in the container.** The compose
+   front door works and creates the meeting; the mailer runs dry-run by design and the `.ics`
+   `LOCATION`/join link is empty until `DISCORD_MEETING_URL` lands. Both are Vitaly's to
+   supply. Live email send is therefore **unverified**.
 2. **Recurring calendar events are not expanded.** The feed poller does not handle `RRULE`, so
    a weekly standup in a subscribed calendar produces one occurrence, not a series.
 3. **No feeds configured** — `CALENDAR_ICS_FEEDS` is empty, so the poller runs against nothing.

@@ -144,6 +144,16 @@ services:
       CALENDAR_ICS_FEEDS: ${CALENDAR_ICS_FEEDS:-}
       CALENDAR_FEED_WINDOW_HOURS: ${CALENDAR_FEED_WINDOW_HOURS:-24}
       EARS_API_URL: http://ears:8787
+      # compose front door: without NEBIUS_API_KEY the brief falls back to the
+      # heuristic parser (logs compose.llm_skipped), which reads a bare time but
+      # not intent. RESEND_API_KEY empty keeps the mailer in dry-run by design.
+      NEBIUS_API_KEY: ${NEBIUS_API_KEY:-}
+      NEBIUS_BASE_URL: ${NEBIUS_BASE_URL:-https://api.tokenfactory.nebius.com/v1}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      COMPOSE_FROM_EMAIL: ${COMPOSE_FROM_EMAIL:-}
+      COMPOSE_DEFAULT_ATTENDEES: ${COMPOSE_DEFAULT_ATTENDEES:-}
+      COMPOSE_TIMEZONE: ${COMPOSE_TIMEZONE:-Europe/Madrid}
+      DISCORD_MEETING_URL: ${DISCORD_MEETING_URL:-}
     ports:
       - "127.0.0.1:${CALENDAR_PORT:-8790}:8790"
     networks:
