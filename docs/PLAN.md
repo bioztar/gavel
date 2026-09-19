@@ -205,6 +205,15 @@ call (Vonage Messages). Depth of API use, in one twenty-second beat.
 line, everything downstream runs for real. Say so in the demo — a scripted input into a real
 pipeline is honest, a faked output is not.
 
+## Decisions
+
+- **Mastra stays thin** (decided 2026-09-19, Vitaly). It orchestrates the chair's outward
+  calls — Nebius as the model, SLNG and fal as tools, traces on — and nothing more. The
+  interrupt triggers stay plain deterministic code outside the framework. Nothing that
+  decides *whether* to speak may sit behind an agent loop; the framework only shapes *what*
+  is said and carries the calls. Budget for B6a is 45 minutes. If it costs more than that on
+  the day, drop to direct SDK calls and keep the beat.
+
 ## Tracks
 
 | Track | Qualifies via | Status |

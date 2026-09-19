@@ -394,7 +394,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
     {
       "id": "B6a",
       "lane": "brain",
-      "title": "Mastra harness — the chair as a Mastra agent, Nebius as its model, SLNG + fal as tools",
+      "title": "Mastra orchestration, thin — Nebius as the model, SLNG + fal as tools",
       "owner": "vitaly",
       "effort": "45m",
       "deps": [
@@ -402,7 +402,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       ],
       "status": "todo",
       "spine": false,
-      "note": "Thin wrap. The deterministic triggers stay plain code outside it — the framework must never decide whether to interrupt. Traces are what a judge looks at."
+      "note": "Decided thin (2026-09-19). Basic orchestration and traces only. Triggers stay plain code outside it. If it costs more than 45m on the day, fall back to direct SDK calls."
     },
     {
       "id": "B6",
