@@ -6087,7 +6087,7 @@ function joinSession(evt) {
   currentToken = evt.token;
   setStatus("connecting");
   conn = import_client.fal.realtime.open((0, import_wma.wma)(evt.endpointId), {
-    receive: ["video", "audio"],
+    receive: ["video"],
     onState: (state) => {
       if (state === "live") setStatus("live");
     },
@@ -6097,6 +6097,7 @@ function joinSession(evt) {
     },
     onMedia: (stream) => {
       video.srcObject = stream;
+      video.muted = true;
       video.play().catch(() => {
         if (overlay) overlay.hidden = false;
       });

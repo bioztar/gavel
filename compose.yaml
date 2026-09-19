@@ -237,6 +237,19 @@ services:
       FAL_POLL_INTERVAL_S: ${FAL_POLL_INTERVAL_S:-1}
     ports:
       - "127.0.0.1:${CHAIR_VIDEO_PORT:-8791}:8791"
+    networks:
+      - default
+      - traefik-public
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: ${TRAEFIK_NETWORK:-traefik-public}
+      traefik.http.routers.gavel-karen-video.rule:
+        Host(`${GAVEL_DOMAIN:-gavel.pro7ocol.com}`) && (Path(`/karen-video`) || PathPrefix(`/stage/`) || PathPrefix(`/director/`))
+      traefik.http.routers.gavel-karen-video.priority: "90"
+      traefik.http.routers.gavel-karen-video.entrypoints: websecure
+      traefik.http.routers.gavel-karen-video.tls: "true"
+      traefik.http.routers.gavel-karen-video.tls.certresolver: mytlschallenge
+      traefik.http.services.gavel-karen-video.loadbalancer.server.port: "8791"
     healthcheck:
       test:
         [

@@ -33,18 +33,39 @@ const CHAIR_VIDEO_URL = process.env.CHAIR_VIDEO_URL?.trim() || null;
 // heard in the Discord call, so a slow or down chair-video must never delay
 // or break the wire.send() below it. 2s is generous for a same-network
 // hackathon box; anything slower isn't worth waiting on.
-function pushToStage(audio: Buffer, format: string, personaId: string): void {
+function stageCall(path: string, body: unknown): void {
   if (!CHAIR_VIDEO_URL) return;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 2000);
-  fetch(`${CHAIR_VIDEO_URL}/director/speak`, {
+  fetch(`${CHAIR_VIDEO_URL}${path}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ audioBase64: audio.toString("base64"), format, persona: personaId }),
+    body: JSON.stringify(body),
     signal: controller.signal,
   })
-    .catch((err: unknown) => log.warn("stage.push_failed", { error: String(err) }))
+    .catch((err: unknown) => log.warn("stage.push_failed", { path, error: String(err) }))
     .finally(() => clearTimeout(timeoutId));
+}
+
+function pushToStage(audio: Buffer, format: string, personaId: string): void {
+  stageCall("/director/speak", { audioBase64: audio.toString("base64"), format, persona: personaId });
+}
+
+/**
+ * Open and close the projector stream with the meeting itself.
+ *
+ * Before this, nothing ever called stop: `/director/speak` lazily opened a fal
+ * session and the only thing that could end one was the next utterance noticing
+ * the session was too old. A meeting that simply finished left a live WebRTC
+ * session billing per second until someone spotted it. chair-video now also
+ * sweeps idle sessions on a timer; these two hooks are the fast path.
+ */
+function stageStart(personaId: string): void {
+  stageCall("/director/session/start", { persona: personaId });
+}
+
+function stageStop(): void {
+  stageCall("/director/session/stop", {});
 }
 
 export type MeetingPhase = "idle" | "gathering" | "active" | "finished";
@@ -161,6 +182,7 @@ export class Engine {
           log.info("session.ended", { sessionId: frame.sessionId });
           this.agenda = null;
           this.phase = this.agendaCompleted ? "finished" : "idle";
+          stageStop();
         }
         break;
       case "speaking.start":
@@ -880,6 +902,7 @@ export class Engine {
     if (!topic) {
       this.agendaCompleted = true;
       this.phase = "finished";
+      stageStop();
     }
     log.info("topic.advanced", { to: topic?.title ?? "(agenda done)" });
   }
@@ -905,6 +928,11 @@ export class Engine {
   private activateMeeting(): void {
     const now = this.now();
     this.phase = "active";
+    // The stage page is already open and idling; this is what makes Karen
+    // appear on it without anyone touching the projector. Deliberately here
+    // and not in startSession() — the lobby can sit for a long time, and a fal
+    // session bills from the second it opens.
+    stageStart(this.cfg.persona.id);
     this.topicStartedAt = now;
     this.sessionStartedAt = now;
     // Lobby chatter must not count toward meeting talk time or relevance.

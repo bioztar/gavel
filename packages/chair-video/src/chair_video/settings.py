@@ -78,12 +78,26 @@ class Settings(BaseSettings):
     # message. Not the chair's script — just what the model should look like.
     director_prompt_by_persona: dict[str, str] = {
         "formal": (
-            "A composed, professional woman chairing a meeting on camera: neutral office "
-            "backdrop, calm expression, direct eye contact, minimal movement between lines."
+            "Photorealistic medium close-up of one composed professional woman in her forties "
+            "seated at a desk, chairing a meeting on camera. Locked-off static camera, fixed "
+            "framing, head and shoulders centred, eyes level with the lens. Plain softly lit "
+            "office wall behind her. She looks straight into the lens, blinks and breathes "
+            "naturally, and moves only her head and face. No zoom, no pan, no dolly, no cuts, "
+            "no camera shake, no scene changes. Her face, hair, clothing and background stay "
+            "identical the whole time. Consistent identity, natural skin texture, realistic "
+            "lighting. Not a cartoon, not stylised, no morphing, no warping, no dissolving or "
+            "blending between shots."
         ),
         "funky": (
-            "A warm, playful woman chairing a meeting on camera with a bright, energetic "
-            "smile, colorful casual backdrop, direct eye contact, animated between lines."
+            "Photorealistic medium close-up of one warm, playful woman in her forties seated at "
+            "a desk, chairing a meeting on camera with a bright smile. Locked-off static camera, "
+            "fixed framing, head and shoulders centred, eyes level with the lens. Colourful but "
+            "plain wall behind her. She looks straight into the lens, blinks and breathes "
+            "naturally, and moves only her head and face. No zoom, no pan, no dolly, no cuts, no "
+            "camera shake, no scene changes. Her face, hair, clothing and background stay "
+            "identical the whole time. Consistent identity, natural skin texture, realistic "
+            "lighting. Not a cartoon, not stylised, no morphing, no warping, no dissolving or "
+            "blending between shots."
         ),
     }
     # Three missed heartbeats (stage page pings every 5s) and /healthz stops
@@ -95,6 +109,14 @@ class Settings(BaseSettings):
     # meeting running past this gets a ~1s hiccup and a fresh session, never
     # a leaked one.
     director_max_session_s: float = 14 * 60.0
+    # The credit leak this exists to stop: `speak()` lazily opens a session and
+    # nothing ever closed it, so a meeting that went quiet kept a fal session
+    # (and its per-second bill) alive until someone noticed. A session with no
+    # utterance for this long is a meeting that ended, so stop it. Karen
+    # re-opens on the next line — a ~1s hiccup is cheaper than an open stream.
+    director_idle_stop_s: float = 120.0
+    # How often the background sweeper checks the two rules above.
+    director_sweep_interval_s: float = 5.0
 
     def avatar_image_path(self, persona: str) -> str:
         return self.avatar_image_by_persona.get(persona, self.avatar_image_by_persona[self.default_persona])

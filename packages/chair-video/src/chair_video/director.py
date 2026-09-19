@@ -25,6 +25,9 @@ from typing import Any
 
 from chair_video.settings import Settings
 
+# Pushed to every SSE queue on shutdown; the generator treats it as "stop".
+_SHUTDOWN = "__shutdown__"
+
 
 @dataclass
 class DirectorSession:
@@ -33,6 +36,7 @@ class DirectorSession:
     persona: str
     prompt_version: int
     started_at: float
+    last_speak_at: float
     last_heartbeat_at: float | None = None
     stage_state: str = "starting"
 
@@ -61,6 +65,7 @@ class DirectorManager:
             persona=persona,
             prompt_version=1,
             started_at=self._now(),
+            last_speak_at=self._now(),
         )
         self._session = session
         self._broadcast(self._start_event(session))
@@ -82,6 +87,7 @@ class DirectorManager:
             self.stop()
             session = self.start(persona)
         session.prompt_version += 1
+        session.last_speak_at = self._now()
         self._broadcast(
             {
                 "type": "speak",
@@ -137,6 +143,41 @@ class DirectorManager:
             "resolution": self._settings.director_resolution,
             "aspectRatio": self._settings.director_aspect_ratio,
         }
+
+    # --- housekeeping ------------------------------------------------------
+
+    def sweep(self) -> str | None:
+        """Close a session nobody is using. Returns why it stopped, or None.
+
+        This is the half `speak()` could never cover: its `director_max_session_s`
+        check only ran when the *next* utterance arrived, so a meeting that simply
+        went quiet left a fal session open and billing per second forever. A
+        background task calls this on a timer instead, so silence is enough to
+        end it. Karen re-opens on her next line.
+        """
+        session = self._session
+        if session is None:
+            return None
+        now = self._now()
+        if now - session.last_speak_at > self._settings.director_idle_stop_s:
+            reason = "idle"
+        elif now - session.started_at > self._settings.director_max_session_s:
+            reason = "max_session"
+        else:
+            return None
+        self.stop()
+        return reason
+
+    def close_subscribers(self) -> None:
+        """Unblock every SSE generator so uvicorn can actually shut down.
+
+        `/director/events` awaits `queue.get()` forever; on shutdown uvicorn
+        waits for those responses to finish, gets nothing, and docker SIGKILLs
+        the container ten seconds later (exit 137). A sentinel releases them.
+        """
+        for queue in list(self._subscribers):
+            queue.put_nowait(_SHUTDOWN)
+        self._subscribers.clear()
 
     # --- reporting ---------------------------------------------------------
 

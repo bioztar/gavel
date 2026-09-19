@@ -74,8 +74,13 @@ function joinSession(evt) {
   currentToken = evt.token;
   setStatus("connecting");
 
+  // Video only, on purpose. The model re-synthesises its own voice from the
+  // audio we send it, and Karen is already being heard for real in the Discord
+  // call — receiving both gave the room two Karens a beat apart, which is what
+  // made her land as creepy rather than present. The stream is the picture of
+  // her speaking; the Discord TTS is the speech.
   conn = fal.realtime.open(wma(evt.endpointId), {
-    receive: ["video", "audio"],
+    receive: ["video"],
     onState: (state) => {
       if (state === "live") setStatus("live");
     },
@@ -85,6 +90,9 @@ function joinSession(evt) {
     },
     onMedia: (stream) => {
       video.srcObject = stream;
+      // Belt and braces: even if the endpoint sends an audio track anyway, it
+      // must never reach the room. Muted also means autoplay is not blocked.
+      video.muted = true;
       video.play().catch(() => {
         // Autoplay was blocked — the click-to-start overlay is the recovery
         // path; leave it visible until the user interacts.

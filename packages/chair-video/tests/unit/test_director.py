@@ -84,3 +84,67 @@ def test_unknown_persona_falls_back_to_settings_default() -> None:
     manager = DirectorManager(_settings())
     session = manager.start("not-a-real-persona")
     assert session.persona == "funky"
+
+
+# --- the credit leak: nothing ever closed a session once speaking stopped -----
+
+
+def _clocked(**overrides: object) -> tuple[DirectorManager, list[float]]:
+    t = [0.0]
+    return DirectorManager(_settings(**overrides), now=lambda: t[0]), t
+
+
+def test_sweep_stops_a_session_that_stopped_speaking() -> None:
+    manager, t = _clocked(director_idle_stop_s=120.0)
+    manager.start("formal")
+    manager.speak("https://example.com/a.wav", "formal")
+
+    t[0] = 119.0
+    assert manager.sweep() is None
+    assert manager.snapshot()["active"] is True
+
+    t[0] = 121.0
+    assert manager.sweep() == "idle"
+    assert manager.snapshot() == {"active": False}
+
+
+def test_speaking_keeps_the_session_alive() -> None:
+    manager, t = _clocked(director_idle_stop_s=120.0)
+    manager.start("formal")
+    for at in (100.0, 200.0, 300.0):
+        t[0] = at
+        manager.speak("https://example.com/a.wav", "formal")
+        assert manager.sweep() is None
+    assert manager.snapshot()["active"] is True
+
+
+def test_sweep_stops_a_session_past_the_fal_cap_even_while_speaking() -> None:
+    manager, t = _clocked(director_idle_stop_s=120.0, director_max_session_s=60.0)
+    manager.start("formal")
+    t[0] = 61.0
+    manager.speak("https://example.com/a.wav", "formal")
+    # speak() already restarts past the cap, so the fresh session survives...
+    assert manager.sweep() is None
+    t[0] = 130.0
+    # ...and the sweeper ends it without needing another utterance.
+    assert manager.sweep() in {"idle", "max_session"}
+    assert manager.snapshot() == {"active": False}
+
+
+def test_sweep_on_no_session_is_a_no_op() -> None:
+    manager, _ = _clocked()
+    assert manager.sweep() is None
+
+
+def test_close_subscribers_releases_every_sse_queue() -> None:
+    from chair_video.director import _SHUTDOWN
+
+    manager, _ = _clocked()
+    queues = [manager.subscribe() for _ in range(3)]
+    for q in queues:
+        q.get_nowait()  # the hello event
+
+    manager.close_subscribers()
+
+    for q in queues:
+        assert q.get_nowait() == _SHUTDOWN

@@ -41,10 +41,12 @@
     </style>
   </head>
   <body>
-    <!-- Not muted: the chair's voice is the point. Browsers block unmuted
-         autoplay without a user gesture, so entry.mjs falls back to the
-         overlay's click as that gesture when the initial play() is blocked. -->
-    <video id="stage-video" autoplay playsinline></video>
+    <!-- Muted on purpose. Karen is heard for real in the Discord call; this
+         stream is only the picture of her saying it. Unmuted, the endpoint's
+         own re-synthesised voice played a beat behind the real one, which is
+         what made her land as creepy. Muted also means autoplay is never
+         blocked, so the click overlay is now just a fallback. -->
+    <video id="stage-video" autoplay playsinline muted></video>
     <div id="stage-status">idle</div>
     <div id="start-overlay">Click to start the chair</div>
     <script type="module" src="/stage/stage.bundle.js"></script>

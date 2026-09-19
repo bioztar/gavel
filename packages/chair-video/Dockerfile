@@ -14,6 +14,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY packages/chair-video/src ./src
 COPY packages/chair-video/avatars ./avatars
+COPY packages/chair-video/static ./static
 RUN uv sync --frozen --no-dev
 
 CMD ["python", "-m", "chair_video"]

@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from chair_video.audio import decode_base64_audio, fetch_audio, wav_duration_ms
 from chair_video.cache import SpeakVideoCache, audio_key
+from chair_video.director import _SHUTDOWN as DIRECTOR_SHUTDOWN
 from chair_video.director import DirectorManager
 from chair_video.fal import FalClient, FalError
 from chair_video.settings import Settings, get_settings
@@ -78,13 +79,33 @@ class DirectorHeartbeatRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+async def _sweep_loop(app: FastAPI) -> None:
+    """Ends sessions nobody is using. See DirectorManager.sweep()."""
+    settings: Settings = app.state.settings
+    director: DirectorManager = app.state.director
+    while True:
+        await asyncio.sleep(settings.director_sweep_interval_s)
+        try:
+            reason = director.sweep()
+        except Exception:  # a sweeper that dies takes the leak-stop with it
+            log.exception("director.sweep_failed")
+            continue
+        if reason:
+            log.info("director.session_stopped", reason=reason)
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> Any:
+    sweeper = asyncio.create_task(_sweep_loop(app))
     yield
+    sweeper.cancel()
     # A session left open on shutdown keeps billing per second forever —
     # stop() before the async client that would proxy its last requests goes
     # away.
     app.state.director.stop()
+    # Then release the SSE generators, or uvicorn waits on them until docker
+    # SIGKILLs us (exit 137).
+    app.state.director.close_subscribers()
     await app.state.async_http_client.aclose()
 
 
@@ -99,6 +120,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     if STATIC_DIR.exists():
         app.mount("/stage", StaticFiles(directory=STATIC_DIR, html=True), name="stage")
+
+    @app.get("/karen-video")
+    def karen_video() -> FileResponse:
+        """Public demo page for Karen's live Director feed.
+
+        The bundled page subscribes to /director/events and shows the same live
+        WebRTC stream that chair-video drives from brain's spoken TTS audio.
+        """
+        path = STATIC_DIR / "index.html"
+        if not path.exists():
+            raise HTTPException(404, "Karen video stage is not built")
+        return FileResponse(path, media_type="text/html")
 
     @app.post("/speak-video")
     def speak_video(req: SpeakVideoRequest) -> SpeakVideoResponse:
@@ -238,6 +271,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             try:
                 while True:
                     payload = await queue.get()
+                    if payload == DIRECTOR_SHUTDOWN:
+                        return
                     yield f"data: {payload}\n\n"
             except asyncio.CancelledError:
                 pass
