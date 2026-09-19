@@ -1,55 +1,81 @@
-# HANDOVER — gavel — 2026-09-19 14:50
+# HANDOVER — gavel — 2026-09-19 17:15
 
-## State
-Spine complete and merged to `main`: ears↔brain wire, calendar→agenda, two chair personas,
-chair-video, Google Calendar feed ingest. Artem's Docker Compose deploy stack landed on `main`
-(`632c462`) — deploy itself still on hold awaiting Vitaly's go-ahead. DNS for
-`gavel.pro7ocol.com` already resolves to the dev box.
+## State: full stack deployed and live on the VPS; https://gavel.pro7ocol.com serving the calendar with a real Let's Encrypt cert. Two crewmates still building (compose front door, director live avatar).
 
 ## Done this session
-- `packages/calendar` Google Calendar ingest merged (`e024818`) — `CALENDAR_ICS_FEEDS` holds
-  comma-separated secret iCal URLs, polled on the scheduler loop, deduped on `UID`+`SEQUENCE`
-  (a bump on an already-started meeting updates in place, never starts a second ears session),
-  24h forward window, routed through the existing `ics_parser` → `build_agenda`. `GET /board`
-  lists upcoming invites with Join buttons. Per-feed health is addressed by index and holds no
-  URL; errors carry `type(exc).__name__`/status code only, never `str(exc)`. 37 tests pass.
-  **Limitation for demo day: RRULE is not expanded** — make the demo meeting a one-off.
-- Vitaly's own outstanding step: paste the secret iCal URL into `.env` as `CALENDAR_ICS_FEEDS=`
-  (a bearer credential — he does it himself, not through an agent).
-- `packages/calendar` merged — `.ics` → §1 agenda → join page → scheduler starts the session
-  through ears' HTTP API. 26 tests pass. Policy overrides merge onto ears' full ten-key table
-  instead of replacing it.
-- `packages/brain` personas merged — `CHAIR_PERSONA=formal|funky`, tone folded into the cached
-  system prefix, per-persona fallback templates rotated per kind.
-- `packages/chair-video` merged — `/speak-video`, `/idle`, `/healthz`, all persona-keyed.
-- **Funky is now the default** (`personas.yaml: active: funky`, `Settings.default_persona`),
-  rendering with `karen-funky-01.png` / `idle-funky.mp4`. Vitaly confirmed the pick.
-- Latency table measured against real fal. Director finding written up by helm during merge.
+- Merged `chair/gcal` — Google Calendar secret-iCal feed polling in `packages/calendar`
+  (`feed_store.py` holds no URL; errors carry only status code / exception class name;
+  `/health` exposes per-feed `{feed, lastSuccess, eventCount, lastError}` and never a URL).
+- Rebased onto Artem's `632c462 feat: deploy full stack with docker compose`, resolving the
+  `.env.example` conflict by keeping both blocks.
+- `49fdb94 chore: pass CALENDAR_ICS_FEEDS through to the calendar service` — compose.yaml did
+  not forward `CALENDAR_ICS_FEEDS` / `CALENDAR_FEED_WINDOW_HOURS`, so the feed poller merged
+  the same day was unreachable in the deployed stack. Both default to the code's own defaults.
+- Fixed four comment lines in the repo-root `.env` that were missing their leading `#`
+  (`Nebius Token Factory (brain)`, `SLNG (ears + mouth)`, `fal (live video stage)`,
+  `Seam between the two halves`). Docker Compose refuses to parse `.env` otherwise:
+  `failed to read .env: line 5: unexpected character "(" in variable name`. Node/python
+  dotenv tolerated them, `docker compose` does not. Backup at `.env.bak.<epoch>` (gitignored).
+- **Deployed**: `docker compose up --build -d --wait` → exit 0. All services healthy,
+  `migrate` exited 0.
 
-## Open decision — blocks the face on stage
-Lip-sync is too slow to be live: fastest completing model is `veed/lipsync/v2` at **41.4s for
-a 3-second utterance**. Three options, Vitaly's call:
-1. **Director** (`minimax/h3-max/director`) — genuinely live, but WebRTC/LiveKit, needs a
-   client integration that does not exist, and per-second session billing.
-2. **Idle loop only** — ships now, face as presence rather than speech. Zero new work.
-3. ~~Pre-render fallback lines~~ — dead: only 2 of 36 funky templates are placeholder-free.
+## Deployment facts (validated, not assumed)
+- Host `173.234.79.39`; `gavel.pro7ocol.com` A-record resolves to it.
+- Ingress is the **pre-existing** `n8n-compose-file-traefik-1`, which already defines
+  `--certificatesresolvers.mytlschallenge.acme.tlschallenge=true` — the name Artem's labels
+  assume. Nothing in that shared Traefik was touched.
+- Cert: `issuer=C=US, O=Let's Encrypt, CN=YR1`, `subject=CN=gavel.pro7ocol.com`,
+  valid Sep 19 → Dec 18 2026. Not the Traefik default self-signed cert.
+- `https://gavel.pro7ocol.com/health` → 200 `{"status":"ok","pending":0,"feeds":[]}`
+- `https://gavel.pro7ocol.com/board` → 200, `<title>gavel calendar — board</title>`
+- `http://…/board` → 301 to https.
+- `https://gavel.pro7ocol.com/console` → 404. Correct: Traefik routes the host to the
+  calendar service only. The operator console stays loopback-only —
+  `ssh -L 8787:127.0.0.1:8787` then `http://127.0.0.1:8787/console`.
+- Loopback: ears `/console` 200, brain `/state` 200, calendar `/health` 200,
+  chair-video `/healthz` 200.
+- Logs clean. ears: `discord.ready {"user":"Karen#0480","guilds":["HackBarna Test"]}`,
+  then `voice.waiting {"reason":"no humans in a configured voice channel"}`.
+  brain: `brain.ready`, `wire.connected {"url":"ws://ears:8787"}`. No auth failures.
+- No `.env` additions were needed for the deploy: every one of `GAVEL_DOMAIN`,
+  `TRAEFIK_NETWORK`, `CALENDAR_PUBLIC_URL`, `CALENDAR_PORT`, `CHAIR_VIDEO_PORT`,
+  `POSTGRES_PORT`, `REDIS_PORT` has a `${VAR:-default}` in compose.yaml resolving to the
+  intended value. `BRAIN_MODEL_FAST`/`BRAIN_MODEL_NORMAL` unset is also fine —
+  `packages/brain/src/config.ts:210-212` only overrides on a truthy value, so
+  `config/models.yaml` stays in charge.
+- `DISCORD_GUILD_ID` empty is **not** a blocker: `packages/ears-discord/README.md` says
+  meeting channels are now selected per Discord server in the console and persisted in
+  Postgres; the env pair is a backward-compatibility seed only.
+
+## In flight / partially done
+- `gavel-gavel-compose` (branch `chair/compose`, worktree `/home/coder/DEV/_worktrees/gavel-compose`)
+  — the free-text brief → LLM parse → confirm → calendar invite + Resend email front door.
+  `local-only`; helm merges. Mission `fleet/missions/20260919-gavel-compose.md` in helm.
+- `gavel-gavel-director` — `minimax/h3-max/director` live avatar. Phase 0 measured (session
+  open → live track 4.6–5.1s, → first generated chunk 7.6–8.2s, mid-session
+  `client.prompt` ack ~900ms). Now building the session manager, browser stage page and the
+  `engine.ts` `act()` hook.
 
 ## Next steps (ordered)
-1. Vitaly picks the endpoint (Director vs idle-loop-only).
-2. Google Calendar: only `.ics` parsing exists. Recommended next step is the per-calendar
-   secret iCal URL polled by the existing scheduler — no OAuth, no consent screen.
-3. Deploy when Artem's compose lands: traefik-public network, `websecure` entrypoint,
-   `mytlschallenge` certresolver, label pattern copied from `pro7ocol-website`.
-   `CALENDAR_PUBLIC_URL=https://gavel.pro7ocol.com` or join URLs stay host-relative.
-4. Vonage lane (needs app id + private key + API secret from Vitaly).
-5. Quality Clouds analysis, Galtea eval set.
+1. Root path `/` on the public host returns 404 — `gavel.pro7ocol.com` with no path is what
+   a judge will type. Add a redirect to `/board` in `packages/calendar/src/gavel_calendar/app.py`.
+   Handed to the compose crewmate since it is already editing that file; do not edit on `main`
+   in parallel or the merge conflicts.
+2. Merge `chair/compose` once it reports `review`; verify the `.ics` round-trips through our
+   own `ics_parser.parse_ics` before believing the done-criteria.
+3. Redeploy after each merge: `git pull --ff-only && docker compose up --build -d --wait`.
 
-## Blockers / needs human
-- Endpoint decision (above).
-- Vonage credentials. Quality Clouds booth answer. Galtea account.
+## Blockers / needs human (Vitaly)
+- `RESEND_API_KEY` + `COMPOSE_FROM_EMAIL`: create the Resend account, verify the subdomain
+  **`send.pro7ocol.com`** (not the root — the root MX/SPF belongs to Proton and verifying it
+  would disturb live mail), then append both keys to `/home/coder/DEV/gavel/.env`.
+  Until then compose runs in dry-run.
+- `CALENDAR_ICS_FEEDS=<Google "Secret address in iCal format" URL>` — now plumbed through
+  compose, still unset. Treat that URL as a credential.
+- Discord user IDs for Vitaly and Artem, for `CALENDAR_ATTENDEE_MAP`.
+- Known demo-day limitation: recurring events (`RRULE`) are not expanded by the feed poller.
 
 ## Key files touched
-- `packages/chair-video/README.md` — latency table + the Director finding
-- `packages/brain/config/personas.yaml` — `active: funky`, asset names corrected
-- `packages/chair-video/src/chair_video/settings.py` — persona→asset map, default funky
-- `docs/CONTRACT.md` — §4 calendar, §5 chair-video
+- `compose.yaml` — the two ICS env passthrough lines.
+- `.env` (untracked) — four malformed comment lines fixed; backup alongside.
+- `HANDOVER.md` — this file.
