@@ -2,8 +2,8 @@
 
 **Status:** live and validated
 **Host:** `uk-lon-1` (173.234.79.39) · **Domain:** https://gavel.pro7ocol.com
-**Deployed commit:** `75efa43` (`docs: handover — full stack deployed and validated on the VPS`)
-**Deployed at:** 2026-09-19 15:10 UTC · **Last validated:** 2026-09-19 15:55 UTC
+**Deployed commit:** `862b666` (`merge: chair/director — Director livestream spike, stage page, fal-proxy`)
+**Deployed at:** 2026-09-19 16:08 UTC · **Last validated:** 2026-09-19 16:09 UTC
 **Checkout on the box:** `/home/coder/DEV/gavel` · **Compose project:** `gavel`
 
 ---
