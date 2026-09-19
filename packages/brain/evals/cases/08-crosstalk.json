@@ -1,0 +1,138 @@
+{
+  "id": "08-crosstalk",
+  "title": "Crosstalk",
+  "notes": "Two people have taken the room into the same tangent and both still hold the floor. The group redirect exists so nobody is singled out: naming one of them is the failure this case catches.",
+  "agenda": {
+    "sessionId": "hb26-eval",
+    "purpose": "Decide the launch date and name an owner for each blocker",
+    "totalSeconds": 300,
+    "attendees": [
+      {
+        "discordId": "100000000000000001",
+        "name": "Vitaly",
+        "role": "host"
+      },
+      {
+        "discordId": "100000000000000002",
+        "name": "Ana",
+        "role": "attendee"
+      },
+      {
+        "discordId": "100000000000000003",
+        "name": "Marc",
+        "role": "attendee"
+      }
+    ],
+    "topics": [
+      {
+        "id": "t1",
+        "title": "Where we actually are",
+        "goal": "One honest status per workstream",
+        "budgetSeconds": 90,
+        "owner": "100000000000000002",
+        "mustHear": [
+          "100000000000000002",
+          "100000000000000003"
+        ],
+        "questions": [
+          "What is not done that you expected to be done?"
+        ]
+      },
+      {
+        "id": "t2",
+        "title": "The date",
+        "goal": "A date everyone in the call commits to out loud",
+        "budgetSeconds": 120,
+        "owner": "100000000000000001",
+        "mustHear": [
+          "100000000000000002"
+        ],
+        "questions": [
+          "What date can you defend?"
+        ]
+      },
+      {
+        "id": "t3",
+        "title": "Blocker owners",
+        "goal": "A name against each blocker",
+        "budgetSeconds": 90,
+        "owner": "100000000000000001",
+        "mustHear": [],
+        "questions": []
+      }
+    ],
+    "policy": {}
+  },
+  "sessionTitle": "Launch review",
+  "state": {
+    "nowMs": 1000000,
+    "topicIndex": 0,
+    "topicStartedAtMs": 925000,
+    "people": [
+      {
+        "id": "100000000000000001",
+        "name": "Vitaly",
+        "role": "host",
+        "totalMs": 70000,
+        "topicMs": 40000,
+        "windowMs": 38000,
+        "holding": true,
+        "holdingSince": 978000
+      },
+      {
+        "id": "100000000000000002",
+        "name": "Ana",
+        "role": "attendee",
+        "totalMs": 40000,
+        "topicMs": 20000,
+        "windowMs": 18000,
+        "holding": false,
+        "holdingSince": null
+      },
+      {
+        "id": "100000000000000003",
+        "name": "Marc",
+        "role": "attendee",
+        "totalMs": 50000,
+        "topicMs": 26000,
+        "windowMs": 24000,
+        "holding": true,
+        "holdingSince": 976000
+      }
+    ],
+    "episodes": [
+      {
+        "id": "100000000000000001",
+        "episode": {
+          "offSince": 976000,
+          "verdict": "offAgenda",
+          "topicId": null,
+          "summary": "vendor pricing tiers",
+          "quote": "their pricing tiers make no sense above fifty seats"
+        }
+      },
+      {
+        "id": "100000000000000003",
+        "episode": {
+          "offSince": 978000,
+          "verdict": "offAgenda",
+          "topicId": null,
+          "summary": "pricing for the enterprise plan",
+          "quote": "and the enterprise pricing is worse, it is per seat too"
+        }
+      }
+    ],
+    "lastSpeakerId": "100000000000000003"
+  },
+  "expect": {
+    "trigger": "offAgenda",
+    "kind": "groupOffAgenda",
+    "names": {
+      "kind": "nobody"
+    },
+    "floorTo": {
+      "kind": "topic",
+      "title": "Where we actually are"
+    }
+  }
+}

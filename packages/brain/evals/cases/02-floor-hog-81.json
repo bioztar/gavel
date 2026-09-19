@@ -1,0 +1,120 @@
+{
+  "id": "02-floor-hog-81",
+  "title": "Floor hog at 81%",
+  "notes": "The judged moment from the README, on topic two. Four fifths of the window is one voice; Ana is the mustHear who has not been heard on the date yet.",
+  "agenda": {
+    "sessionId": "hb26-eval",
+    "purpose": "Decide the launch date and name an owner for each blocker",
+    "totalSeconds": 300,
+    "attendees": [
+      {
+        "discordId": "100000000000000001",
+        "name": "Vitaly",
+        "role": "host"
+      },
+      {
+        "discordId": "100000000000000002",
+        "name": "Ana",
+        "role": "attendee"
+      },
+      {
+        "discordId": "100000000000000003",
+        "name": "Marc",
+        "role": "attendee"
+      }
+    ],
+    "topics": [
+      {
+        "id": "t1",
+        "title": "Where we actually are",
+        "goal": "One honest status per workstream",
+        "budgetSeconds": 90,
+        "owner": "100000000000000002",
+        "mustHear": [
+          "100000000000000002",
+          "100000000000000003"
+        ],
+        "questions": [
+          "What is not done that you expected to be done?"
+        ]
+      },
+      {
+        "id": "t2",
+        "title": "The date",
+        "goal": "A date everyone in the call commits to out loud",
+        "budgetSeconds": 120,
+        "owner": "100000000000000001",
+        "mustHear": [
+          "100000000000000002"
+        ],
+        "questions": [
+          "What date can you defend?"
+        ]
+      },
+      {
+        "id": "t3",
+        "title": "Blocker owners",
+        "goal": "A name against each blocker",
+        "budgetSeconds": 90,
+        "owner": "100000000000000001",
+        "mustHear": [],
+        "questions": []
+      }
+    ],
+    "policy": {}
+  },
+  "sessionTitle": "Launch review",
+  "state": {
+    "nowMs": 1000000,
+    "topicIndex": 1,
+    "topicStartedAtMs": 905000,
+    "people": [
+      {
+        "id": "100000000000000001",
+        "name": "Vitaly",
+        "role": "host",
+        "totalMs": 180000,
+        "topicMs": 81000,
+        "windowMs": 81000,
+        "holding": true,
+        "holdingSince": 919000
+      },
+      {
+        "id": "100000000000000002",
+        "name": "Ana",
+        "role": "attendee",
+        "totalMs": 40000,
+        "topicMs": 0,
+        "windowMs": 12000,
+        "holding": false,
+        "holdingSince": null
+      },
+      {
+        "id": "100000000000000003",
+        "name": "Marc",
+        "role": "attendee",
+        "totalMs": 26000,
+        "topicMs": 7000,
+        "windowMs": 7000,
+        "holding": false,
+        "holdingSince": null
+      }
+    ],
+    "lastSpeakerId": "100000000000000001",
+    "recaps": {
+      "100000000000000001": "the vendor slipped two weeks"
+    }
+  },
+  "expect": {
+    "trigger": "floorHog",
+    "kind": "floorHog",
+    "names": {
+      "kind": "person",
+      "name": "Vitaly"
+    },
+    "floorTo": {
+      "kind": "person",
+      "name": "Ana"
+    }
+  }
+}

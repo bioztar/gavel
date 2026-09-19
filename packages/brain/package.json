@@ -9,9 +9,10 @@
     "start": "tsx src/main.ts",
     "dev": "tsx watch src/main.ts",
     "replay": "tsx src/replay.ts",
+    "evals": "tsx evals/run.ts",
     "studio": "mastra dev",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p evals"
   },
   "dependencies": {
     "@mastra/core": "^1.67.0",
