@@ -5,10 +5,12 @@ same function when nobody clicked it — both paths end in the same call
 (`service.start`), so there is exactly one way a session actually starts.
 
 Also holds the feed poller (`poll_feeds`/`poll_feeds_once`): it fetches each
-`CALENDAR_ICS_FEEDS` URL, walks its `VEVENT`s, and feeds new/changed ones
-through the same `ics_parser.parse_ics` → `agenda.build_agenda` path
-`POST /invite` uses — see `_single_event_ics` for how one `VEVENT` becomes
-the bytes that parser expects, without a second parser.
+`CALENDAR_ICS_FEEDS` URL, groups its `VEVENT`s by `UID`, and feeds new/changed
+occurrences through the same `ics_parser` → `agenda.build_agenda` path
+`POST /invite` uses — see `_single_event_ics` for how one `UID`'s `VEVENT`s
+become the bytes that parser expects, without a second parser. A recurring
+series is expanded (`ics_parser.parse_ics_occurrences`) inside the forward
+window, one `InviteRecord` per occurrence.
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ from . import service
 from .agenda import build_agenda
 from .ears_client import EarsClient
 from .feed_store import FeedRegistry
-from .ics_parser import InvalidInvite, parse_ics
+from .ics_parser import InvalidInvite, ParsedInvite, parse_ics_occurrences
 from .store import InviteRecord, InviteStore
 
 logger = logging.getLogger(__name__)
@@ -55,29 +57,101 @@ async def run(store: InviteStore, ears: EarsClient, poll_seconds: float) -> None
 # --- feed polling ------------------------------------------------------------------
 
 
-def _session_id_for(feed_index: int, uid: str) -> str:
-    """Deterministic from (feed_index, uid) alone — a re-poll of the same
-    event, changed or not, always lands on the same `InviteRecord`, so an
+def _session_id_for(feed_index: int, occurrence_uid: str) -> str:
+    """Deterministic from (feed_index, occurrence_uid) alone — a re-poll of the
+    same event, changed or not, always lands on the same `InviteRecord`, so an
     operator's join link never goes stale and a bumped `SEQUENCE` updates in
-    place instead of spawning a second session.
+    place instead of spawning a second session. `occurrence_uid` is the bare
+    `UID` for a single event and `UID::<occurrence start>` for one instance of
+    a recurring series — so every occurrence gets its own stable session, and a
+    series does not collapse onto one record.
     """
-    digest = hashlib.sha256(f"{feed_index}:{uid}".encode()).hexdigest()
+    digest = hashlib.sha256(f"{feed_index}:{occurrence_uid}".encode()).hexdigest()
     return digest[:12]
 
 
-def _single_event_ics(feed_cal: Calendar, event: Any) -> bytes:
-    """Re-serializes one `VEVENT` — plus any `VTIMEZONE` the feed defines, so
-    a `TZID=` reference still resolves — as its own `.ics`. This is what lets
-    `ics_parser.parse_ics` (the one place that knows how to read a `VEVENT`)
-    handle a feed's events one at a time; it is not a second parser.
+def _single_event_ics(feed_cal: Calendar, *events: Any) -> bytes:
+    """Re-serializes the `VEVENT`s of one `UID` — the master plus any
+    `RECURRENCE-ID` override, plus any `VTIMEZONE` the feed defines so a
+    `TZID=` reference still resolves — as its own `.ics`. This is what lets
+    `ics_parser` (the one place that knows how to read a `VEVENT`) handle a
+    feed one series at a time; it is not a second parser.
     """
     single = Calendar()
     single.add("prodid", "-//gavel-calendar//feed-extract//EN")
     single.add("version", "2.0")
     for tzcomp in feed_cal.walk("VTIMEZONE"):
         single.add_component(tzcomp)
-    single.add_component(event)
+    for event in events:
+        single.add_component(event)
     return single.to_ical()
+
+
+def _events_by_uid(feed_cal: Calendar) -> dict[str, list[Any]]:
+    """A feed lists a recurring series as a master `VEVENT` plus one more per
+    edited instance, all sharing a `UID`. They have to be expanded together —
+    an override only means anything against the series it belongs to.
+    """
+    grouped: dict[str, list[Any]] = {}
+    for event in feed_cal.walk("VEVENT"):
+        uid = str(event.get("uid") or "").strip()
+        if not uid:
+            continue  # no UID: nothing stable to dedupe or key a session on
+        grouped.setdefault(uid, []).append(event)
+    return grouped
+
+
+def _ingest_occurrence(
+    store: InviteStore,
+    registry: FeedRegistry,
+    feed_index: int,
+    parsed: ParsedInvite,
+    sequence: int,
+    attendee_map: dict[str, str],
+) -> bool:
+    """One occurrence into the store. True when it counts towards this feed's
+    `eventCount` — including an unchanged re-poll, which is a no-op.
+    """
+    occurrence_uid = parsed.occurrence_uid
+    session_id = _session_id_for(feed_index, occurrence_uid)
+
+    if registry.seen_sequence(feed_index, occurrence_uid) == sequence:
+        return True  # unchanged since the last poll — a no-op, not a re-fetch
+
+    if not parsed.topics:
+        # No topic lines in the description: skipped quietly, not crashed
+        # on. Still marked seen so an unchanged re-poll stays a no-op.
+        registry.mark_seen(feed_index, occurrence_uid, sequence)
+        return False
+
+    agenda = build_agenda(parsed, session_id, attendee_map)
+    existing = store.get(session_id)
+    # A bumped SEQUENCE on an already-started session must update the
+    # display fields only — never reset `started`/the ears ids, or the
+    # scheduler would pick it back up as pending and start a second ears
+    # session for the same meeting.
+    record = (
+        dataclasses.replace(
+            existing,
+            title=parsed.title,
+            start=parsed.start,
+            end=parsed.end,
+            agenda=agenda,
+            context=parsed.description,
+        )
+        if existing is not None
+        else InviteRecord(
+            session_id=session_id,
+            title=parsed.title,
+            start=parsed.start,
+            end=parsed.end,
+            agenda=agenda,
+            context=parsed.description,
+        )
+    )
+    store.save(record)
+    registry.mark_seen(feed_index, occurrence_uid, sequence)
+    return True
 
 
 async def _poll_one_feed(
@@ -116,59 +190,25 @@ async def _poll_one_feed(
 
     now = datetime.now(UTC)
     ingested = 0
-    for event in feed_cal.walk("VEVENT"):
-        uid = str(event.get("uid") or "").strip()
-        if not uid:
-            continue  # no UID: nothing stable to dedupe or key a session on
-        sequence = int(event.get("sequence", 0) or 0)
-        session_id = _session_id_for(feed_index, uid)
-
-        if registry.seen_sequence(feed_index, uid) == sequence:
-            ingested += 1  # unchanged since the last poll — a no-op, not a re-fetch
-            continue
+    for events in _events_by_uid(feed_cal).values():
+        # Any edit to a series bumps that instance's SEQUENCE, and the series'
+        # occurrences are generated together, so they share the highest of them.
+        sequence = max(int(event.get("sequence", 0) or 0) for event in events)
 
         try:
-            parsed = parse_ics(_single_event_ics(feed_cal, event))
+            # Expansion is bounded by the forward window: a feed carries a year
+            # of history, and an RRULE with no COUNT/UNTIL never ends.
+            occurrences = parse_ics_occurrences(
+                _single_event_ics(feed_cal, *events),
+                window_start=now,
+                window_end=now + window,
+            )
         except InvalidInvite:
-            continue  # this one VEVENT was unusable; the rest of the feed still is
+            continue  # this UID was unusable; the rest of the feed still is
 
-        if not (now <= parsed.start <= now + window):
-            continue  # outside the forward window — a year of history, not ingested
-
-        if not parsed.topics:
-            # No topic lines in the description: skipped quietly, not crashed
-            # on. Still marked seen so an unchanged re-poll stays a no-op.
-            registry.mark_seen(feed_index, uid, sequence)
-            continue
-
-        agenda = build_agenda(parsed, session_id, attendee_map)
-        existing = store.get(session_id)
-        # A bumped SEQUENCE on an already-started session must update the
-        # display fields only — never reset `started`/the ears ids, or the
-        # scheduler would pick it back up as pending and start a second ears
-        # session for the same meeting.
-        record = (
-            dataclasses.replace(
-                existing,
-                title=parsed.title,
-                start=parsed.start,
-                end=parsed.end,
-                agenda=agenda,
-                context=parsed.description,
-            )
-            if existing is not None
-            else InviteRecord(
-                session_id=session_id,
-                title=parsed.title,
-                start=parsed.start,
-                end=parsed.end,
-                agenda=agenda,
-                context=parsed.description,
-            )
-        )
-        store.save(record)
-        registry.mark_seen(feed_index, uid, sequence)
-        ingested += 1
+        for parsed in occurrences:
+            if _ingest_occurrence(store, registry, feed_index, parsed, sequence, attendee_map):
+                ingested += 1
 
     registry.record_success(feed_index, at=now, event_count=ingested)
 

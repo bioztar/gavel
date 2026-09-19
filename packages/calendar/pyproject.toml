@@ -14,6 +14,8 @@ dependencies = [
     "pydantic-settings>=2.15",
     # .ics parsing (RFC 5545 folding, TZID, escaping) — do not hand-roll this
     "icalendar>=6.1",
+    # RRULE/RDATE/EXDATE expansion — likewise, do not hand-roll recurrence maths
+    "python-dateutil>=2.9",
     # calling ears-discord's HTTP API
     "httpx>=0.28",
     # multipart form bodies for POST /invite
