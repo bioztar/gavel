@@ -1,0 +1,51 @@
+# When the chair acts. Code reads this; the model never decides whether to speak.
+
+# Thresholds. The agenda's own `policy` block overrides any of these per meeting, so they
+# can be tuned from the ears console without touching this file.
+defaults:
+  floorShareThreshold: 0.6        # share of speaking time in the window that counts as hogging
+  floorWindowSeconds: 120
+  floorMinSpeakingSeconds: 45     # ...and at least this much speaking in the window
+  topicOverrunFactor: 1.2         # announce the move at budget × this
+  silenceSeconds: 15              # dead air inside a topic before the chair invites someone
+  minSecondsBetweenInterventions: 45
+  offAgendaGraceSeconds: 20       # how long someone may drift before the chair parks it
+  allowMute: false                # may the chair escalate to a short, announced mute
+  escalateAfterSeconds: 10        # still talking this long after being redirected → escalate
+  muteSeconds: 15
+
+engine:
+  tickMs: 250
+  # Checked in this order; the first that fires wins the tick.
+  triggerOrder: [escalate, offAgenda, floorHog, topicOverrun, silence]
+  # Speaking pauses shorter than this still count as holding the floor (ears' TURN_GAP_MS).
+  floorGapMs: 1500
+  # One escalation per person per this long.
+  escalateCooldownSeconds: 120
+  # A redirect stops being "pending" once someone else talks, or after this long.
+  redirectExpirySeconds: 60
+  # Never muted, whatever allowMute says.
+  neverMuteRoles: [host]
+  # If the chair's `spoken` never arrives, stop waiting after this long.
+  spokenTimeoutSeconds: 20
+
+# The off-agenda classifier is the only model call that scales with talk, so it is rationed.
+relevance:
+  minNewWords: 12        # classify only once this many new words have arrived...
+  minFloorSeconds: 3     # ...from someone who has held the floor at least this long
+  windowWords: 60        # the classifier sees at most this many recent words
+  recheckSeconds: 8      # while an off-agenda episode is open, re-check at most this often
+  cacheSize: 256         # identical (topic, window) pairs reuse the verdict
+
+compose:
+  # Pre-compose the redirect the moment an off-agenda episode opens, while the grace
+  # period runs, so the live cost at interruption time is only TTS.
+  precompose: true
+  # A line for the same kind + person + topic is reused for this long instead of a new call.
+  lineCacheSeconds: 300
+
+pickSpeaker:
+  # Who the chair invites when the room goes quiet or someone hogs the floor.
+  order: [mustHear, owner, leastOnTopic]
+  avoidLastSpeaker: true
+  avoidLastPrompted: true

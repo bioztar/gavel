@@ -1,0 +1,57 @@
+{"atMs": 0, "type": "ready", "channelId": "900000000000000001", "participants": [{"discordId": "100000000000000001", "name": "Vitaly"}, {"discordId": "100000000000000002", "name": "Ana"}, {"discordId": "100000000000000003", "name": "Marc"}]}
+{"atMs": 500, "type": "session.started", "sessionId": "replay-offagenda", "meetingId": null, "title": "Launch sync", "context": null, "agenda": null}
+{"atMs": 2000, "type": "speaking.start", "discordId": "100000000000000002"}
+{"atMs": 11000, "type": "transcript", "discordId": "100000000000000002", "name": "Ana", "text": "Status from my side, the QA workstream is mostly finished but the load tests are not.", "final": false, "utteranceId": "2-2"}
+{"atMs": 20000, "type": "transcript", "discordId": "100000000000000002", "name": "Ana", "text": "Honest status is we expected the payment flow to be done and it is not done yet.", "final": true, "utteranceId": "2-2"}
+{"atMs": 20000, "type": "speaking.end", "discordId": "100000000000000002"}
+{"atMs": 21000, "type": "speaking.start", "discordId": "100000000000000003"}
+{"atMs": 28000, "type": "transcript", "discordId": "100000000000000003", "name": "Marc", "text": "Status on the mobile workstream, the build is green and the store listing is finished.", "final": false, "utteranceId": "3-21"}
+{"atMs": 35000, "type": "transcript", "discordId": "100000000000000003", "name": "Marc", "text": "What is not done that I expected is the push notification workstream, it slipped.", "final": true, "utteranceId": "3-21"}
+{"atMs": 35000, "type": "speaking.end", "discordId": "100000000000000003"}
+{"atMs": 57000, "type": "speaking.start", "discordId": "100000000000000001"}
+{"atMs": 66000, "type": "transcript", "discordId": "100000000000000001", "name": "Vitaly", "text": "My status, the backend workstream is finished apart from the rate limiter.", "final": false, "utteranceId": "1-57"}
+{"atMs": 75000, "type": "transcript", "discordId": "100000000000000001", "name": "Vitaly", "text": "What I expected to be done and is not done is the admin panel, honestly.", "final": true, "utteranceId": "1-57"}
+{"atMs": 75000, "type": "speaking.end", "discordId": "100000000000000001"}
+{"atMs": 77000, "type": "speaking.start", "discordId": "100000000000000002"}
+{"atMs": 92000, "type": "transcript", "discordId": "100000000000000002", "name": "Ana", "text": "So the honest status overall is two workstreams late, payments and push notifications.", "final": true, "utteranceId": "2-77"}
+{"atMs": 92000, "type": "speaking.end", "discordId": "100000000000000002"}
+{"atMs": 94000, "type": "speaking.start", "discordId": "100000000000000003"}
+{"atMs": 106000, "type": "transcript", "discordId": "100000000000000003", "name": "Marc", "text": "Agreed, that status is fair, mobile is the workstream closest to done.", "final": true, "utteranceId": "3-94"}
+{"atMs": 106000, "type": "speaking.end", "discordId": "100000000000000003"}
+{"atMs": 116000, "type": "speaking.start", "discordId": "100000000000000002"}
+{"atMs": 123000, "type": "transcript", "discordId": "100000000000000002", "name": "Ana", "text": "For the date, I can defend October fourteenth if QA gets two more people.", "final": false, "utteranceId": "2-116"}
+{"atMs": 130000, "type": "transcript", "discordId": "100000000000000002", "name": "Ana", "text": "Otherwise the date I can commit to out loud is the end of the month.", "final": true, "utteranceId": "2-116"}
+{"atMs": 130000, "type": "speaking.end", "discordId": "100000000000000002"}
+{"atMs": 132000, "type": "speaking.start", "discordId": "100000000000000001"}
+{"atMs": 141714, "type": "transcript", "discordId": "100000000000000001", "name": "Vitaly", "text": "Honestly the pricing page needs a full redesign first, the tiers make no sense to customers.", "final": false, "utteranceId": "1-132"}
+{"atMs": 151428, "type": "transcript", "discordId": "100000000000000001", "name": "Vitaly", "text": "The enterprise plan is way too cheap for what we give, and the free tier is too generous.", "final": false, "utteranceId": "1-132"}
+{"atMs": 161142, "type": "transcript", "discordId": "100000000000000001", "name": "Vitaly", "text": "I looked at three competitors last week and they charge per seat with annual discounts.", "final": false, "utteranceId": "1-132"}
+{"atMs": 170857, "type": "transcript", "discordId": "100000000000000001", "name": "Vitaly", "text": "We should also rename the plans, starter and growth sound generic, marketing agrees with me.", "final": false, "utteranceId": "1-132"}
+{"atMs": 180571, "type": "transcript", "discordId": "100000000000000001", "name": "Vitaly", "text": "And the checkout page converts badly, the coupon field confuses people every single time.", "final": false, "utteranceId": "1-132"}
+{"atMs": 190285, "type": "transcript", "discordId": "100000000000000001", "name": "Vitaly", "text": "If we fix pricing first the revenue projections change completely, so this matters now.", "final": false, "utteranceId": "1-132"}
+{"atMs": 200000, "type": "transcript", "discordId": "100000000000000001", "name": "Vitaly", "text": "I can draft new tiers tonight and share a spreadsheet with seat prices and discounts.", "final": true, "utteranceId": "1-132"}
+{"atMs": 200000, "type": "speaking.end", "discordId": "100000000000000001"}
+{"atMs": 202000, "type": "speaking.start", "discordId": "100000000000000003"}
+{"atMs": 210000, "type": "transcript", "discordId": "100000000000000003", "name": "Marc", "text": "On the date, I can commit to the fourteenth for mobile if the store review is quick.", "final": false, "utteranceId": "3-202"}
+{"atMs": 218000, "type": "transcript", "discordId": "100000000000000003", "name": "Marc", "text": "So my date is the fourteenth, with the end of the month as the fallback date.", "final": true, "utteranceId": "3-202"}
+{"atMs": 218000, "type": "speaking.end", "discordId": "100000000000000003"}
+{"atMs": 220000, "type": "speaking.start", "discordId": "100000000000000002"}
+{"atMs": 250000, "type": "transcript", "discordId": "100000000000000002", "name": "Ana", "text": "Then the date we commit to is the fourteenth, and we revisit it on Friday if QA is short.", "final": true, "utteranceId": "2-220"}
+{"atMs": 250000, "type": "speaking.end", "discordId": "100000000000000002"}
+{"atMs": 258000, "type": "speaking.start", "discordId": "100000000000000003"}
+{"atMs": 265000, "type": "transcript", "discordId": "100000000000000003", "name": "Marc", "text": "Blockers, I will own the push notification blocker and the store review blocker.", "final": false, "utteranceId": "3-258"}
+{"atMs": 272000, "type": "transcript", "discordId": "100000000000000003", "name": "Marc", "text": "Someone needs to own the rate limiter blocker, that one has no name against it.", "final": true, "utteranceId": "3-258"}
+{"atMs": 272000, "type": "speaking.end", "discordId": "100000000000000003"}
+{"atMs": 274000, "type": "speaking.start", "discordId": "100000000000000002"}
+{"atMs": 281000, "type": "transcript", "discordId": "100000000000000002", "name": "Ana", "text": "I will take the load test blocker as owner and pair on the rate limiter blocker.", "final": false, "utteranceId": "2-274"}
+{"atMs": 288000, "type": "transcript", "discordId": "100000000000000002", "name": "Ana", "text": "That leaves the admin panel blocker without an owner name.", "final": true, "utteranceId": "2-274"}
+{"atMs": 288000, "type": "speaking.end", "discordId": "100000000000000002"}
+{"atMs": 311000, "type": "speaking.start", "discordId": "100000000000000001"}
+{"atMs": 325000, "type": "transcript", "discordId": "100000000000000001", "name": "Vitaly", "text": "I will own the rate limiter blocker and the admin panel blocker, put my name on both.", "final": true, "utteranceId": "1-311"}
+{"atMs": 325000, "type": "speaking.end", "discordId": "100000000000000001"}
+{"atMs": 327000, "type": "speaking.start", "discordId": "100000000000000003"}
+{"atMs": 343000, "type": "transcript", "discordId": "100000000000000003", "name": "Marc", "text": "Good, so every blocker has an owner name against it now.", "final": true, "utteranceId": "3-327"}
+{"atMs": 343000, "type": "speaking.end", "discordId": "100000000000000003"}
+{"atMs": 345000, "type": "speaking.start", "discordId": "100000000000000002"}
+{"atMs": 358000, "type": "transcript", "discordId": "100000000000000002", "name": "Ana", "text": "Yes, each blocker has a name, I will send the owner list after the call.", "final": true, "utteranceId": "2-345"}
+{"atMs": 358000, "type": "speaking.end", "discordId": "100000000000000002"}

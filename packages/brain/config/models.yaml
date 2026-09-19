@@ -1,0 +1,52 @@
+# Which models the chair uses, what they cost, and how long we wait for them.
+# Every id is from Nebius Token Factory, reached through Mastra's model router as
+# `nebius/<id>` (auth: NEBIUS_API_KEY). Switch a profile by editing one line, or with the
+# env overrides BRAIN_MODEL_FAST / BRAIN_MODEL_NORMAL.
+
+profiles:
+  # High volume: labels a speaker's last words against the agenda. Cheap, fast, terse.
+  fast:
+    model: Qwen/Qwen3-30B-A3B-Instruct-2507
+    temperature: 0
+    maxOutputTokens: 60
+    timeoutMs: 4000
+    # Nebius models are not flagged for native structured output in Mastra's catalog:
+    # put the JSON instructions in the prompt instead of relying on response_format.
+    jsonPromptInjection: true
+
+  # The chair's spoken line. One or two short sentences, so output is tiny.
+  normal:
+    model: Qwen/Qwen3-235B-A22B-Instruct-2507
+    temperature: 0.6
+    maxOutputTokens: 70
+    # A live interruption cannot wait: past this the YAML template is spoken instead.
+    timeoutMs: 2500
+
+# USD per 1M tokens (Nebius catalog, Sept 2026). Used for the cost log in ears' llm_calls.
+#
+# Bake-off 2026-09-19, relevance.yaml prompt, 3 labelled cases, from Barcelona:
+#   Qwen/Qwen3-30B-A3B-Instruct-2507    3/3  0.6-1.0 s  ~28 out tokens   <- fast
+#   google/gemma-3-27b-it               3/3  0.8-1.3 s  ~37 out tokens   (fast alternative)
+#   Qwen/Qwen3-235B-A22B-Instruct-2507  3/3  0.7-2.2 s  ~31 out tokens   <- normal (better phrasing)
+#   nvidia/Nemotron-3_5-Lightning, deepseek-ai/DeepSeek-V4-Flash-0731, zai-org/GLM-5.3-Flash:
+#     reasoning models — they spend the whole token budget thinking and return no JSON. Avoid
+#     for these short, latency-bound calls.
+prices:
+  nvidia/Nemotron-3_5-Lightning: { input: 0.06, output: 0.24 }
+  Qwen/Qwen3-30B-A3B-Instruct-2507: { input: 0.10, output: 0.30 }
+  google/gemma-3-27b-it: { input: 0.10, output: 0.30 }
+  Qwen/Qwen3-235B-A22B-Instruct-2507: { input: 0.20, output: 0.60 }
+  deepseek-ai/DeepSeek-V4-Flash-0731: { input: 0.14, output: 0.28 }
+  zai-org/GLM-5.3-Flash: { input: 0.15, output: 0.50 }
+  openai/gpt-oss-120b: { input: 0.15, output: 0.60 }
+  MiniMaxAI/MiniMax-M3: { input: 0.30, output: 1.00 }
+
+# The chair's voice. SLNG, same route ears' console say-box uses (Fish on eu-west was the
+# fastest measured from Barcelona, ~1.2 s). Auth: SLNG_API_KEY.
+tts:
+  baseUrl: https://eu-west.api.slng.ai
+  model: slng/fish/tts:s2.1-pro
+  voice: 16cabdb7f8d240569aff36c9e480d783
+  timeoutMs: 8000
+  # Identical lines (templates repeat) reuse the audio instead of paying twice.
+  cacheSize: 64

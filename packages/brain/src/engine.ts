@@ -1,0 +1,632 @@
+/**
+ * The chair's loop, minus any I/O choices: frames in, a tick on a clock, interventions out.
+ *
+ * main.ts runs it against ears and Nebius; replay.ts runs it against a recorded meeting, a
+ * fake clock and stubs. Everything it needs from the outside world is a constructor argument.
+ */
+import { randomUUID } from "node:crypto";
+import type { Config, InterventionKind } from "./config";
+import { type Agenda, type Attendee, mergePolicy } from "./contract/agenda";
+import type { EarsFrame, Participant } from "./contract/frames";
+import { ContextBlock } from "./chair/context";
+import type { Llm, Usage } from "./chair/llm";
+import type { Tts } from "./chair/tts";
+import type { Memory, Store } from "./ears/store";
+import type { Wire } from "./ears/wire";
+import { log } from "./log";
+import type { Intervention, PersonView, Redirect, Snapshot } from "./policy/snapshot";
+import { evaluate, redirectFor } from "./policy/triggers";
+import { type Classification, RelevanceTracker } from "./state/relevance";
+import { TalkLedger } from "./state/talk";
+import { render } from "./template";
+
+export interface EngineDeps {
+  config: () => Config;
+  clock: () => number;
+  wire: Wire;
+  store: Store;
+  llm: Llm;
+  tts: Tts;
+  /** Used when ears' session.started carries no agenda. */
+  fallbackAgenda: Agenda | null;
+  /** How an intervention is carried out. Default: directly; main.ts routes it through the Mastra workflow. */
+  runner?: (engine: Engine, iv: Intervention) => Promise<unknown>;
+  /** Called for every model call (tokens, latency), after cost is computed. */
+  onUsage?: (u: Usage & { costUsd: number }) => void;
+}
+
+export interface Composed {
+  line: string;
+  source: "llm" | "template" | "cache";
+  composeMs: number;
+}
+
+interface Precomposed {
+  at: number;
+  promise: Promise<string | null>;
+}
+
+export class Engine {
+  sessionId: string | null = null;
+  agenda: Agenda | null = null;
+  private title: string | null = null;
+  private people = new Map<string, Participant>();
+  private topicIndex = 0;
+  private topicStartedAt = 0;
+  private sessionStartedAt = 0;
+  private ledger: TalkLedger;
+  private relevance: RelevanceTracker;
+  private context = new ContextBlock();
+
+  private pending: { utteranceId: string; at: number } | null = null;
+  private composing = false;
+  private chairLastSpokeAt = 0;
+  private lastInterventionAt: number | null = null;
+  private redirect: Redirect | null = null;
+  private escalatedAt: Record<string, number> = {};
+  private lastPromptedId: string | null = null;
+  private asked: Record<string, string[]> = {};
+  private parked: Array<{ name: string; summary: string }> = [];
+  private carried: Memory[] = [];
+  private muted = new Map<string, number>();
+  private precomposed = new Map<string, Precomposed>();
+  private inFlight = new Set<Promise<unknown>>();
+  readonly history: Array<Intervention & { at: number; line?: string; source?: string }> = [];
+  readonly usage = { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 };
+
+  constructor(private deps: EngineDeps) {
+    this.ledger = new TalkLedger(() => this.topic()?.id ?? null);
+    this.relevance = new RelevanceTracker(() => this.cfg.policy.relevance);
+  }
+
+  private get cfg(): Config {
+    return this.deps.config();
+  }
+
+  private now(): number {
+    return this.deps.clock();
+  }
+
+  // --- frames in -------------------------------------------------------------------------
+
+  handle(frame: EarsFrame): void {
+    const at = frame.atMs ?? this.now();
+    switch (frame.type) {
+      case "ready":
+      case "participants":
+        this.people = new Map(frame.participants.map((p) => [p.discordId, p]));
+        if (frame.type === "ready" && !this.agenda) this.startSession(null, null, this.deps.fallbackAgenda, at);
+        break;
+      case "session.started":
+        this.startSession(frame.sessionId, frame.title ?? null, frame.agenda ?? this.deps.fallbackAgenda, at);
+        break;
+      case "session.ended":
+        if (frame.sessionId === this.sessionId) {
+          log.info("session.ended", { sessionId: frame.sessionId });
+          this.agenda = null;
+        }
+        break;
+      case "speaking.start":
+        this.ledger.start(frame.discordId, at);
+        // Someone else taking the floor means the redirect worked.
+        if (this.redirect && this.redirect.targetId !== frame.discordId) this.redirect = null;
+        break;
+      case "speaking.end":
+        this.ledger.end(frame.discordId, at);
+        break;
+      case "transcript":
+        this.relevance.addTranscript(frame.discordId, frame.text);
+        this.maybeClassify(frame.discordId);
+        break;
+      case "spoken":
+        if (this.pending?.utteranceId === frame.utteranceId) this.chairDone(at);
+        break;
+      case "moderation":
+        if (frame.action === "muted") this.muted.set(frame.discordId, frame.until ?? at);
+        if (frame.action === "unmuted") this.muted.delete(frame.discordId);
+        log.info("moderation", { action: frame.action, who: this.nameOf(frame.discordId), error: frame.error });
+        break;
+      default:
+        break;
+    }
+  }
+
+  private startSession(sessionId: string | null, title: string | null, agenda: Agenda | null, at: number): void {
+    this.sessionId = sessionId;
+    this.title = title;
+    this.agenda = agenda;
+    this.topicIndex = 0;
+    this.topicStartedAt = at;
+    this.sessionStartedAt = at;
+    this.chairLastSpokeAt = 0;
+    this.lastInterventionAt = null;
+    this.redirect = null;
+    this.escalatedAt = {};
+    this.lastPromptedId = null;
+    this.asked = {};
+    this.parked = [];
+    this.carried = [];
+    this.precomposed.clear();
+    this.ledger.reset();
+    this.relevance.resetAll();
+    log.info("session.started", {
+      sessionId,
+      title,
+      topics: agenda?.topics.map((t) => t.title) ?? [],
+      policy: this.policy(),
+    });
+    this.track(this.loadCarried());
+  }
+
+  /** Open memories for everyone expected or present — brought up at the wrap-up. */
+  private async loadCarried(): Promise<void> {
+    const ids = [...new Set([...this.people.keys(), ...(this.agenda?.attendees ?? []).map((a) => a.discordId)])];
+    if (!ids.length) return;
+    const open = await this.deps.store.listMemories({ discordIds: ids, status: "open" });
+    this.carried = open.filter((m) => m.sessionId !== this.sessionId);
+    if (this.carried.length) log.info("memory.carried", { items: this.carried.map((m) => `${m.name}: ${m.summary}`) });
+  }
+
+  // --- the clock ---------------------------------------------------------------------------
+
+  /** One step of the loop. Returns the intervention it launched, if any. */
+  tick(): Intervention | null {
+    const now = this.now();
+    const engine = this.cfg.policy.engine;
+    if (this.pending && now - this.pending.at > engine.spokenTimeoutSeconds * 1000) {
+      log.warn("chair.spoken_timeout", { utteranceId: this.pending.utteranceId });
+      this.chairDone(now);
+    }
+    if (this.redirect && this.redirect.spokenAt !== null && now - this.redirect.spokenAt > engine.redirectExpirySeconds * 1000) {
+      this.redirect = null;
+    }
+    // An episode ends when its speaker has been quiet for the whole grace period.
+    const graceMs = this.policy().offAgendaGraceSeconds * 1000;
+    for (const [id] of this.relevance.episodes()) {
+      if (!this.ledger.holding(id, now, graceMs)) this.relevance.clear(id);
+    }
+    for (const id of this.people.keys()) this.maybeClassify(id);
+    this.ledger.prune(now, this.policy().floorWindowSeconds * 2000);
+
+    if (!this.agenda) return null;
+    const iv = evaluate(this.snapshot());
+    if (iv) this.launch(iv);
+    return iv;
+  }
+
+  /** Resolves when every in-flight model call and intervention has settled. */
+  async idle(): Promise<void> {
+    while (this.inFlight.size) await Promise.allSettled([...this.inFlight]);
+  }
+
+  private track<T>(p: Promise<T>): Promise<T> {
+    this.inFlight.add(p);
+    void p.finally(() => this.inFlight.delete(p)).catch(() => {});
+    return p;
+  }
+
+  // --- the snapshot the policy sees ------------------------------------------------------------
+
+  policy() {
+    return mergePolicy(this.cfg.policy.defaults, this.agenda);
+  }
+
+  topic() {
+    return this.agenda?.topics[this.topicIndex] ?? null;
+  }
+
+  private attendee(id: string): Attendee | undefined {
+    return this.agenda?.attendees.find((a) => a.discordId === id);
+  }
+
+  private nameOf(id: string): string {
+    return this.people.get(id)?.name ?? this.attendee(id)?.name ?? id;
+  }
+
+  snapshot(): Snapshot {
+    const now = this.now();
+    const cfg = this.cfg.policy;
+    const policy = this.policy();
+    const topic = this.topic();
+    const gap = cfg.engine.floorGapMs;
+    const windowMs = policy.floorWindowSeconds * 1000;
+    const people: PersonView[] = [...this.people.values()].map((p) => {
+      const talk = this.ledger.person(p.discordId, now, topic?.id ?? null, windowMs);
+      return {
+        id: p.discordId,
+        name: p.name,
+        role: this.attendee(p.discordId)?.role ?? "attendee",
+        totalMs: talk.totalMs,
+        topicMs: talk.topicMs,
+        windowMs: talk.windowMs,
+        holding: this.ledger.holding(p.discordId, now, gap) && !this.muted.has(p.discordId),
+        holdingSince: this.ledger.holdingSince(p.discordId, now, gap),
+      };
+    });
+    const recaps: Record<string, string> = {};
+    for (const p of people) {
+      const r = this.relevance.lastSummary(p.id);
+      if (r) recaps[p.id] = r;
+    }
+    return {
+      now,
+      purpose: this.agenda?.purpose ?? "",
+      policy,
+      engine: cfg.engine,
+      pick: cfg.pickSpeaker,
+      topics: this.agenda?.topics ?? [],
+      topicIndex: this.topicIndex,
+      topic,
+      topicStartedAt: this.topicStartedAt,
+      people,
+      chairBusy: this.pending !== null || this.composing,
+      lastInterventionAt: this.lastInterventionAt,
+      silenceMs: this.ledger.silenceMs(now, Math.max(this.topicStartedAt, this.chairLastSpokeAt, this.sessionStartedAt)),
+      episodes: this.relevance.episodes().map(([id, episode]) => ({ id, episode })),
+      redirect: this.redirect,
+      escalatedAt: this.escalatedAt,
+      lastSpeakerId: this.ledger.lastSpeaker(),
+      lastPromptedId: this.lastPromptedId,
+      asked: this.asked,
+      recaps,
+      parked: this.parked,
+      carried: this.carried.map((m) => ({ name: m.name ?? this.nameOf(m.discordId), summary: m.summary })),
+      fallbackQuestion: this.cfg.chair.fallbackQuestion,
+    };
+  }
+
+  // --- off-agenda classification ------------------------------------------------------------
+
+  private maybeClassify(id: string): void {
+    const now = this.now();
+    if (!this.agenda || !this.topic()) return;
+    // Nothing could act on a verdict while the chair is mid-sentence.
+    if (this.pending) return;
+    const since = this.ledger.holdingSince(id, now, this.cfg.policy.engine.floorGapMs);
+    if (since === null || !this.relevance.due(id, now, now - since)) return;
+    const topic = this.topic();
+    const { key, cached } = this.relevance.begin(id, now, topic?.id ?? null);
+    if (cached) {
+      this.afterVerdict(id, key, cached, true);
+      return;
+    }
+    const agenda = this.agenda;
+    const window = this.relevance.window(id);
+    const req = {
+      system: `${this.cfg.relevance.system}\n${this.contextText()}`,
+      user: render(this.cfg.relevance.user, { topicId: topic?.id, name: this.nameOf(id), window }),
+      window,
+      topicId: topic?.id ?? null,
+      topics: agenda.topics,
+    };
+    this.track(
+      this.deps.llm
+        .classify(req)
+        .catch((err) => {
+          log.warn("relevance.failed", { error: String(err) });
+          return null;
+        })
+        .then((result) => this.afterVerdict(id, key, result, false)),
+    );
+  }
+
+  private afterVerdict(id: string, key: string, raw: Classification | null, cached: boolean): void {
+    const result = raw && this.checkVerdict(raw);
+    const change = this.relevance.finish(id, this.now(), key, result);
+    if (result) log.debug("relevance", { who: this.nameOf(id), ...result, cached });
+    if (change === "opened") {
+      const episode = this.relevance.episode(id)!;
+      log.info("offagenda.opened", { who: this.nameOf(id), verdict: episode.verdict, summary: episode.summary });
+      if (this.cfg.policy.compose.precompose) {
+        const person = this.snapshot().people.find((p) => p.id === id);
+        if (person) this.precompose(redirectFor(this.snapshot(), person, episode));
+      }
+    } else if (change === "closed") {
+      log.info("offagenda.closed", { who: this.nameOf(id) });
+    }
+  }
+
+  /**
+   * "Another agenda item" only counts if it is still ahead of us. Jumping back to a finished
+   * topic, or to an id the agenda does not have, is drifting off the agenda.
+   */
+  private checkVerdict(c: Classification): Classification {
+    if (c.verdict !== "otherTopic") return c;
+    const at = this.agenda?.topics.findIndex((t) => t.id === c.topicId) ?? -1;
+    return at > this.topicIndex ? c : { ...c, verdict: "offAgenda", topicId: null };
+  }
+
+  // --- interventions ----------------------------------------------------------------------------
+
+  private launch(iv: Intervention): void {
+    const now = this.now();
+    this.composing = true;
+    this.lastInterventionAt = now;
+    if (iv.question && iv.topicId) (this.asked[iv.topicId] ??= []).push(iv.question);
+    if (iv.addresseeId) this.lastPromptedId = iv.addresseeId;
+    if (iv.trigger === "escalate" && iv.targetId) {
+      this.escalatedAt[iv.targetId] = now;
+      this.redirect = null;
+    } else if (iv.redirects && iv.targetId) {
+      this.redirect = { targetId: iv.targetId, topicId: iv.topicId, spokenAt: null };
+    }
+    if (iv.trigger === "offAgenda" && iv.targetId) this.relevance.clear(iv.targetId);
+    const entry = { ...iv, at: now };
+    this.history.push(entry);
+    log.info("chair.intervene", {
+      kind: iv.kind,
+      target: iv.targetId && this.nameOf(iv.targetId),
+      addressee: iv.addresseeId && this.nameOf(iv.addresseeId),
+      topic: iv.topicId,
+      actions: iv.actions,
+    });
+    const run = this.deps.runner ? this.deps.runner(this, iv) : this.carryOut(iv);
+    this.track(
+      run
+        .catch((err) => log.error("chair.intervention_failed", { kind: iv.kind, error: String(err) }))
+        .finally(() => {
+          this.composing = false;
+        }),
+    );
+  }
+
+  /** The whole intervention, in order. The Mastra workflow runs the same steps one by one. */
+  async carryOut(iv: Intervention): Promise<Composed> {
+    const composed = await this.compose(iv);
+    const done = await this.act(iv, composed.line);
+    this.record(iv, composed, done.ttsMs);
+    return composed;
+  }
+
+  private lineKey(iv: Pick<Intervention, "kind" | "targetId" | "addresseeId" | "topicId">): string {
+    return `${iv.kind}:${iv.targetId ?? iv.addresseeId ?? "-"}:${iv.topicId ?? "-"}`;
+  }
+
+  private precompose(iv: Intervention): void {
+    const key = this.lineKey(iv);
+    if (this.precomposed.has(key)) return;
+    const promise = this.generate(iv);
+    this.precomposed.set(key, { at: this.now(), promise });
+    this.track(promise);
+    log.debug("chair.precompose", { key });
+  }
+
+  /** The line: a pre-composed or recent one if we have it, else the model, else the template. */
+  async compose(iv: Intervention): Promise<Composed> {
+    const started = performance.now();
+    const timeoutMs = this.cfg.models.profiles.normal.timeoutMs;
+    const key = this.lineKey(iv);
+    const ready = this.precomposed.get(key);
+    const fresh = ready && this.now() - ready.at < this.cfg.policy.compose.lineCacheSeconds * 1000;
+    let line: string | null = null;
+    let source: Composed["source"] = "llm";
+    if (fresh) {
+      line = await withTimeout(ready.promise, timeoutMs);
+      source = "cache";
+    }
+    if (!line) {
+      source = "llm";
+      const promise = this.generate(iv);
+      this.precomposed.set(key, { at: this.now(), promise });
+      line = await withTimeout(promise, timeoutMs);
+    }
+    if (!line) {
+      line = this.template(iv);
+      source = "template";
+    }
+    return { line, source, composeMs: Math.round(performance.now() - started) };
+  }
+
+  private async generate(iv: Intervention): Promise<string | null> {
+    const kind = this.cfg.chair.kinds[iv.kind];
+    const user = render(this.cfg.chair.user, {
+      instruction: render(kind.instruction, iv.vars),
+      examples: kind.examples.map((e) => `- ${e}`).join("\n"),
+      // Every fact is listed, empty ones as "(none)": a missing fact invites the model to invent it.
+      facts: Object.entries(iv.vars)
+        .filter(([k]) => k !== "quote")
+        .map(([k, v]) => `${k}: ${v?.trim() || "(none)"}`)
+        .join("\n"),
+    });
+    try {
+      const text = await this.deps.llm.compose({ system: `${this.cfg.chair.system}\n${this.contextText()}`, user });
+      return text ? clean(text) : null;
+    } catch (err) {
+      log.warn("chair.compose_failed", { kind: iv.kind, error: String(err) });
+      return null;
+    }
+  }
+
+  /** The first template whose placeholders all have values; the last one otherwise. */
+  template(iv: Intervention): string {
+    const templates = this.cfg.chair.kinds[iv.kind as InterventionKind].templates;
+    const filled = templates.find((t) =>
+      [...t.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].every((m) => (iv.vars[m[1]!] ?? "").trim() !== ""),
+    );
+    return render(filled ?? templates[templates.length - 1]!, iv.vars);
+  }
+
+  /** Park, speak, mute, advance — whichever the intervention calls for, in that order. */
+  async act(iv: Intervention, line: string): Promise<{ ttsMs?: number; utteranceId?: string }> {
+    if (iv.actions.includes("park") && iv.park) await this.park(iv.park);
+    let out: { ttsMs?: number; utteranceId?: string } = {};
+    if (iv.actions.includes("speak")) out = await this.speak(line, iv.priority);
+    if (iv.actions.includes("mute") && iv.targetId && iv.muteSeconds) {
+      this.mute(iv.targetId, iv.muteSeconds, `gavel: ${iv.kind}`);
+    }
+    if (iv.actions.includes("advance")) this.advanceTopic();
+    const entry = this.history[this.history.length - 1];
+    if (entry) entry.line = line;
+    return out;
+  }
+
+  record(iv: Intervention, composed: Composed, ttsMs?: number): void {
+    const entry = this.history[this.history.length - 1];
+    if (entry) entry.source = composed.source;
+    log.info("chair.said", { kind: iv.kind, source: composed.source, composeMs: composed.composeMs, ttsMs, line: composed.line });
+    this.deps.store.intervention({
+      sessionId: this.sessionId,
+      kind: iv.kind,
+      targetId: iv.targetId,
+      addresseeId: iv.addresseeId,
+      topicId: iv.topicId,
+      line: composed.line,
+      source: composed.source,
+      actions: iv.actions,
+      composeMs: composed.composeMs,
+      ttsMs,
+    });
+  }
+
+  // --- the chair's hands (also exposed as Mastra tools) -------------------------------------------
+
+  async park(p: { discordId: string; name: string; summary: string; quote?: string; topicId?: string | null }): Promise<Memory | null> {
+    this.parked.push({ name: p.name, summary: p.summary });
+    const memory = await this.deps.store.addMemory({
+      discordId: p.discordId,
+      name: p.name,
+      kind: "parked",
+      summary: p.summary,
+      quote: p.quote,
+      topicId: p.topicId,
+      sessionId: this.sessionId,
+    });
+    log.info("memory.parked", { who: p.name, summary: p.summary, id: memory?.id });
+    return memory;
+  }
+
+  async speak(text: string, priority: boolean): Promise<{ ttsMs?: number; utteranceId?: string }> {
+    const utteranceId = randomUUID();
+    this.pending = { utteranceId, at: this.now() };
+    try {
+      const speech = await this.deps.tts.synthesize(text);
+      const sent = this.deps.wire.send({
+        type: "speak",
+        utteranceId,
+        audio: speech.audio.toString("base64"),
+        format: speech.format,
+        priority,
+      });
+      if (!sent) {
+        log.warn("chair.not_connected", { text });
+        this.chairDone(this.now());
+        return { ttsMs: speech.latencyMs };
+      }
+      // Anchor the pending wait at send time, not at the TTS request.
+      this.pending = { utteranceId, at: this.now() };
+      return { ttsMs: speech.latencyMs, utteranceId };
+    } catch (err) {
+      log.warn("chair.tts_failed", { error: String(err) });
+      this.chairDone(this.now());
+      return {};
+    }
+  }
+
+  mute(discordId: string, seconds: number, reason?: string): boolean {
+    return this.deps.wire.send({ type: "mute", discordId, seconds, reason });
+  }
+
+  unmute(discordId: string): boolean {
+    return this.deps.wire.send({ type: "unmute", discordId });
+  }
+
+  stop(): boolean {
+    return this.deps.wire.send({ type: "stop" });
+  }
+
+  advanceTopic(): void {
+    const now = this.now();
+    this.ledger.splitAt(now);
+    this.topicIndex += 1;
+    this.topicStartedAt = now;
+    this.relevance.resetAll();
+    this.redirect = null;
+    this.lastPromptedId = null;
+    const topic = this.topic();
+    log.info("topic.advanced", { to: topic?.title ?? "(agenda done)" });
+  }
+
+  async recall(discordIds?: string[]): Promise<Memory[]> {
+    return this.deps.store.listMemories({ discordIds, status: "open" });
+  }
+
+  async resolveMemory(id: string): Promise<Memory | null> {
+    return this.deps.store.setMemoryStatus(id, "resolved");
+  }
+
+  private chairDone(at: number): void {
+    this.pending = null;
+    this.chairLastSpokeAt = at;
+    if (this.redirect && this.redirect.spokenAt === null) this.redirect.spokenAt = at;
+  }
+
+  // --- model usage ------------------------------------------------------------------------------
+
+  /** Called by the LLM implementation after every model call. */
+  recordUsage(u: Usage): void {
+    const price = this.cfg.models.prices[u.model];
+    const costUsd = price ? (u.inputTokens * price.input + u.outputTokens * price.output) / 1e6 : 0;
+    this.usage.calls += 1;
+    this.usage.inputTokens += u.inputTokens;
+    this.usage.outputTokens += u.outputTokens;
+    this.usage.costUsd += costUsd;
+    this.deps.store.llmCall({ sessionId: this.sessionId, ...u, costUsd });
+    this.deps.onUsage?.({ ...u, costUsd });
+    log.debug("llm.call", { ...u, costUsd: Number(costUsd.toFixed(6)) });
+  }
+
+  private contextText(): string {
+    const people = [...this.people.values()].map((p) => ({
+      name: p.name,
+      role: this.attendee(p.discordId)?.role ?? "attendee",
+    }));
+    return this.context.get(this.agenda, people);
+  }
+
+  // --- the stage's view ---------------------------------------------------------------------------
+
+  view() {
+    const s = this.snapshot();
+    return {
+      sessionId: this.sessionId,
+      title: this.title,
+      purpose: s.purpose,
+      topic: s.topic && {
+        index: s.topicIndex,
+        id: s.topic.id,
+        title: s.topic.title,
+        budgetSeconds: s.topic.budgetSeconds,
+        elapsedSeconds: Math.round((s.now - s.topicStartedAt) / 1000),
+      },
+      topics: s.topics.map((t, i) => ({ id: t.id, title: t.title, budgetSeconds: t.budgetSeconds, done: i < s.topicIndex })),
+      people: s.people.map((p) => ({
+        id: p.id,
+        name: p.name,
+        role: p.role,
+        totalSeconds: Math.round(p.totalMs / 1000),
+        topicSeconds: Math.round(p.topicMs / 1000),
+        windowSeconds: Math.round(p.windowMs / 1000),
+        speaking: p.holding,
+        muted: this.muted.has(p.id),
+        offAgenda: this.relevance.episode(p.id)?.summary ?? null,
+      })),
+      chairBusy: s.chairBusy,
+      silenceSeconds: Math.round(s.silenceMs / 1000),
+      parked: this.parked,
+      carried: s.carried,
+      interventions: this.history.slice(-20).map((h) => ({ at: h.at, kind: h.kind, line: h.line, source: h.source })),
+      usage: { ...this.usage, costUsd: Number(this.usage.costUsd.toFixed(6)) },
+      policy: s.policy,
+    };
+  }
+}
+
+function clean(text: string): string {
+  let line = text.replace(/\s+/g, " ").trim();
+  if (/^["'“].*["'”]$/.test(line)) line = line.slice(1, -1).trim();
+  return line.length > 320 ? `${line.slice(0, 317).replace(/\s\S*$/, "")}…` : line;
+}
+
+function withTimeout<T>(p: Promise<T | null>, ms: number): Promise<T | null> {
+  return Promise.race([p, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
+}
