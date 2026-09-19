@@ -230,6 +230,35 @@ seconds late is worse than a chair with no face. Measure it first thing after th
 If the round trip is slow: speak on time with the still frame up, and let the clip land on
 the stage a beat later as a replay. Never hold the audio back to wait for video.
 
+**Director vs lip-sync — pick one on the day, not both.**
+
+The Director endpoint is an *infinite livestream*: a video stream that stays up and is steered
+with prompts while it runs. Lip-sync is a clip per utterance. They solve different halves of
+the same problem and the build has time for one.
+
+| | Director (livestream) | Lip-sync (clip per line) |
+|---|---|---|
+| Presence | Chair is visibly there the whole call | Still portrait until it speaks |
+| Mouth matches the words | No | Yes |
+| Latency at the moment of interruption | None — stream is already live, steer it | A clip has to be generated first |
+| Track fit | Aimed squarely at the H3 Max Director track | Generic |
+| Risk | A stream to keep alive, publish, and pay for all day | Round-trip time on every intervention |
+
+**Lean Director**, for three reasons: it is what that track is judged on, presence is what
+sells "there is a chair in this meeting", and it removes latency from the exact moment that
+must not be late. Steer it on state change — idle, listening, interrupting, fire drill —
+rather than per word. A chair whose mouth is approximate but who is *always there and reacts*
+reads better on a projector than a still that occasionally animates.
+
+**The question that decides it**, and the first thing to ask the fal mentor: *is the Director
+output playable in a browser `<video>` element (HLS or WebRTC URL)?* If yes, both surfaces get
+it nearly free — `<video>` → canvas → `captureStream()` → the stage, and the same canvas track
+straight into the Vonage publisher (V3). If it only comes back as files or a proprietary
+player, the plumbing cost jumps and lip-sync becomes the better buy.
+
+Decide within thirty minutes of the key working. Whichever loses, the fallback is the still
+portrait — the demo never depends on the face.
+
 **Endpoint id to confirm with the mentor** — fal's lip-sync models sit under several
 families and the H3 Max variant is the one they suggested. Get the exact model id from them
 rather than guessing; ask at the same time whether a lip-sync clip per intervention counts

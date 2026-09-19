@@ -330,7 +330,7 @@
     {
       "id": "B9",
       "lane": "brain",
-      "title": "fal lip-sync face — driven by the chair's own TTS audio",
+      "title": "fal face — Director livestream, steered on state change (lip-sync is the fallback)",
       "owner": "either",
       "effort": "1.5h",
       "deps": [
@@ -340,7 +340,7 @@
       ],
       "status": "todo",
       "spine": false,
-      "note": "Mentor suggested the lip-sync endpoint on H3 Max, not continuous generation. One still portrait + the TTS audio per intervention. Measure latency first; never hold the audio to wait for video."
+      "note": "Director = infinite livestream, steerable, no latency at the interrupt, fits the H3 Max track. First question to the mentor: is the output playable in a browser <video>? If yes the stage and Vonage both get it via canvas. Decide within 30m of the key working; still portrait if neither lands."
     },
     {
       "id": "B10",
@@ -393,7 +393,7 @@
       ],
       "status": "todo",
       "spine": false,
-      "note": "Same lip-sync clip, published as a video track into the Vonage call. The one place the chair has a face in-call."
+      "note": "Same canvas that renders the Director stream, captureStream()'d into the Vonage publisher. The one place the chair has a face in-call."
     },
     {
       "id": "V5",
