@@ -6087,7 +6087,7 @@ function joinSession(evt) {
   currentToken = evt.token;
   setStatus("connecting");
   conn = import_client.fal.realtime.open((0, import_wma.wma)(evt.endpointId), {
-    receive: ["video"],
+    receive: ["video", "audio"],
     onState: (state) => {
       if (state === "live") setStatus("live");
     },

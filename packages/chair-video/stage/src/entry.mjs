@@ -74,13 +74,19 @@ function joinSession(evt) {
   currentToken = evt.token;
   setStatus("connecting");
 
-  // Video only, on purpose. The model re-synthesises its own voice from the
-  // audio we send it, and Karen is already being heard for real in the Discord
-  // call — receiving both gave the room two Karens a beat apart, which is what
-  // made her land as creepy rather than present. The stream is the picture of
-  // her speaking; the Discord TTS is the speech.
+  // Subscribe to both tracks, then mute the element. The endpoint streams
+  // audio+video and rejects an offer that asks for video alone -- asking for
+  // one track fails negotiation outright with "the offer is incompatible with
+  // the media this endpoint streams", which means no Karen at all.
+  //
+  // The audio still must never reach the room: the model re-synthesises its own
+  // voice from the audio we send it, and Karen is already being heard for real
+  // in the Discord call, so playing it gave the room two Karens a beat apart --
+  // that is what made her land as creepy rather than present. Muting the
+  // element is what silences the second one. The stream is the picture of her
+  // speaking; the Discord TTS is the speech.
   conn = fal.realtime.open(wma(evt.endpointId), {
-    receive: ["video"],
+    receive: ["video", "audio"],
     onState: (state) => {
       if (state === "live") setStatus("live");
     },
@@ -90,8 +96,9 @@ function joinSession(evt) {
     },
     onMedia: (stream) => {
       video.srcObject = stream;
-      // Belt and braces: even if the endpoint sends an audio track anyway, it
-      // must never reach the room. Muted also means autoplay is not blocked.
+      // This is the mute that matters -- the audio track is always present, so
+      // this is the only thing standing between the room and a second Karen.
+      // Muted also means autoplay is not blocked.
       video.muted = true;
       video.play().catch(() => {
         // Autoplay was blocked — the click-to-start overlay is the recovery
