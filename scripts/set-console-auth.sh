@@ -12,6 +12,23 @@
 # Then:   docker compose up -d ears
 set -euo pipefail
 user=${1:-karen}
+
+# `--off` is the post-hackathon step: drop both switches and the route stops existing.
+# Kept in the same script so there is exactly one thing to remember.
+if [[ ${1:-} == --off ]]; then
+  env_file="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.env"
+  python3 - "$env_file" <<'OFF'
+import sys
+p = sys.argv[1]
+keep = [l for l in open(p).read().splitlines()
+        if not l.startswith(("GAVEL_CONSOLE_USERS=", "GAVEL_CONSOLE_PUBLIC="))]
+open(p, "w").write("\n".join(keep) + "\n")
+OFF
+  chmod 600 "$env_file"
+  docker compose -f "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/compose.yaml" up -d ears
+  echo "console route removed; ears is back to 127.0.0.1 only"
+  exit 0
+fi
 env_file="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.env"
 [[ -f $env_file ]] || { echo "no .env at $env_file" >&2; exit 1; }
 
@@ -23,6 +40,10 @@ read -rsp "again: " pw2; echo
 # bcrypt via the httpd image so nothing needs installing on the host. The password goes
 # in on stdin-free argv inside a throwaway container, not into this shell's history.
 line=$(PW="$pw" docker run --rm -i -e PW httpd:2.4-alpine sh -c 'htpasswd -nbB "$0" "$PW"' "$user" | tr -d '\r\n')
+# docker compose interpolates `$` inside .env values, which silently eats part of a
+# bcrypt hash and leaves you with a route that 401s even on the right password.
+# Doubling them is the documented escape. Cost me a debug round on 2026-09-19.
+line=${line//\$/\$\$}
 unset pw pw2
 [[ $line == "$user:"* ]] || { echo "htpasswd produced nothing usable" >&2; exit 1; }
 
