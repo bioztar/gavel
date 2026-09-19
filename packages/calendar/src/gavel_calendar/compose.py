@@ -24,6 +24,7 @@ from zoneinfo import ZoneInfo
 from .agenda import attendee_name, build_agenda
 from .ics_parser import InviteAttendee, ParsedInvite, TopicDraft
 from .ics_writer import build_ics
+from .invite_email import render_invite_html, render_invite_text
 from .llm import NebiusClient, ParsedBrief
 from .mailer import MailResult, send_invite
 from .store import InviteRecord, InviteStore
@@ -162,21 +163,28 @@ button:hover, a.button:hover { filter: brightness(1.1); }
 """
 
 
-def render_brief_form(default_attendees: str) -> str:
-    e = html.escape
+def render_brief_form() -> str:
+    """Page one is one box and one button.
+
+    No attendee list is pre-filled on purpose: the host dictates the meeting the
+    way they would say it out loud, and who needs to be in the room is read off
+    that brief on the next page, where it can still be corrected. An address
+    list on the first screen is a form to fill in; this is a sentence to say.
+    """
     return f"""<!doctype html>
 <html><head><meta charset="utf-8"><title>gavel calendar — compose</title>
 <style>{_STYLE}</style></head>
 <body>
 <h1>Set up a meeting</h1>
-<p>Type it like you'd say it. "set up a 15 minute meeting in one hour with Artem, we need to
-cover pricing, the launch date and who owns the blockers."</p>
+<p>Say it the way you'd say it out loud. "set up a 15 minute meeting in one hour with Artem,
+we need to cover pricing, the launch date and who owns the blockers."</p>
 <form method="post" action="/compose/parse">
 <label for="brief">Brief</label>
 <textarea id="brief" name="brief" required autofocus></textarea>
-<label for="attendees">Attendees</label>
-<input id="attendees" name="attendees" value="{e(default_attendees)}">
-<button type="submit">Parse</button>
+<label for="attendees">Who to invite <span style="text-transform:none;font-weight:400">(optional —
+leave empty and we'll work it out from the brief)</span></label>
+<input id="attendees" name="attendees" placeholder="Name &lt;email&gt;, Name &lt;email&gt;">
+<button type="submit">Next</button>
 </form>
 </body></html>"""
 
@@ -184,17 +192,41 @@ cover pricing, the launch date and who owns the blockers."</p>
 # --- POST /compose/parse ------------------------------------------------------------
 
 
+def _resolve_invitees(typed: str, settings: Settings) -> list[tuple[str, str]]:
+    """Who ends up on the invite: the standing room, plus anyone typed in.
+
+    The standing room is `COMPOSE_DEFAULT_ATTENDEES` and it is always included —
+    reading a guest list out of a spoken brief reliably enough to *remove*
+    someone is not a bet worth taking on a live meeting, so the brief can add
+    people and the confirm page can take them away, but a silent omission is
+    not possible. De-duplicated on the address, first spelling of a name wins.
+    """
+    pairs = _attendees_from_field(settings.compose_default_attendees)
+    seen = {email for _, email in pairs}
+    for name, email in _attendees_from_field(typed):
+        if email not in seen:
+            seen.add(email)
+            pairs.append((name, email))
+    return pairs
+
+
+def _attendee_field(pairs: list[tuple[str, str]]) -> str:
+    return ", ".join(f"{name} <{email}>" for name, email in pairs)
+
+
 async def render_confirm_form(brief: str, attendees: str, settings: Settings) -> str:
     llm = NebiusClient(settings.nebius_base_url, settings.nebius_api_key)
     now = datetime.now(ZoneInfo(settings.compose_timezone))
-    attendee_pairs = _attendees_from_field(attendees)
+    attendee_pairs = _resolve_invitees(attendees, settings)
     parsed = await llm.parse_brief(
         brief,
         now=now,
         timezone=settings.compose_timezone,
         attendees=[name for name, _ in attendee_pairs],
     )
-    return _render_confirm_html(brief, attendees, parsed, settings.compose_timezone)
+    return _render_confirm_html(
+        brief, _attendee_field(attendee_pairs), parsed, settings.compose_timezone
+    )
 
 
 @dataclass
@@ -242,14 +274,26 @@ def _render_confirm_html(
     host_name = attendee_pairs[0][0] if attendee_pairs else ""
     rows, start_value = _rows_from_parsed(parsed, timezone, host_name)
     title = e(parsed.title if parsed else "")
+    purpose = e(parsed.purpose.strip() if parsed and parsed.purpose.strip() else "")
     duration = str(parsed.duration_minutes) if parsed else ""
-    warning = (
-        ""
-        if parsed is not None
-        else "<p style='color:var(--bad)'><strong>Could not parse that brief.</strong> "
-        "Fill in the agenda by hand below.</p>"
-    )
 
+    # No topics came back — either the model failed, or the brief genuinely did
+    # not say what the meeting is for. Same answer either way: this is the one
+    # thing the host has to supply, and the page says so instead of quietly
+    # showing three empty boxes. The boxes are still there, because a chair that
+    # refuses and offers no way forward is just an obstacle.
+    no_agenda = parsed is None or not parsed.topics
+    if no_agenda:
+        warning = (
+            "<p style='color:var(--warn);font-size:1.05rem'><strong>There's no agenda in "
+            "that brief.</strong> Karen won't put a meeting in three people's calendars "
+            "without one — what does this call have to decide? Name the topics below, "
+            "with who owns each.</p>"
+        )
+    else:
+        warning = ""
+
+    return_marker = ""
     topic_rows = "".join(
         f"""<tr>
 <td><input name="topic_title_{i}" value="{e(r.title)}"></td>
@@ -269,12 +313,17 @@ def _render_confirm_html(
 <style>{_STYLE}</style></head>
 <body>
 <h1>Confirm the meeting</h1>
-{warning}
+{warning}{return_marker}
 <form method="post" action="/compose/send">
 <input type="hidden" name="brief" value="{e(brief)}">
-<input type="hidden" name="attendees" value="{e(attendees)}">
 <label for="title">Title</label>
 <input id="title" name="title" value="{title}">
+<label for="purpose">Purpose <span style="text-transform:none;font-weight:400">(one line —
+this is what the invitees read first)</span></label>
+<input id="purpose" name="purpose" value="{purpose}">
+<label for="attendees">Invitees <span style="text-transform:none;font-weight:400">(add or
+remove — "Name &lt;email&gt;", comma separated)</span></label>
+<input id="attendees" name="attendees" value="{e(attendees)}">
 <label for="start">Start ({e(timezone)})</label>
 <input id="start" name="start" type="datetime-local" value="{e(start_value)}">
 <label for="duration_minutes">Duration (minutes)</label>
@@ -376,6 +425,12 @@ async def handle_send(form: FormData, store: InviteStore, settings: Settings) ->
     agenda = build_agenda(
         invite, session_id, settings.attendee_map, settings.policy_overrides
     )
+    # The host's own one-liner wins over the sentence `agenda.py` scrapes off the
+    # top of the brief. `invite.description` stays the full brief either way —
+    # that is what `record.context` carries to the chair.
+    purpose = _form_str(form, "purpose").strip()
+    if purpose:
+        agenda["purpose"] = purpose
     record = InviteRecord(
         session_id=session_id,
         title=title,
@@ -438,7 +493,19 @@ async def _safe_mail(
         logger.exception("compose.ics_build_failed")
         return MailResult(sent=False, reason=f"invite not sent (ics build failed: {type(exc).__name__})")
 
-    text_body = f"{agenda.get('purpose', title)}\n\nJoin: {join_url}\nDiscord: {settings.discord_meeting_url}"
+    # The email carries the agenda itself, not the brief that was dictated to
+    # produce it: owner and must-be-heard per topic, in the order they will run.
+    kw = {
+        "title": title, "start": start, "end": end, "join_url": join_url,
+        "discord_url": settings.discord_meeting_url,
+    }
+    try:
+        text_body = render_invite_text(agenda, **kw)  # type: ignore[arg-type]
+        html_body = render_invite_html(agenda, **kw)  # type: ignore[arg-type]
+    except Exception:  # a rendering bug must not cost the invite
+        logger.exception("compose.invite_render_failed")
+        text_body = f"{agenda.get('purpose', title)}\n\nJoin: {join_url}"
+        html_body = ""
     try:
         return await send_invite(
             api_key=settings.resend_api_key,
@@ -446,6 +513,7 @@ async def _safe_mail(
             to=[email for _, email in attendee_pairs],
             subject=title,
             text_body=text_body,
+            html_body=html_body,
             ics_bytes=ics_bytes,
         )
     except Exception as exc:  # a mailer bug must never fail the meeting

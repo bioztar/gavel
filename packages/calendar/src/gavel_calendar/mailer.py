@@ -35,6 +35,7 @@ async def send_invite(
     subject: str,
     text_body: str,
     ics_bytes: bytes,
+    html_body: str = "",
 ) -> MailResult:
     if not api_key:
         return MailResult(sent=False, reason="not sent (no key)")
@@ -54,6 +55,9 @@ async def send_invite(
             }
         ],
     }
+    # Both parts, so a client that refuses HTML still gets the agenda.
+    if html_body:
+        body["html"] = html_body
     headers = {"Authorization": f"Bearer {api_key}"}
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT_SECONDS) as client:

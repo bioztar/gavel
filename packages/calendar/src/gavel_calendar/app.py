@@ -126,11 +126,15 @@ async def invite(
 
 @app.get("/compose", response_class=HTMLResponse)
 async def compose_form() -> str:
-    return compose.render_brief_form(settings.compose_default_attendees)
+    return compose.render_brief_form()
 
 
 @app.post("/compose/parse", response_class=HTMLResponse)
-async def compose_parse(brief: str = Form(...), attendees: str = Form(...)) -> str:
+async def compose_parse(brief: str = Form(...), attendees: str = Form("")) -> str:
+    # The invitee box on page one is optional, and an empty text input posts as
+    # `attendees=` — which this Starlette version reports as *missing*, not as an
+    # empty string. Required here, that 422s the one path the host actually uses:
+    # dictate the brief, click Next, name nobody.
     return await compose.render_confirm_form(brief, attendees, settings)
 
 

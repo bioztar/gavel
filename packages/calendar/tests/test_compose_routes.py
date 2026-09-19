@@ -57,7 +57,7 @@ def test_compose_parse_falls_back_without_llm_configured() -> None:
             data={"brief": "set up a meeting", "attendees": "Vitaly <vitaly@test.dev>"},
         )
         assert resp.status_code == 200
-        assert "Could not parse" in resp.text
+        assert "no agenda in" in resp.text.lower()
 
 
 def test_compose_send_creates_meeting_with_working_join_link(httpx_mock: HTTPXMock) -> None:
@@ -112,3 +112,10 @@ def test_compose_parse_uses_llm_when_configured(
         )
     assert resp.status_code == 200
     assert "Pricing sync" in resp.text
+
+
+def test_parse_accepts_an_empty_invitee_box():
+    """Page one's invitee field is optional; leaving it blank must not 422."""
+    with TestClient(app) as client:
+        resp = client.post("/compose/parse", data={"brief": "Karen, meet Artem.", "attendees": ""})
+    assert resp.status_code == 200

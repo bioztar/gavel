@@ -27,9 +27,10 @@ MODEL = "deepseek-ai/DeepSeek-V4.1-Flash"
 _SYSTEM_PROMPT = """You turn a short, spoken-style meeting brief into strict JSON. \
 Reply with ONLY a JSON object — no prose, no markdown code fences — matching exactly \
 this shape:
-{{"title": string, "start": ISO-8601 datetime with a UTC offset, "duration_minutes": \
-integer, "topics": [{{"title": string, "minutes": integer or null, "owner": string \
-or null, "must_hear": [string, ...], "type": "discussion" or "presentation"}}]}}
+{{"title": string, "purpose": string, "start": ISO-8601 datetime with a UTC offset, \
+"duration_minutes": integer, "topics": [{{"title": string, "minutes": integer or null, \
+"owner": string or null, "must_hear": [string, ...], "type": "discussion" or \
+"presentation"}}]}}
 
 The current date and time is {now}, timezone {timezone}. Resolve every relative time \
 in the brief ("in one hour", "tomorrow at 10", "half an hour") against that clock, \
@@ -39,7 +40,9 @@ Known attendees: {attendees}. Use their names, never their emails, for "owner" a
 are stated, use an empty list. If minutes for a topic are unstated, use null rather \
 than guessing. A topic where one named person presents, demos or reads something out \
 is "presentation"; anything the room talks through together is "discussion" — when in \
-doubt, "discussion"."""
+doubt, "discussion". "purpose" is one plain sentence saying what this meeting has to \
+decide or produce, written for the people being invited — not a restatement of the \
+brief's wording, and never longer than one sentence."""
 
 
 class BriefTopic(BaseModel):
@@ -55,6 +58,9 @@ class BriefTopic(BaseModel):
 
 class ParsedBrief(BaseModel):
     title: str
+    # One clean sentence for the invite email. The model often omits it; the
+    # title is a fine stand-in, and `compose.py` lets a human edit it anyway.
+    purpose: str = ""
     start: datetime
     duration_minutes: int = Field(gt=0)
     topics: list[BriefTopic] = Field(default_factory=list)

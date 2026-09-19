@@ -64,10 +64,14 @@ def test_fill_topic_minutes_is_always_whole_minutes(
     assert sum(filled) == total
 
 
-def test_render_brief_form_escapes_default_attendees() -> None:
-    html_out = compose.render_brief_form("<script>alert(1)</script>")
-    assert "<script>alert(1)</script>" not in html_out
-    assert "&lt;script&gt;" in html_out
+def test_render_brief_form_prefills_no_addresses() -> None:
+    """Page one is a box and a button. Who to invite is optional there and is
+    resolved on the confirm page, so no address is on screen before the brief
+    has even been dictated."""
+    html_out = compose.render_brief_form()
+    assert "@" not in html_out.split("<body>")[1].replace("&lt;email&gt;", "")
+    assert 'name="attendees"' in html_out
+    assert "required" in html_out  # the brief still is
 
 
 # --- render_confirm_form ---------------------------------------------------------
@@ -77,7 +81,7 @@ async def test_render_confirm_form_falls_back_when_llm_unconfigured() -> None:
     html_out = await compose.render_confirm_form(
         "set up a meeting", "Vitaly <vitaly@test.dev>", _settings()
     )
-    assert "Could not parse" in html_out
+    assert "no agenda in" in html_out.lower()
     assert "set up a meeting" in html_out
 
 
@@ -159,3 +163,61 @@ async def test_handle_send_survives_mailer_raising(monkeypatch: pytest.MonkeyPat
     assert record.title == "Standup"
     assert "not sent" in html_out
     assert record.session_id in html_out
+
+
+# --- invitees + the invite email -------------------------------------------------
+
+
+def test_resolve_invitees_always_includes_the_standing_room() -> None:
+    """The brief can add people; it can never silently drop one."""
+    pairs = compose._resolve_invitees("New Person <new@test.dev>", _settings())
+    emails = [email for _, email in pairs]
+    assert "new@test.dev" in emails
+    for _, email in compose._attendees_from_field(_settings().compose_default_attendees):
+        assert email in emails
+    assert len(emails) == len(set(emails))  # typed duplicate of a default collapses
+
+
+def test_invite_email_carries_the_agenda_not_the_brief() -> None:
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+
+    from gavel_calendar.invite_email import render_invite_html, render_invite_text
+
+    agenda = {
+        "purpose": "Decide the launch date.",
+        "attendees": [
+            {"discordId": "u1", "name": "Vitaly"},
+            {"discordId": "u2", "name": "Artem"},
+        ],
+        "topics": [
+            {
+                "title": "Pricing",
+                "budgetSeconds": 600,
+                "owner": "u1",
+                "mustHear": ["u1", "u2"],
+                "type": "discussion",
+            },
+            {
+                "title": "Demo walkthrough",
+                "budgetSeconds": 300,
+                "owner": "u2",
+                "mustHear": ["u2"],
+                "type": "presentation",
+            },
+        ],
+    }
+    start = datetime(2026, 9, 20, 10, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    kw = {
+        "title": "Launch call",
+        "start": start,
+        "end": start + timedelta(minutes=15),
+        "join_url": "https://cal.test/m/abc",
+        "discord_url": "https://discord.test/x",
+    }
+    for body in (render_invite_html(agenda, **kw), render_invite_text(agenda, **kw)):
+        assert "Decide the launch date." in body
+        assert "Pricing" in body and "Demo walkthrough" in body
+        assert "10 min" in body and "5 min" in body
+        assert "Artem" in body and "Vitaly" in body
+        assert "presentation" in body.lower()
