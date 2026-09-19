@@ -12,15 +12,17 @@ into a file that is tracked, an issue, or a chat message.
 
 ---
 
-## 1. Discord — blocks `ears-discord`, which blocks everything
+## 1. Discord — blocks `ears-discord`, which blocks everything — ✅ done
 
 Discord Developer Portal → New Application → Bot.
 
 - **Bot token** → `DISCORD_EARS_TOKEN`
-- **Privileged intents:** Server Members. The bot also needs the Guilds and Guild Voice
-  States intents, which are not privileged.
-- **Invite it** to a test server with: Connect, Speak, Use Voice Activity, View Channel.
-- **Server id** → `DISCORD_GUILD_ID` (enable Developer Mode, right-click the server).
+- **Privileged intents:** none needed. ears uses Guilds and Guild Voice States, which are not privileged.
+- **Invite it** with the **`bot`** scope, not just `applications.commands`:
+  `https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot&permissions=36701184`
+  (View Channel, Connect, Speak, Use Voice Activity).
+- **Server id** → `DISCORD_GUILD_ID`, only needed if the bot is in several servers.
+- Test server: **https://discord.gg/qR6RwKuAh**
 
 A second application will be needed only if the Concierge is ever revived. Do not share
 one token across two processes.
@@ -38,9 +40,12 @@ Gold sponsor, mentors on site. Ask them for Video API credentials for the hackat
 - Worth asking them directly: whether **archiving** is enabled on the hackathon account.
   It records the call, and the recording doubles as the submission video.
 
-## 3. SLNG — blocks the chair having a voice
+## 3. SLNG — blocks the chair having a voice — ✅ done
 
-Silver sponsor, on site.
+Silver sponsor, on site. The key works, and ears-discord uses it for streaming STT
+(`deepgram/nova:3`, `soniox/speech-ai:rt-v5`) and for TTS in the console say-box
+(`slng/fish/tts:s2.1-pro`, about 1.2 s from Barcelona). The brain's B7 can use the same
+TTS endpoint. `packages/ears-discord/src/ears/tts.py` shows the request shape.
 
 - **API key** → `SLNG_API_KEY`
 - Ask for: the TTS endpoint and the voice list, the STT endpoint, and **whether the
@@ -71,7 +76,7 @@ Silver sponsor.
   because that decides whether the face is worth building for the track or only for the
   demo.
 
-## 6. GitHub — blocks Artem
+## 6. GitHub — blocks Artem — ✅ done
 
 - His **GitHub handle**, so he gets collaborator access on `bioztar/gavel`.
 

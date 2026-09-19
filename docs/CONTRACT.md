@@ -103,9 +103,14 @@ sentence is.
 ### Additive, from `ears` (free per the rules above — ignore what you don't need)
 
 - Every ears→brain frame carries `at` (ISO 8601 UTC) and `atMs` (epoch ms).
-- `transcript` also carries `name`, `utteranceId`, `seq`, `final`, `turnId`, `confidence`.
-  A long utterance arrives as several frames with one `utteranceId` and rising `seq`,
-  at most `CHUNK_MAX_MS` (15 s) of speech each; `final: true` marks the last.
+- `transcript` also carries `name`, `utteranceId`, `seq`, `final`, `turnId`, `confidence`,
+  `speaker`. A long utterance arrives as several frames with one `utteranceId` and rising
+  `seq`, and `final: true` marks the last one. Each frame is new text: concatenate them, never
+  replace. In streaming mode (the default) a frame is a stretch of finalized words, about
+  0.6–0.8 s after a pause. In `STT_MODE=http` a frame is at most `CHUNK_MAX_MS` (15 s) of speech.
+- `speaker` is the diarization label *within one Discord user's audio* (`"0"`, `"1"`, …).
+  It tells apart several people sharing one account, like a room mic. It is `null` in
+  HTTP mode. The pair (`discordId`, `speaker`) identifies a voice.
 - `spoken` also carries `interrupted` (a `stop` cut it short) and `error`.
 - **Turns** — speaking events smoothed over pauses shorter than `TURN_GAP_MS` (1.5 s),
   i.e. who holds the floor. Crosstalk is two open turns.

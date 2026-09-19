@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-19T12:40:00+02:00",
+  "updated": "2026-09-19T14:30:00+02:00",
   "freeze": "2026-09-20T11:00:00+02:00",
   "demos": "2026-09-20T14:00:00+02:00",
   "people": {
@@ -51,9 +51,9 @@
       "owner": "vitaly",
       "effort": "45m",
       "deps": [],
-      "status": "todo",
+      "status": "doing",
       "spine": true,
-      "note": "Mentors are on site today only. Blocks three lanes."
+      "note": "SLNG and fal keys in hand; Vonage in progress. Mentors are on site today only."
     },
     {
       "id": "S2",
@@ -62,9 +62,9 @@
       "owner": "vitaly",
       "effort": "20m",
       "deps": [],
-      "status": "todo",
+      "status": "done",
       "spine": true,
-      "note": "Blocks E1, which blocks the Discord surface."
+      "note": "Test server: https://discord.gg/qR6RwKuAh. Invite with the `bot` scope, permissions=36701184, no privileged intents."
     },
     {
       "id": "S3",
@@ -73,9 +73,9 @@
       "owner": "vitaly",
       "effort": "10m",
       "deps": [],
-      "status": "todo",
+      "status": "done",
       "spine": true,
-      "note": "Needs his GitHub handle."
+      "note": ""
     },
     {
       "id": "S4",
@@ -120,15 +120,15 @@
     {
       "id": "E1",
       "lane": "ears-discord",
-      "title": "SPIKE: join voice, speaking events per user, play a WAV",
+      "title": "SPIKE: join voice, speaking events per user, play audio back",
       "owner": "artem",
       "effort": "1h",
       "deps": [
         "S2"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": true,
-      "note": "The only real unknown in the build. First thing. If it fails, the day changes shape."
+      "note": "Done in Python on py-cord pinned to PR #3159 — the only Python branch that decrypts DAVE on receive. Everything Discord lives in voice.py; @discordjs/voice is the fallback behind the same interface."
     },
     {
       "id": "E2",
@@ -139,9 +139,9 @@
       "deps": [
         "E1"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": true,
-      "note": ""
+      "note": "ws://localhost:8787. Contract frames plus additive at/atMs, turn.start/tick/end, session.started/ended. Same frames on Redis (gavel:ears:events) and in Postgres."
     },
     {
       "id": "E3",
@@ -152,9 +152,9 @@
       "deps": [
         "E2"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": true,
-      "note": ""
+      "note": "speak/stop over the WebSocket or Redis gavel:ears:commands, played through FFmpeg. spoken carries interrupted/error."
     },
     {
       "id": "E4",
@@ -165,9 +165,9 @@
       "deps": [
         "E2"
       ],
-      "status": "todo",
+      "status": "doing",
       "spine": false,
-      "note": "Replaces the hand-written fixture."
+      "note": "`just export-replay` turns the last recorded call into replay.jsonl. Needs a real multi-person call recorded, then commit the fixture."
     },
     {
       "id": "E5",
@@ -178,23 +178,36 @@
       "deps": [
         "E1"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": false,
-      "note": "One decoder and jitter buffer per SSRC. Never one shared player."
+      "note": "Per-user PCM from the py-cord sink. Frames still DAVE-encrypted while the session negotiates are dropped, not decoded into noise."
     },
     {
       "id": "E6",
       "lane": "ears-discord",
-      "title": "Tier 2 — SLNG STT per utterance, transcript frames",
+      "title": "Tier 2 — SLNG STT, transcript frames",
       "owner": "artem",
       "effort": "1.5h",
       "deps": [
         "E5",
         "S1"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": false,
-      "note": ""
+      "note": "Streaming: one SLNG WebSocket per Discord user, diarization on (`speaker`), finals ~0.6–0.8s after a pause. deepgram/nova:3 default, soniox rt-v5 alt. STT_MODE=http keeps the per-utterance path."
+    },
+    {
+      "id": "E7",
+      "lane": "ears-discord",
+      "title": "Operator console + recording — /console, Postgres, Redis",
+      "owner": "artem",
+      "effort": "—",
+      "deps": [
+        "E2"
+      ],
+      "status": "done",
+      "spine": false,
+      "note": "http://localhost:8787/console: meeting + agenda setup, start/end session, live transcript, floor/turn debug, signal log, say-box through SLNG TTS. Every frame recorded to Postgres."
     },
     {
       "id": "B1",
@@ -439,7 +452,7 @@
       "name": "Discord bot token + test server",
       "who": "Vitaly",
       "blocks": "E1 → the whole Discord surface",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "vonage",
@@ -459,8 +472,8 @@
       "id": "slng",
       "name": "SLNG API key + TTS/STT endpoints",
       "who": "SLNG mentor on site",
-      "blocks": "B7 — the chair having a voice",
-      "status": "todo"
+      "blocks": "B7 — the chair having a voice. Already used by ears for STT and the console say-box",
+      "status": "done"
     },
     {
       "id": "nebius",
@@ -488,7 +501,7 @@
       "name": "Artem's GitHub handle",
       "who": "Vitaly",
       "blocks": "S3 — him cloning at all",
-      "status": "todo"
+      "status": "done"
     }
   ],
   "cutOrder": [

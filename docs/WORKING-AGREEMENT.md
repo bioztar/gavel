@@ -9,7 +9,7 @@ impossible rather than unlikely.
 
 | Path | Who writes it |
 |---|---|
-| `packages/ears/**` | the voice owner |
+| `packages/ears-discord/**`, `packages/ears-vonage/**` | the voice owner |
 | `packages/brain/**` | the moderation owner |
 | `packages/concierge/**` | whoever picks it up, if anyone does |
 | `packages/contract/**` | either, but say so out loud first |
@@ -24,14 +24,16 @@ the entire reason the seam is a WebSocket and not a shared module.
   whole policy — talk-time, triggers, the sentence, the stage — is developed and demoed
   with no Discord, no voice channel, no second person.
 - **ears** runs against a stub brain: accept the WebSocket, print frames, send a `speak`
-  with a canned WAV every 30 seconds. Thirty lines.
+  with a canned WAV every 30 seconds. Thirty lines. (Exists: `just stub-brain` in
+  `packages/ears-discord`.)
 
 Integration is then changing a URL, not discovering what the other person built.
 
 ## The split is for development, not deployment
 
 On stage both halves run on **one machine** — whoever is presenting. Two processes, one
-laptop, one `npm start` each, localhost WebSocket between them. Nobody deploys anything
+laptop, one start command each (`just run` for ears-discord), localhost WebSocket
+between them. ears-discord also runs Postgres and Redis in docker, but both are optional. Nobody deploys anything
 and nobody depends on venue wifi holding a connection between two laptops. Decide whose
 machine at 16:00, not at 22:00.
 

@@ -6,6 +6,38 @@ freeze **Sunday 11:00**, demos 14:00, judging 16:00, awards 17:30. Barcelona tim
 Roughly eleven hours Saturday and two Sunday morning. This plan is sized for thirteen
 and has cut lines in it on purpose.
 
+## Where we are — Saturday 14:30
+
+**ears-discord is done through tier 2.** E1, E2, E3, E5 and E6 have landed, plus an
+operator console that wasn't in the plan. E4 has its script but still needs a real call
+recorded. The brain can now integrate against a live call instead of the fixture.
+
+- **Voice in and out works on Discord, E2EE included.** Discord enforces DAVE end-to-end
+  encryption on voice, and no released library decrypts it on receive. ears is Python on
+  py-cord pinned to PR #3159, the one branch that does. It joins, reports speaking per
+  user and plays the brain's `speak` audio back into the channel.
+- **The wire is live** on `ws://localhost:8787` with every contract frame. Additive
+  frames on top: `turn.start/tick/end` (who holds the floor, with a tick every 10 s so the
+  brain never polls), `session.started/ended` (carrying the agenda typed in the console),
+  and `at`/`atMs` on every frame. See [CONTRACT.md](CONTRACT.md) §2.
+- **Transcription works (tier 2).** Each Discord user gets one streaming SLNG STT socket
+  with diarization on. Finals arrive about 0.6–0.8 s after a pause, and two people on one
+  mic come out as separate `speaker` labels. That means the fire drill (B11) and content-aware
+  lines (B10) can use real transcripts instead of the stage-button fallback.
+- **Everything is recorded.** Each frame also goes to Redis (`gavel:ears:events`) and
+  Postgres. The brain can send `speak`/`stop` on Redis as well as the WebSocket.
+- **Operator console** at `http://localhost:8787/console`: set up the meeting and agenda,
+  start and end sessions, watch the live transcript, see floor/turn state and a signal log,
+  and use a say-box that speaks into the call through SLNG TTS.
+- **Credentials:** Discord, SLNG and fal are in hand. Vonage is in progress. Nebius and
+  Mastra are still marked todo on the board.
+
+Run it with `just setup && just run` in `packages/ears-discord`
+([README](../packages/ears-discord/README.md)). Test server: https://discord.gg/qR6RwKuAh.
+
+**Next for ears:** record a real multi-person call for E4, then stand by for the 16:00
+integration checkpoint (S4).
+
 ## The spine
 
 Everything below is ordered around one demo: **the agent cuts in on someone who has been
@@ -31,7 +63,7 @@ after the spine is standing, and if it fails nothing else falls over.
 | | **ears** | **brain** |
 |---|---|---|
 | Owns | The Discord voice connection | Every decision |
-| Imports discord.js | yes, exclusively | never |
+| Imports a Discord SDK (py-cord) | yes, exclusively | never |
 | Risk | The undocumented parts of voice receive | Almost none — replayable offline |
 | Blocked by the other | no | no |
 
@@ -41,14 +73,15 @@ channel to exist.
 
 ## ears — chunks
 
-| # | Chunk | Effort | Depends on |
-|---|---|---|---|
-| E1 | **Spike, first thing:** bot joins a voice channel, logs `speaking start/end` per user, plays a WAV into the channel. Both directions proven | 1h | — |
-| E2 | WebSocket server, emits the ears→brain frames from the contract | 45m | E1 |
-| E3 | `speak` handler — accept base64 audio, play it, emit `spoken` | 45m | E2 |
-| E4 | Record a real session to `replay.jsonl` so the fixture stops being hand-written | 30m | E2 |
-| E5 | Tier 2 — per-speaker Opus decode to PCM, one decoder per SSRC, two simultaneous speakers | 1.5h | E1 |
-| E6 | Tier 2 — SLNG STT per utterance → `transcript` frames | 1.5h | E5 |
+| # | Chunk | Effort | Depends on | Status |
+|---|---|---|---|---|
+| E1 | **Spike, first thing:** bot joins a voice channel, logs `speaking start/end` per user, plays a WAV into the channel. Both directions proven | 1h | — | done |
+| E2 | WebSocket server, emits the ears→brain frames from the contract | 45m | E1 | done |
+| E3 | `speak` handler — accept base64 audio, play it, emit `spoken` | 45m | E2 | done |
+| E4 | Record a real session to `replay.jsonl` so the fixture stops being hand-written | 30m | E2 | script done (`just export-replay`), fixture not yet recorded |
+| E5 | Tier 2 — per-speaker Opus decode to PCM, one decoder per SSRC, two simultaneous speakers | 1.5h | E1 | done |
+| E6 | Tier 2 — SLNG STT per utterance → `transcript` frames | 1.5h | E5 | done, streaming with diarization |
+| E7 | Operator console + Postgres/Redis recording (unplanned) | — | E2 | done |
 
 E1 is the only genuinely unknown thing in the build and it is an hour. Do it before
 anything else, including reading the rest of this file. If speaking events or playback
@@ -57,6 +90,12 @@ do not work, the shape of the whole day changes and it is better to know at 13:0
 E5 is where the documented weirdness lives — per-SSRC packets separate fine but each
 speaker needs its own decoder and jitter buffer, and funnelling them through one player
 drops packets. It sits behind the spine deliberately.
+
+*As built:* E1 turned out to be a different problem than planned. Speaking events were easy.
+The hard part was DAVE, Discord's E2EE, which no released library decrypts on receive. The
+fix was py-cord PR #3159. Once that worked, E5 came almost for free from py-cord's
+per-user sink. The one extra rule: frames that are still encrypted while DAVE negotiates
+are dropped rather than decoded into noise.
 
 ## ears-vonage — chunks
 
@@ -272,12 +311,21 @@ for the MiniMax H3 Max Director track, which reads as aimed at livestream-style 
   decides *whether* to speak may sit behind an agent loop; the framework only shapes *what*
   is said and carries the calls. Budget for B6a is 45 minutes. If it costs more than that on
   the day, drop to direct SDK calls and keep the beat.
+- **ears-discord is Python on py-cord, not discord.js** (decided 2026-09-19, Artem).
+  Discord enforces DAVE E2EE on voice, and py-cord PR #3159 is the only Python code that
+  decrypts it on receive. `voice.py` is the only file that imports Discord, so if the pin
+  misbehaves in a real call, `@discordjs/voice` 0.19 can replace it behind the same
+  interface. The wire doesn't change, so the brain doesn't care.
+- **STT is streaming, not per-utterance** (decided 2026-09-19, Artem). Each user gets one
+  SLNG socket with diarization. In a bake-off on two voices sharing one track, streaming
+  separated both voices and HTTP chunks separated one. It also keeps context across a turn
+  and finalizes faster. `STT_MODE=http` stays as a fallback.
 
 ## Tracks
 
 | Track | Qualifies via | Status |
 |---|---|---|
-| **SLNG** | TTS for the chair's voice; STT per speaker if tier 2 lands | core |
+| **SLNG** | TTS for the chair's voice; streaming STT per speaker with diarization (live in ears) | core |
 | **Nebius** | Token Factory for what the chair says | core |
 | **Vonage** (gold) | The chair joins a session as a real participant — custom audio and video tracks, signalling, archiving | core |
 | **fal.ai** | Live-generated video, called through Mastra, on the stage and in the Vonage call | stretch |
