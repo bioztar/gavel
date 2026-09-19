@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-19T14:45:00+02:00",
+  "updated": "2026-09-19T15:05:00+02:00",
   "freeze": "2026-09-20T11:00:00+02:00",
   "demos": "2026-09-20T14:00:00+02:00",
   "people": {
@@ -41,6 +41,11 @@
       "id": "concierge",
       "title": "concierge — parked",
       "package": "packages/concierge"
+    },
+    {
+      "id": "quality",
+      "title": "quality + evals — sponsor extras, never blocking",
+      "package": "docs/QUALITY.md"
     }
   ],
   "tasks": [
@@ -444,6 +449,43 @@
       "status": "cut",
       "spine": false,
       "note": "Parked. Mastra no longer depends on it — the live chair already runs on Mastra."
+    },
+    {
+      "id": "Q1",
+      "lane": "quality",
+      "title": "Quality Clouds — ask the booth if it scans Python at all, then scan or substitute",
+      "owner": "vitaly",
+      "effort": "30m",
+      "deps": [],
+      "status": "todo",
+      "spine": false,
+      "note": "Their product is Salesforce/ServiceNow. Ask first, install second. If it does not fit, run ruff+mypy+bandit and say so honestly."
+    },
+    {
+      "id": "Q2",
+      "lane": "quality",
+      "title": "Fix the documentation drift the scan finds (and the five we already know)",
+      "owner": "either",
+      "effort": "45m",
+      "deps": [
+        "Q1"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "CONTRACT vs frames.py, .env.example vs settings actually read, README's dead packages/chair layout, new package endpoints."
+    },
+    {
+      "id": "G1",
+      "lane": "quality",
+      "title": "Galtea — 10-case eval set for the chair's spoken line",
+      "owner": "either",
+      "effort": "1h",
+      "deps": [
+        "B7"
+      ],
+      "status": "todo",
+      "spine": false,
+      "note": "Triggers are unit tests, not evals. Only the generated sentence is scored: right person, under 20 words, hands the floor somewhere, never invents content. Cheap Nebius-rubric version first."
     }
   ],
   "credentials": [
