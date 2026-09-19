@@ -2,7 +2,7 @@
 
 **Status:** live and validated
 **Host:** `uk-lon-1` (173.234.79.39) · **Domain:** https://gavel.pro7ocol.com
-**Deployed commit:** `673cae8` + the calendar env wiring below (`merge: chair/compose — the compose front door`)
+**Deployed commit:** `ccb5b35` (`fix(compose): pass the compose front door's settings into the calendar container`)
 **Deployed at:** 2026-09-19 16:20 UTC · **Last validated:** 2026-09-19 16:21 UTC
 **Checkout on the box:** `/home/coder/DEV/gavel` · **Compose project:** `gavel`
 
