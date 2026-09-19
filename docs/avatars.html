@@ -1,0 +1,51 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gavel — pick the chair's face</title>
+<style>
+  :root{--ink:#111827;--muted:#6b7280;--line:#e5e7eb;--blue:#2563eb;--bg:#f8fafc}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  main{max-width:860px;margin:0 auto;padding:28px 18px 60px}
+  h1{font-size:26px;margin:0 0 6px}
+  .sub{color:var(--muted);margin:0 0 22px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+  @media (max-width:640px){.grid{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+        box-shadow:0 1px 3px rgba(0,0,0,.06);page-break-inside:avoid}
+  .card img{display:block;width:100%;height:auto;background:#eee}
+  .card .body{padding:12px 14px 16px}
+  .id{font:700 15px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--blue)}
+  .desc{margin:4px 0 0;color:var(--muted);font-size:15px}
+  .note{background:#fff;border-left:4px solid var(--blue);border-radius:6px;
+        padding:14px 16px;margin:24px 0 0;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  code{font:14px ui-monospace,SFMono-Regular,Menlo,monospace;background:#f1f5f9;padding:1px 5px;border-radius:4px}
+  a{color:var(--blue)}
+  @media print{body{background:#fff}.card,.note{box-shadow:none}}
+</style>
+<main>
+<h1>Pick the chair's face</h1>
+<p class="sub">Four candidates, <code>fal-ai/flux/schnell</code> at 1024&times;1024. One still is reused for every
+utterance — the lip-sync model animates it from the chair's own TTS audio.</p>
+<div class="grid">
+  <div class="card"><img src="avatars/chair-01.jpg" alt="candidate 1">
+    <div class="body"><div class="id">chair-01</div>
+    <p class="desc">Woman, 40s, short dark hair, navy blazer.</p></div></div>
+  <div class="card"><img src="avatars/chair-02.jpg" alt="candidate 2">
+    <div class="body"><div class="id">chair-02</div>
+    <p class="desc">Man, 50s, gray hair, glasses, light gray sweater.</p></div></div>
+  <div class="card"><img src="avatars/chair-03.jpg" alt="candidate 3">
+    <div class="body"><div class="id">chair-03</div>
+    <p class="desc">Woman, 30s, shoulder-length black hair, charcoal blazer.</p></div></div>
+  <div class="card"><img src="avatars/chair-04.jpg" alt="candidate 4">
+    <div class="body"><div class="id">chair-04</div>
+    <p class="desc">Man, 40s, short black hair, beard, dark blue shirt.</p></div></div>
+</div>
+<div class="note">
+  <strong>Say the id and that is the face.</strong> Full-resolution PNGs and the exact prompts live in
+  <code>packages/chair-video/avatars/</code> on branch <code>chair/video</code>. Re-rolling any one of them costs
+  about ten seconds, so a "close but not that one" is cheap to fix.
+</div>
+<p class="sub" style="margin-top:22px"><a href="./">&larr; back to the build board</a></p>
+</main>
