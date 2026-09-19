@@ -108,6 +108,12 @@ services:
       AGENDA_FILE: /app/contract/fixtures/agenda.demo.json
       STAGE_HOST: 0.0.0.0
       STAGE_PORT: 8788
+      # Stage hook: engine.ts fire-and-forgets each spoken line to
+      # chair-video /director/speak so the projector page shows a talking Karen.
+      # Unset = inert (pushToStage returns immediately), which is how it shipped.
+      # Deliberately not a depends_on: the push is best-effort with a 2s abort,
+      # so a sick chair-video must never hold the brain's boot or its speech.
+      CHAIR_VIDEO_URL: ${CHAIR_VIDEO_URL:-http://chair-video:8791}
     ports:
       - "127.0.0.1:${STAGE_PORT:-8788}:8788"
     depends_on:
