@@ -57,13 +57,21 @@
   `engine.ts` `act()` hook.
 
 ## Next steps (ordered)
-1. Root path `/` on the public host returns 404 — `gavel.pro7ocol.com` with no path is what
-   a judge will type. Add a redirect to `/board` in `packages/calendar/src/gavel_calendar/app.py`.
-   Handed to the compose crewmate since it is already editing that file; do not edit on `main`
-   in parallel or the merge conflicts.
-2. Merge `chair/compose` once it reports `review`; verify the `.ics` round-trips through our
-   own `ics_parser.parse_ics` before believing the done-criteria.
-3. Redeploy after each merge: `git pull --ff-only && docker compose up --build -d --wait`.
+1. Vitaly: publish the ears operator console — `scripts/set-console-auth.sh karen`, then
+   `docker compose up -d ears`. The route exists but is off; it is the control plane, so it
+   only comes up behind basic auth.
+2. Vitaly: rotate `VONAGE_API_KEY` (value reached a model API in a crewmate's tool output;
+   nothing reached git).
+3. Fill the two judged columns in `packages/brain/evals/results.md` with
+   `pnpm evals -- --model --judge` and `NEBIUS_API_KEY` set. Needs a human with the key.
+4. B11 fire drill (hazard heard → host confirms → demo SMS) is the last unbuilt PLAN item that
+   is not on the forfeited Vonage Video track. Needs Messages credentials — decide before
+   spending time on it.
+
+Done since the last snapshot: the old item 1 here (root `/` 404 on the public host) is stale —
+`/` now 307s to `/board` and both answer 200 publicly. Three Devin PRs merged and deployed:
+#1 the ten-case eval set, #2 recurring-event expansion in the calendar feed poller, #3 the
+20-word line budget with a regression test that fails on the pre-fix tree.
 
 ## Blockers / needs human (Vitaly)
 - `RESEND_API_KEY` + `COMPOSE_FROM_EMAIL`: create the Resend account, verify the subdomain
