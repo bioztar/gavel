@@ -27,7 +27,7 @@ class SpeakVideoRequest(BaseModel):
     audio_url: str | None = Field(default=None, alias="audioUrl")
     audio_base64: str | None = Field(default=None, alias="audioBase64")
     format: str = "wav"
-    # Unknown/omitted -> "formal" (see Settings.normalize_persona). Not an
+    # Unknown/omitted -> configured default (see Settings.normalize_persona). Not an
     # enum on purpose: a bad value must fall back, never 422.
     persona: str | None = None
 

@@ -33,8 +33,8 @@ def test_normalize_persona_known_values_pass_through() -> None:
 
 def test_normalize_persona_unknown_falls_back_to_default() -> None:
     settings = Settings(fal_key="x")
-    assert settings.normalize_persona("typo") == "formal"
-    assert settings.normalize_persona(None) == "formal"
+    assert settings.normalize_persona("typo") == settings.default_persona
+    assert settings.normalize_persona(None) == settings.default_persona
 
 
 def test_idle_video_path_and_avatar_image_path_per_persona() -> None:
@@ -42,4 +42,4 @@ def test_idle_video_path_and_avatar_image_path_per_persona() -> None:
     assert settings.idle_video_path("funky") == "avatars/idle-funky.mp4"
     assert settings.avatar_image_path("formal") == "avatars/karen-formal.png"
     # Unknown persona resolves via the default, never a KeyError.
-    assert settings.idle_video_path("typo") == settings.idle_video_path("formal")
+    assert settings.idle_video_path("typo") == settings.idle_video_path(settings.default_persona)

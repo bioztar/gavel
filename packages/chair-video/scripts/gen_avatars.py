@@ -13,8 +13,8 @@ import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from chair_video.fal import FalClient  # noqa: E402
-from chair_video.settings import get_settings  # noqa: E402
+from chair_video.fal import FalClient
+from chair_video.settings import get_settings
 
 AVATARS_DIR = Path(__file__).resolve().parents[1] / "avatars"
 

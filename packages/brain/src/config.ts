@@ -140,10 +140,16 @@ export const PersonasFile = z.object({
 // A persona's own fallback-line set: same kinds as ChairPrompts, only `templates` differ.
 const PersonaKind = z.object({ templates: z.array(z.string()).min(4) });
 export const ChairPersonaTemplates = z.object({
-  kinds: z.object(Object.fromEntries(INTERVENTION_KINDS.map((k) => [k, PersonaKind])) as Record<
-    InterventionKind,
-    typeof PersonaKind
-  >),
+  // A persona file overrides only the lines that differ from chair.yaml. Missing kinds
+  // deliberately keep the base templates.
+  kinds: z
+    .object(
+      Object.fromEntries(INTERVENTION_KINDS.map((k) => [k, PersonaKind])) as Record<
+        InterventionKind,
+        typeof PersonaKind
+      >,
+    )
+    .partial(),
 });
 
 export interface Config {
@@ -184,7 +190,10 @@ export function loadConfig(dir = process.env.BRAIN_CONFIG_DIR ?? DEFAULT_CONFIG_
     activeId === "formal" ? read(...FILES.chairFormal) : read(...FILES.chairFunky);
 
   const chair = read(...FILES.chair);
-  for (const k of INTERVENTION_KINDS) chair.kinds[k].templates = personaTemplates.kinds[k].templates;
+  for (const k of INTERVENTION_KINDS) {
+    const override = personaTemplates.kinds[k];
+    if (override) chair.kinds[k].templates = override.templates;
+  }
   // The persona's tone joins the stable prefix (system + session context, see engine.ts),
   // never the per-call suffix, so it stays cached like the rest of the prefix.
   chair.system = `${chair.system}\n${persona.tone}`;

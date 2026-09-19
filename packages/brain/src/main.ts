@@ -72,7 +72,12 @@ createServer((req, res) => {
     return;
   }
   res.writeHead(404).end();
-}).listen(env.stagePort, "127.0.0.1", () => log.info("brain.ready", { state: `http://127.0.0.1:${env.stagePort}/state`, ears: env.earsWireUrl }));
+}).listen(env.stagePort, env.stageHost, () =>
+  log.info("brain.ready", {
+    state: `http://${env.stageHost}:${env.stagePort}/state`,
+    ears: env.earsWireUrl,
+  }),
+);
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {

@@ -12,8 +12,8 @@ is the source of truth for **which file** a persona renders with — that's this
 own concern, not the brain's.
 
 Both `POST /speak-video` and `GET /idle` take an optional `persona` field/param
-(`"formal"` / `"funky"`, default `"formal"`). An unknown or missing value silently falls
-back to formal rather than erroring — on stage a typo must not silence the chair.
+(`"formal"` / `"funky"`, default `"funky"`). An unknown or missing value silently falls
+back to the configured default rather than erroring — on stage a typo must not silence the chair.
 
 ## Endpoints
 

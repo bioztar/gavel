@@ -14,8 +14,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from chair_video.fal import FalClient, FalError  # noqa: E402
-from chair_video.settings import get_settings  # noqa: E402
+from chair_video.fal import FalClient, FalError
+from chair_video.settings import get_settings
 
 ROOT = Path(__file__).resolve().parents[1]
 AUDIO_3S = ROOT / "scripts/fixtures/utterance-3s.wav"
@@ -68,7 +68,7 @@ def _run(fal: FalClient, model: str, label: str, arguments: dict) -> tuple[str, 
     except FalError as exc:
         print(f"   FAILED: {exc}", file=sys.stderr)
         return (model, label, f"FAILED — {exc}")
-    except Exception:  # the point of this script is a complete table, not a crash
+    except Exception:  # noqa: BLE001 - the point is a complete table, not a crash
         print("   FAILED (unexpected):", file=sys.stderr)
         traceback.print_exc()
         return (model, label, "FAILED — unexpected error, see stderr")

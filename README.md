@@ -99,6 +99,41 @@ Start ears with `just run`, start brain with `pnpm start`, open
 gathering lobby; Karen does not start agenda timers until everyone expected is present
 and somebody explicitly asks her to begin.
 
+## Run everything with Docker Compose
+
+The root [`compose.yaml`](compose.yaml) runs the complete deployment: Postgres, Redis,
+schema migrations, Discord ears, brain, calendar ingestion, and chair-video. Docker is
+the only host dependency; the VPS's existing `traefik-public` network provides HTTPS for
+the calendar join page.
+
+```bash
+cp .env.example .env             # first run only; fill DISCORD_EARS_TOKEN,
+                                 # SLNG_API_KEY, NEBIUS_API_KEY and FAL_KEY
+docker compose up --build -d --wait
+docker compose ps
+```
+
+Open `http://127.0.0.1:8787/console`. Follow both application logs with
+`docker compose logs -f ears brain`; stop the deployment with `docker compose down`.
+Postgres data survives restarts and `down` in the `postgres_data` volume.
+
+The console and data-service ports are intentionally published on host loopback, not
+the public network. For a single VPS, clone the repository there, create `.env`, and run
+the same `docker compose up` command. Set `CALENDAR_PUBLIC_URL` and `GAVEL_DOMAIN` to
+the VPS hostname; `gavel.pro7ocol.com` is the default. Access the no-auth operator
+console through SSH:
+
+```bash
+ssh -L 8787:127.0.0.1:8787 user@your-vps
+# Then open http://127.0.0.1:8787/console on your laptop.
+```
+
+Only SSH needs to be open inbound; the bot and model APIs use outbound connections.
+Traefik owns public ports 80/443 and routes only the calendar service. If the named
+external network does not exist yet, create it once with
+`docker network create traefik-public`. Deploy an update with
+`git pull --ff-only && docker compose up --build -d --wait`.
+
 ## Docs
 
 - [docs/PLAN.md](docs/PLAN.md) — chunks, dependencies, hour-by-hour, cut lines

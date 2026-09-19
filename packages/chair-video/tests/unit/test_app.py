@@ -42,17 +42,17 @@ def _mock_fal_run(httpx_mock, model: str, video_url: str) -> None:
     httpx_mock.add_response(url="https://queue.fal.run/response", json={"video": {"url": video_url}})
 
 
-def test_idle_defaults_to_formal(client: TestClient) -> None:
+def test_idle_defaults_to_configured_persona(client: TestClient) -> None:
     r = client.get("/idle")
     assert r.status_code == 200
     assert r.headers["content-type"] == "video/mp4"
 
 
-def test_idle_unknown_persona_falls_back_to_formal(client: TestClient) -> None:
-    formal = client.get("/idle", params={"persona": "formal"})
+def test_idle_unknown_persona_falls_back_to_default(client: TestClient) -> None:
+    default = client.get("/idle", params={"persona": "funky"})
     typo = client.get("/idle", params={"persona": "not-a-real-persona"})
     assert typo.status_code == 200
-    assert typo.content == formal.content
+    assert typo.content == default.content
 
 
 def test_speak_video_requires_audio(client: TestClient) -> None:
@@ -96,12 +96,13 @@ def test_speak_video_cache_hit_skips_second_fal_run(httpx_mock, client: TestClie
 
     first = client.post("/speak-video", json=body)
     assert first.status_code == 200
-    assert first.json()["latencyMs"] > 0
+    requests_after_first = len(httpx_mock.get_requests())
 
     second = client.post("/speak-video", json=body)
     assert second.status_code == 200
     assert second.json()["videoUrl"] == first.json()["videoUrl"]
     assert second.json()["latencyMs"] == 0
+    assert len(httpx_mock.get_requests()) == requests_after_first
 
 
 def test_speak_video_unknown_persona_falls_back_not_422(httpx_mock, client: TestClient) -> None:

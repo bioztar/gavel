@@ -219,11 +219,11 @@ for latency numbers and persona details.
 
 | Endpoint | Request | Response |
 |---|---|---|
-| `POST /speak-video` | `{"audioUrl"}` or `{"audioBase64","format"}`, optional `"persona"` (`"formal"`\|`"funky"`, default `"formal"`) | `{"videoUrl","durationMs","latencyMs"}` |
+| `POST /speak-video` | `{"audioUrl"}` or `{"audioBase64","format"}`, optional `"persona"` (`"formal"`\|`"funky"`, default `"funky"`) | `{"videoUrl","durationMs","latencyMs"}` |
 | `GET /idle` | optional `?persona=formal\|funky` | the persona's idle loop (video/mp4) |
 | `GET /healthz` | — | `{"falConfigured","falReachable","lipsyncModel","avatarModel"}` |
 
-An unknown or missing `persona` silently falls back to `"formal"` — a typo on stage must
+An unknown or missing `persona` silently falls back to the configured default — a typo on stage must
 not silence the chair. `packages/brain/config/personas.yaml` is the source of truth for a
 persona's tone and template lines; `chair-video`'s own settings decide which asset file a
 persona renders with.

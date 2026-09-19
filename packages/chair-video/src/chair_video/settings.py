@@ -71,7 +71,7 @@ class Settings(BaseSettings):
         return self.idle_video_by_persona.get(persona, self.idle_video_by_persona[self.default_persona])
 
     def normalize_persona(self, persona: str | None) -> str:
-        """Unknown/missing persona falls back to formal rather than erroring —
+        """Unknown/missing persona falls back to the configured default rather than erroring —
         on stage a typo must not silence the chair."""
         if persona in self.avatar_image_by_persona:
             return persona

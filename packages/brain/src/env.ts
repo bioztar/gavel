@@ -13,6 +13,7 @@ export const env = {
   slngApiKey: blank(process.env.SLNG_API_KEY),
   earsWireUrl: blank(process.env.EARS_WIRE_URL) ?? "ws://127.0.0.1:8787",
   earsHttpUrl: blank(process.env.EARS_HTTP_URL) ?? "http://127.0.0.1:8787",
+  stageHost: blank(process.env.STAGE_HOST) ?? "127.0.0.1",
   stagePort: Number(blank(process.env.STAGE_PORT) ?? 8788),
   agendaFile: blank(process.env.AGENDA_FILE) ?? resolve(PACKAGE_DIR, "../contract/fixtures/agenda.demo.json"),
 };

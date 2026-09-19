@@ -1,0 +1,209 @@
+name: gavel
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: gavel
+      POSTGRES_PASSWORD: gavel
+      POSTGRES_DB: gavel
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gavel -d gavel"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    image: gavel-ears:local
+    build:
+      context: .
+      dockerfile: packages/ears-discord/Dockerfile
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      POSTGRES_DSN: postgresql+asyncpg://gavel:gavel@postgres:5432/gavel
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  ears:
+    image: gavel-ears:local
+    build:
+      context: .
+      dockerfile: packages/ears-discord/Dockerfile
+    init: true
+    restart: unless-stopped
+    environment:
+      DISCORD_EARS_TOKEN: ${DISCORD_EARS_TOKEN:-}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
+      DISCORD_VOICE_CHANNEL_ID: ${DISCORD_VOICE_CHANNEL_ID:-}
+      SLNG_API_KEY: ${SLNG_API_KEY:-}
+      SLNG_BASE_URL: ${SLNG_BASE_URL:-https://eu-west.api.slng.ai}
+      SLNG_STT_MODEL: ${SLNG_STT_MODEL:-deepgram/nova:3}
+      SLNG_STT_LANGUAGE: ${SLNG_STT_LANGUAGE:-en}
+      SLNG_TTS_MODEL: ${SLNG_TTS_MODEL:-slng/fish/tts:s2.1-pro}
+      SLNG_TTS_VOICE: ${SLNG_TTS_VOICE:-16cabdb7f8d240569aff36c9e480d783}
+      STT_MODE: ${STT_MODE:-stream}
+      WIRE_HOST: 0.0.0.0
+      WIRE_PORT: 8787
+      BRAIN_STATE_URL: http://brain:8788/state
+      POSTGRES_DSN: postgresql+asyncpg://gavel:gavel@postgres:5432/gavel
+      REDIS_DSN: redis://redis:6379/0
+      OPUS_LIB: libopus.so.0
+      LOG_JSON: "true"
+    ports:
+      - "127.0.0.1:${WIRE_PORT:-8787}:8787"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health', timeout=2)",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  brain:
+    image: gavel-brain:local
+    build:
+      context: .
+      dockerfile: packages/brain/Dockerfile
+    init: true
+    restart: unless-stopped
+    environment:
+      NEBIUS_API_KEY: ${NEBIUS_API_KEY:-}
+      SLNG_API_KEY: ${SLNG_API_KEY:-}
+      BRAIN_MODEL_FAST: ${BRAIN_MODEL_FAST:-}
+      BRAIN_MODEL_NORMAL: ${BRAIN_MODEL_NORMAL:-}
+      CHAIR_PERSONA: ${CHAIR_PERSONA:-funky}
+      EARS_WIRE_URL: ws://ears:8787
+      EARS_HTTP_URL: http://ears:8787
+      POSTGRES_DSN: postgresql://gavel:gavel@postgres:5432/gavel
+      AGENDA_FILE: /app/contract/fixtures/agenda.demo.json
+      STAGE_HOST: 0.0.0.0
+      STAGE_PORT: 8788
+    ports:
+      - "127.0.0.1:${STAGE_PORT:-8788}:8788"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ears:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8788/state').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  calendar:
+    image: gavel-calendar:local
+    build:
+      context: .
+      dockerfile: packages/calendar/Dockerfile
+    init: true
+    restart: unless-stopped
+    environment:
+      CALENDAR_HOST: 0.0.0.0
+      CALENDAR_PORT: 8790
+      CALENDAR_PUBLIC_URL: ${CALENDAR_PUBLIC_URL:-https://gavel.pro7ocol.com}
+      CALENDAR_ATTENDEE_MAP: ${CALENDAR_ATTENDEE_MAP:-}
+      SCHEDULER_POLL_SECONDS: ${SCHEDULER_POLL_SECONDS:-30}
+      EARS_API_URL: http://ears:8787
+    ports:
+      - "127.0.0.1:${CALENDAR_PORT:-8790}:8790"
+    networks:
+      - default
+      - traefik-public
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: ${TRAEFIK_NETWORK:-traefik-public}
+      traefik.http.routers.gavel-calendar.rule: Host(`${GAVEL_DOMAIN:-gavel.pro7ocol.com}`)
+      traefik.http.routers.gavel-calendar.entrypoints: websecure
+      traefik.http.routers.gavel-calendar.tls: "true"
+      traefik.http.routers.gavel-calendar.tls.certresolver: mytlschallenge
+      traefik.http.services.gavel-calendar.loadbalancer.server.port: "8790"
+    depends_on:
+      ears:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8790/health', timeout=2)",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  chair-video:
+    image: gavel-chair-video:local
+    build:
+      context: .
+      dockerfile: packages/chair-video/Dockerfile
+    init: true
+    restart: unless-stopped
+    environment:
+      FAL_KEY: ${FAL_KEY:-}
+      HOST: 0.0.0.0
+      PORT: 8791
+      LIPSYNC_MODEL: ${LIPSYNC_MODEL:-veed/lipsync/v2}
+      AVATAR_MODEL: ${AVATAR_MODEL:-fal-ai/flux/schnell}
+      FAL_POLL_TIMEOUT_S: ${FAL_POLL_TIMEOUT_S:-120}
+      FAL_POLL_INTERVAL_S: ${FAL_POLL_INTERVAL_S:-1}
+    ports:
+      - "127.0.0.1:${CHAIR_VIDEO_PORT:-8791}:8791"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8791/healthz', timeout=7)",
+        ]
+      interval: 10s
+      timeout: 8s
+      retries: 6
+      start_period: 5s
+
+volumes:
+  postgres_data:
+
+networks:
+  traefik-public:
+    external: true
+    name: ${TRAEFIK_NETWORK:-traefik-public}
