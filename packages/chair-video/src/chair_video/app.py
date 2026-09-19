@@ -3,24 +3,39 @@ clip through fal. A service the brain calls — it makes no decisions."""
 
 from __future__ import annotations
 
+import asyncio
 import mimetypes
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 import structlog
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from chair_video.audio import decode_base64_audio, fetch_audio, wav_duration_ms
 from chair_video.cache import SpeakVideoCache, audio_key
+from chair_video.director import DirectorManager
 from chair_video.fal import FalClient, FalError
 from chair_video.settings import Settings, get_settings
 
 log = structlog.get_logger()
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
+STATIC_DIR = Path(__file__).resolve().parent.parent.parent / "static"
+
+# The stage page never gets FAL_KEY — only a per-session token, and only this
+# one host may be reached through the proxy. Forwarding an inbound
+# Authorization would let a client set its own fal credential; forwarding
+# arbitrary headers would let it smuggle things fal's CORS wouldn't otherwise
+# see. Both are refused outright, not sanitized.
+PROXY_REQUEST_HEADER_ALLOWLIST = {"content-type", "accept"}
+PROXY_TARGET_HEADER = "x-fal-target-url"
+PROXY_TOKEN_HEADER = "x-director-token"
 
 
 class SpeakVideoRequest(BaseModel):
@@ -42,12 +57,48 @@ class SpeakVideoResponse(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class DirectorSessionRequest(BaseModel):
+    persona: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class DirectorSpeakRequest(BaseModel):
+    audio_base64: str = Field(alias="audioBase64")
+    format: str = "wav"
+    persona: str | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class DirectorHeartbeatRequest(BaseModel):
+    token: str
+    state: str = "live"
+
+    model_config = {"populate_by_name": True}
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> Any:
+    yield
+    # A session left open on shutdown keeps billing per second forever —
+    # stop() before the async client that would proxy its last requests goes
+    # away.
+    app.state.director.stop()
+    await app.state.async_http_client.aclose()
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
-    app = FastAPI(title="chair-video")
+    app = FastAPI(title="chair-video", lifespan=_lifespan)
     app.state.settings = settings
     app.state.cache = SpeakVideoCache()
     app.state.http_client = httpx.Client(timeout=30.0)
+    app.state.async_http_client = httpx.AsyncClient(timeout=15.0)
+    app.state.director = DirectorManager(settings)
+
+    if STATIC_DIR.exists():
+        app.mount("/stage", StaticFiles(directory=STATIC_DIR, html=True), name="stage")
 
     @app.post("/speak-video")
     def speak_video(req: SpeakVideoRequest) -> SpeakVideoResponse:
@@ -122,6 +173,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def healthz() -> dict[str, Any]:
         settings: Settings = app.state.settings
         http_client: httpx.Client = app.state.http_client
+        director: DirectorManager = app.state.director
         fal_reachable = False
         if settings.fal_configured:
             try:
@@ -134,7 +186,104 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "falReachable": fal_reachable,
             "lipsyncModel": settings.lipsync_model,
             "avatarModel": settings.avatar_model,
+            "director": director.snapshot(),
         }
+
+    @app.post("/director/session/start")
+    def director_session_start(req: DirectorSessionRequest) -> dict[str, Any]:
+        settings: Settings = app.state.settings
+        director: DirectorManager = app.state.director
+        if not settings.fal_configured:
+            raise HTTPException(500, "FAL_KEY is not set")
+        session = director.start(settings.normalize_persona(req.persona))
+        return {"sessionId": session.session_id, "persona": session.persona}
+
+    @app.post("/director/session/stop")
+    def director_session_stop() -> dict[str, Any]:
+        app.state.director.stop()
+        return {"stopped": True}
+
+    @app.post("/director/speak")
+    def director_speak(req: DirectorSpeakRequest) -> dict[str, Any]:
+        settings: Settings = app.state.settings
+        http_client: httpx.Client = app.state.http_client
+        director: DirectorManager = app.state.director
+        if not settings.fal_configured:
+            raise HTTPException(500, "FAL_KEY is not set")
+
+        audio_bytes = decode_base64_audio(req.audio_base64)
+        try:
+            fal = FalClient(settings, client=http_client)
+            audio_url = fal.upload(audio_bytes, f"audio/{req.format}", f"speak.{req.format}")
+        except (FalError, httpx.HTTPError) as exc:
+            raise HTTPException(502, f"fal upload failed: {exc}") from exc
+
+        session = director.speak(audio_url, settings.normalize_persona(req.persona))
+        return {"sessionId": session.session_id, "promptVersion": session.prompt_version}
+
+    @app.post("/director/heartbeat")
+    def director_heartbeat(req: DirectorHeartbeatRequest) -> dict[str, Any]:
+        director: DirectorManager = app.state.director
+        ok = director.heartbeat(req.token, req.state)
+        if not ok:
+            raise HTTPException(404, "no active session for this token")
+        return {"ok": True}
+
+    @app.get("/director/events")
+    async def director_events() -> StreamingResponse:
+        director: DirectorManager = app.state.director
+        queue = director.subscribe()
+
+        async def gen() -> Any:
+            try:
+                while True:
+                    payload = await queue.get()
+                    yield f"data: {payload}\n\n"
+            except asyncio.CancelledError:
+                pass
+            finally:
+                director.unsubscribe(queue)
+
+        return StreamingResponse(gen(), media_type="text/event-stream")
+
+    @app.api_route("/director/fal-proxy", methods=["GET", "POST"])
+    async def director_fal_proxy(request: Request) -> Any:
+        settings: Settings = app.state.settings
+        director: DirectorManager = app.state.director
+        async_client: httpx.AsyncClient = app.state.async_http_client
+
+        if not director.verify_token(request.headers.get(PROXY_TOKEN_HEADER)):
+            raise HTTPException(401, "missing or invalid director session token")
+
+        target = request.headers.get(PROXY_TARGET_HEADER)
+        if not target:
+            raise HTTPException(400, f"missing {PROXY_TARGET_HEADER} header")
+        parsed = urlsplit(target)
+        # Exact host match, not a suffix check — "wma.fal.run.evil.com" or a
+        # userinfo trick ("wma.fal.run@evil.com") must not pass.
+        if parsed.scheme != "https" or parsed.hostname != settings.director_proxy_host or "@" in parsed.netloc:
+            raise HTTPException(403, "target host not allowlisted")
+        if not settings.fal_key:
+            raise HTTPException(500, "FAL_KEY is not set")
+
+        forward_headers = {
+            k: v for k, v in request.headers.items() if k.lower() in PROXY_REQUEST_HEADER_ALLOWLIST
+        }
+        forward_headers["authorization"] = f"Key {settings.fal_key}"
+        body = await request.body()
+
+        try:
+            upstream = await async_client.request(
+                request.method, target, headers=forward_headers, content=body or None
+            )
+        except httpx.HTTPError as exc:
+            raise HTTPException(502, f"fal proxy request failed: {exc}") from exc
+
+        return StreamingResponse(
+            iter([upstream.content]),
+            status_code=upstream.status_code,
+            media_type=upstream.headers.get("content-type"),
+        )
 
     return app
 

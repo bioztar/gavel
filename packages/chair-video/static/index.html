@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>gavel — chair</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #000;
+        overflow: hidden;
+      }
+      #stage-video {
+        width: 100vw;
+        height: 100vh;
+        object-fit: cover;
+        background: #000;
+      }
+      #stage-status {
+        position: fixed;
+        bottom: 8px;
+        right: 12px;
+        color: rgba(255, 255, 255, 0.35);
+        font: 12px monospace;
+      }
+      #start-overlay {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.75);
+        color: #fff;
+        font: 20px sans-serif;
+        cursor: pointer;
+      }
+      #start-overlay[hidden] {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Not muted: the chair's voice is the point. Browsers block unmuted
+         autoplay without a user gesture, so entry.mjs falls back to the
+         overlay's click as that gesture when the initial play() is blocked. -->
+    <video id="stage-video" autoplay playsinline></video>
+    <div id="stage-status">idle</div>
+    <div id="start-overlay">Click to start the chair</div>
+    <script type="module" src="/stage/stage.bundle.js"></script>
+  </body>
+</html>
