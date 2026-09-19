@@ -75,8 +75,8 @@ def test_demo_agenda_matches_contract_shape() -> None:
 
 def test_policy_override_is_merged_onto_the_full_default_table() -> None:
     # ears's Agenda.policy does not deep-merge -- a partial dict would drop
-    # the other ten keys for this session. A single-key override must still
-    # produce all eleven on the wire.
+    # the other keys for this session. A single-key override must still
+    # produce every key on the wire.
     invite = parse_ics(FIXTURE.read_bytes())
     agenda = build_agenda(
         invite,
@@ -84,7 +84,7 @@ def test_policy_override_is_merged_onto_the_full_default_table() -> None:
         attendee_map={},
         policy_overrides={"silenceSeconds": 20},
     )
-    assert len(agenda["policy"]) == 11
+    assert len(agenda["policy"]) == len(EARS_DEFAULT_POLICY)
     assert agenda["policy"] == {**EARS_DEFAULT_POLICY, "silenceSeconds": 20}
     assert agenda["policy"]["floorShareThreshold"] == EARS_DEFAULT_POLICY["floorShareThreshold"]
     ContractAgenda.model_validate(agenda)

@@ -75,6 +75,8 @@ export interface Intervention {
   actions: Action[];
   /** Speak as priority speaker, cutting in. */
   priority: boolean;
+  /** Not priority, and patient: wait for a pause up to speak.softMaxWaitMs, not maxWaitMs. */
+  waitForRoom?: boolean;
   park?: { discordId: string; name: string; summary: string; quote: string; topicId: string | null };
   /** A shared tangent can involve several people; preserve each person's memory. */
   parks?: Array<{ discordId: string; name: string; summary: string; quote: string; topicId: string | null }>;

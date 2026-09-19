@@ -33,7 +33,8 @@ Times are in **seconds**, so a demo agenda can be three minutes long without fra
       "budgetSeconds": 120,
       "owner": "100000000000000002",
       "mustHear": ["100000000000000002"],
-      "questions": ["What is not done that you expected to be done?"]
+      "questions": ["What is not done that you expected to be done?"],
+      "type": "discussion"
     }
   ],
   "policy": {
@@ -49,7 +50,8 @@ Times are in **seconds**, so a demo agenda can be three minutes long without fra
 
 `policy` is tunable on stage without a redeploy — lower the thresholds and the agent
 fires inside a three-minute demo. `mustHear` lists people who should say something on
-this topic; the chair invites them if they have not.
+this topic; the chair invites them if they have not. `type` is `"discussion"` (the default)
+or `"presentation"`: one person has the floor by design, so the chair never hands it on.
 
 ---
 
@@ -179,7 +181,9 @@ an additional command channel.
 chair opens the meeting herself once everyone is in the call, no "Karen, let's start the
 meeting") and `timed` (true — false: topics have no budgets and no order; the chair
 follows the room to whichever agenda item it takes up, never calls time on a topic or the
-meeting, and the brain's `/state` reports `timed: false` and each topic's `discussed`).
+meeting, and the brain's `/state` reports `timed: false` and each topic's `discussed`) and
+`handover` (`"soft"` — the chair hands the floor from someone hogging it at their next pause,
+never talking over them; `"hard"`: she cuts in at once as priority speaker).
 Absent means the default.
 
 `session.started.agenda` is optional for the brain to use: it is whatever the host typed

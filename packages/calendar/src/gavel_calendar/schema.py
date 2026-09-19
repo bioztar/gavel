@@ -7,6 +7,8 @@ mission's own rule — read `ears`, never import it).
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
@@ -24,7 +26,7 @@ class Contract(BaseModel):
 # overridden keys would silently drop the other nine for that session.
 # `tests/test_agenda_schema.py::test_policy_defaults_match_ears_exactly` reads
 # `ears`'s source directly and fails if this drifts out of sync.
-EARS_DEFAULT_POLICY: dict[str, float | bool] = {
+EARS_DEFAULT_POLICY: dict[str, float | bool | str] = {
     "floorShareThreshold": 0.6,
     "floorWindowSeconds": 120,
     "floorMinSpeakingSeconds": 45,
@@ -38,6 +40,12 @@ EARS_DEFAULT_POLICY: dict[str, float | bool] = {
     # False: the chair opens the meeting herself once everyone is in the call,
     # instead of waiting for "Karen, let's start the meeting".
     "requireStart": True,
+    # False: no time budgets and no set order — topics are taken as the room gets to them,
+    # and neither a topic nor the meeting runs over.
+    "timed": True,
+    # "soft": the chair hands the floor on at the talker's next pause, never over them;
+    # "hard": she cuts in at once as priority speaker.
+    "handover": "soft",
 }
 
 
@@ -55,6 +63,8 @@ class Topic(Contract):
     owner: str | None = None
     must_hear: list[str] = Field(default_factory=list)
     questions: list[str] = Field(default_factory=list)
+    # "presentation": one person has the floor by design, so the chair never hands it on.
+    type: Literal["discussion", "presentation"] = "discussion"
 
 
 class ContractAgenda(Contract):
@@ -71,5 +81,5 @@ class ContractAgenda(Contract):
     # dict — it fully replaces its own. So this field is only ever set when
     # an invite genuinely overrides specific keys — and `agenda.py` merges
     # that override onto `EARS_DEFAULT_POLICY` above before sending, so the
-    # dict that goes out always carries all eleven keys, not just the override.
-    policy: dict[str, float | bool] | None = None
+    # dict that goes out always carries every key, not just the override.
+    policy: dict[str, float | bool | str] | None = None

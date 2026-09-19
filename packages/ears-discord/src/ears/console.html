@@ -188,6 +188,11 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; margi
         Wait for “Karen, let's start the meeting” — off: Karen opens it herself once everyone is in the call</label>
       <label class="row" style="color:var(--text);font-size:12px"><input type="checkbox" id="m-timed" style="width:auto;margin:0 6px 0 0" checked>
         Timed agenda — topics in order, each with a time budget. Off: any order, no time limits</label>
+      <label class="row" style="color:var(--text);font-size:12px">Floor handover
+        <select id="m-handover" style="width:auto;margin:0 6px">
+          <option value="soft">soft — waits for a pause</option>
+          <option value="hard">hard — cuts in at once</option>
+        </select></label>
       <details><summary>Policy (interrupt thresholds)</summary><div class="grid2" id="policy"></div></details>
       <details><summary>Agenda JSON — import / export</summary>
         <textarea id="m-json" rows="8" class="mono" placeholder="Paste an agenda.json (contract shape) and press Import"></textarea>
@@ -455,6 +460,11 @@ function renderTopics() {
         <button class="small" data-up="${i}" title="move up">↑</button>
         <button class="small danger" data-del-t="${i}">✕</button></div>
       <input data-t="${i}" data-f="goal" value="${esc(t.goal)}" placeholder="goal — what done looks like">
+      <div class="row"><span class="muted" style="font-size:11px">type</span>
+        <select data-t="${i}" data-f="type" class="grow" title="presentation: one person has the floor, Karen never hands it on">
+          <option value="discussion" ${t.type !== "presentation" ? "selected" : ""}>discussion</option>
+          <option value="presentation" ${t.type === "presentation" ? "selected" : ""}>presentation — no floor handovers</option>
+        </select></div>
       <div class="row"><span class="muted" style="font-size:11px">owner</span>
         <select data-t="${i}" data-f="owner" class="grow">${attendeeOptions(t.owner)}</select></div>
       <div class="row" style="flex-wrap:wrap"><span class="muted" style="font-size:11px">must hear</span>
@@ -467,6 +477,7 @@ function renderPolicy() {
   const p = current.agenda.policy;
   $("m-require-start").checked = p.requireStart !== false;
   $("m-timed").checked = p.timed !== false;
+  $("m-handover").value = p.handover === "hard" ? "hard" : "soft";
   $("policy").innerHTML = Object.keys(POLICY_DEFAULTS).map((k) => `
     <div><label>${k}</label><input type="number" step="any" data-p="${k}" value="${p[k] ?? POLICY_DEFAULTS[k]}"></div>`).join("");
 }
@@ -485,6 +496,7 @@ document.addEventListener("input", (e) => {
   } else if (d.p !== undefined) current.agenda.policy[d.p] = +el.value;
   else if (el.id === "m-require-start") current.agenda.policy.requireStart = el.checked;
   else if (el.id === "m-timed") { current.agenda.policy.timed = el.checked; renderTopics(); }
+  else if (el.id === "m-handover") current.agenda.policy.handover = el.value;
 });
 document.addEventListener("click", (e) => {
   const d = e.target.dataset;
@@ -496,7 +508,7 @@ $("b-new").onclick = () => { $("m-select").value = ""; edit(blankMeeting()); $("
 $("b-add-topic").onclick = () => {
   const ids = new Set(current.agenda.topics.map((t) => t.id)); let n = current.agenda.topics.length + 1;
   while (ids.has("t" + n)) n++;
-  current.agenda.topics.push({ id: "t" + n, title: "", goal: "", budgetSeconds: 120, owner: null, mustHear: [], questions: [] });
+  current.agenda.topics.push({ id: "t" + n, title: "", goal: "", budgetSeconds: 120, owner: null, mustHear: [], questions: [], type: "discussion" });
   renderTopics();
 };
 $("b-import-json").onclick = () => {

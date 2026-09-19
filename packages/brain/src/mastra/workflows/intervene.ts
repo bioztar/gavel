@@ -26,6 +26,7 @@ export const InterventionSchema = z.object({
   vars: z.record(z.string(), z.string()),
   actions: z.array(z.enum(["park", "speak", "mute", "advance", "start"])),
   priority: z.boolean(),
+  waitForRoom: z.boolean().optional(),
   park: Park.optional(),
   parks: z.array(Park).optional(),
   muteSeconds: z.number().optional(),

@@ -515,7 +515,7 @@ describe("keeping up with the room, as in the 2026-09-19 cats-vs-dogs session", 
   const MARC = "100000000000000003";
   const WEATHER = "honestly the weather here is so humid and hot, and I saw helicopters over the beach today";
 
-  function room(compose: (user: string) => string | null = () => null) {
+  function room(compose: (user: string) => string | null = () => null, policy: Record<string, unknown> = {}) {
     const config = loadConfig();
     config.policy.defaults.offAgendaGraceSeconds = 5;
     let now = 0;
@@ -543,7 +543,7 @@ describe("keeping up with the room, as in the 2026-09-19 cats-vs-dogs session", 
       fallbackAgenda: null,
     });
     const agenda = loadAgendaFile(resolve(FIXTURES, "agenda.demo.json"));
-    agenda.policy = { ...agenda.policy, minSecondsBetweenInterventions: 12 };
+    agenda.policy = { ...agenda.policy, minSecondsBetweenInterventions: 12, ...policy };
     engine.handle({ type: "ready", channelId: "c", participants: agenda.attendees.map(({ discordId, name }) => ({ discordId, name })), atMs: 0 });
     engine.handle({ type: "session.started", sessionId: "s", title: "Sync", agenda, atMs: 0 });
     const tick = async (at: number) => {
@@ -750,6 +750,20 @@ describe("keeping up with the room, as in the 2026-09-19 cats-vs-dogs session", 
     }
     // Only once they have held most of the floor for floorMinSpeakingSeconds more.
     expect(again[0]! - first!).toBeGreaterThanOrEqual(45_000);
+  });
+
+  it.each([
+    ["soft", { priority: false, quietMs: 700, maxWaitMs: 15_000 }],
+    ["hard", { priority: true, quietMs: 700, maxWaitMs: 0 }],
+  ])("a %s floor handover waits for a pause, or cuts in", async (handover, gate) => {
+    const { tick, talking, spoken, start, sent } = room(undefined, { handover });
+    await start();
+    spoken(2_000);
+    talking(VIT, 3_000);
+    let hog = false;
+    for (let t = 3_250; t <= 60_000 && !hog; t += 250) hog = (await tick(t))?.kind === "floorHog";
+    expect(hog).toBe(true);
+    expect(sent.findLast((f) => f.type === "speak")).toMatchObject(gate);
   });
 
   it("a line past compose.maxWords is asked for once more, shorter", async () => {

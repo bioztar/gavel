@@ -7,7 +7,7 @@ it and hands it to the brain in `session.started`.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field, model_validator
 
@@ -28,9 +28,11 @@ class Topic(Frame):
     owner: str | None = None
     must_hear: list[str] = Field(default_factory=list)
     questions: list[str] = Field(default_factory=list)
+    # "presentation": one person has the floor by design, so the chair never hands it on.
+    type: Literal["discussion", "presentation"] = "discussion"
 
 
-DEFAULT_POLICY: dict[str, float | bool] = {
+DEFAULT_POLICY: dict[str, float | bool | str] = {
     "floorShareThreshold": 0.6,
     "floorWindowSeconds": 120,
     "floorMinSpeakingSeconds": 45,
@@ -49,6 +51,9 @@ DEFAULT_POLICY: dict[str, float | bool] = {
     # False: no time budgets and no set order — topics are taken as the room gets to them,
     # and neither a topic nor the meeting runs over.
     "timed": True,
+    # "soft": the chair hands the floor on at the talker's next pause, never over them;
+    # "hard": she cuts in at once as priority speaker.
+    "handover": "soft",
 }
 
 

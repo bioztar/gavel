@@ -130,6 +130,22 @@ describe("floorHog", () => {
     expect(iv).toMatchObject({ kind: "floorHog", targetId: "vit", addresseeId: "marc" });
   });
 
+  it("soft (the default) waits for the talker to breathe; hard cuts in", () => {
+    const people = [person("vit", { holding: true, windowMs: 70_000 }), person("ana", { windowMs: 10_000 }), person("marc")];
+    const s = snap({ people });
+    expect(s.policy.handover).toBe("soft");
+    expect(evaluate(s)).toMatchObject({ kind: "floorHog", priority: false, waitForRoom: true });
+    s.policy.handover = "hard";
+    expect(evaluate(s)).toMatchObject({ kind: "floorHog", priority: true, waitForRoom: false });
+  });
+
+  it("never hands the floor on during a presentation", () => {
+    const people = [person("vit", { holding: true, windowMs: 70_000 }), person("ana", { windowMs: 10_000 }), person("marc")];
+    const s = snap({ people });
+    s.topic = { ...s.topic!, type: "presentation" };
+    expect(evaluate(s)).toBeNull();
+  });
+
   it("defers to offAgenda for someone already drifting", () => {
     const people = [person("vit", { holding: true, windowMs: 70_000 }), person("ana", { windowMs: 10_000 }), person("marc")];
     const s = snap({ people, episodes: [{ id: "vit", episode: episode(1_000_000 - 5_000) }] });

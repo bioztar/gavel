@@ -809,7 +809,7 @@ export class Engine {
     if (iv.actions.includes("speak") && line) {
       this.said.push(line);
       this.conversation.add({ at: this.now(), id: "karen", name: "Karen", text: line });
-      out = await this.speak(line, iv.priority);
+      out = await this.speak(line, iv.priority, iv.waitForRoom);
     }
     if (iv.actions.includes("mute") && iv.targetId && iv.muteSeconds) {
       this.mute(iv.targetId, iv.muteSeconds, `gavel: ${iv.kind}`);
@@ -857,10 +857,11 @@ export class Engine {
     return memory;
   }
 
-  async speak(text: string, priority: boolean): Promise<{ ttsMs?: number; utteranceId?: string }> {
+  async speak(text: string, priority: boolean, waitForRoom = false): Promise<{ ttsMs?: number; utteranceId?: string }> {
     const utteranceId = randomUUID();
     this.pending = { utteranceId, at: this.now() };
-    if (this.cfg.models.tts.transport === "stream" && this.deps.tts.stream) return this.speakStreamed(utteranceId, text, priority);
+    const gate = this.pauseGate(priority, waitForRoom);
+    if (this.cfg.models.tts.transport === "stream" && this.deps.tts.stream) return this.speakStreamed(utteranceId, text, priority, gate);
     try {
       const speech = await this.deps.tts.synthesize(text);
       pushToStage(speech.audio, speech.format, this.cfg.persona.id);
@@ -871,7 +872,7 @@ export class Engine {
         text,
         format: speech.format,
         priority,
-        ...this.pauseGate(priority),
+        ...gate,
       });
       if (!sent) {
         log.warn("chair.not_connected", { text });
@@ -893,7 +894,12 @@ export class Engine {
    * plays each chunk as it lands — so the room hears the first words ~0.2 s after the text
    * reaches TTS instead of after the whole clip is synthesized.
    */
-  private async speakStreamed(utteranceId: string, text: string, priority: boolean): Promise<{ ttsMs?: number; utteranceId?: string }> {
+  private async speakStreamed(
+    utteranceId: string,
+    text: string,
+    priority: boolean,
+    gate: PauseGate,
+  ): Promise<{ ttsMs?: number; utteranceId?: string }> {
     const wire = this.deps.wire;
     const started = wire.send({
       type: "speak.start",
@@ -903,7 +909,7 @@ export class Engine {
       sampleRate: STREAM_RATE,
       channels: 1,
       priority,
-      ...this.pauseGate(priority),
+      ...gate,
     });
     if (!started) {
       log.warn("chair.not_connected", { text });
@@ -926,9 +932,10 @@ export class Engine {
   }
 
   /** ears starts the line at the next pause in the room (policy.yaml → speak). */
-  private pauseGate(priority: boolean): PauseGate {
+  private pauseGate(priority: boolean, waitForRoom: boolean): PauseGate {
     const cfg = this.cfg.policy.speak;
-    return { quietMs: cfg.quietMs, maxWaitMs: priority ? cfg.priorityMaxWaitMs : cfg.maxWaitMs };
+    const maxWaitMs = priority ? cfg.priorityMaxWaitMs : waitForRoom ? cfg.softMaxWaitMs : cfg.maxWaitMs;
+    return { quietMs: cfg.quietMs, maxWaitMs };
   }
 
   mute(discordId: string, seconds: number, reason?: string): boolean {

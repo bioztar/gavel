@@ -15,6 +15,8 @@ defaults:
   muteSeconds: 15
   requireStart: true              # wait for "Karen, let's start the meeting"; false: she opens it herself
   timed: true                     # topic budgets and agenda order; false: any order, no time limits
+  handover: soft                  # floor handovers: soft waits for a pause, never talking over the
+                                  # talker; hard cuts in at once as priority speaker
 
 engine:
   tickMs: 250
@@ -76,8 +78,12 @@ speak:
   # Answers, silence prompts, topic moves: someone is usually just finishing. Longer than this
   # and the line is about something the room has already moved past.
   maxWaitMs: 2000
-  # Redirects and floor handovers exist to interrupt a talker: cut in at once.
+  # Redirects (and hard floor handovers) exist to interrupt a talker: cut in at once.
   priorityMaxWaitMs: 0
+  # A soft floor handover waits for the talker to take a breath, however long that takes. Past
+  # this it plays anyway, rather than hold Karen (and every other trigger) indefinitely. Keep it
+  # under engine.spokenTimeoutSeconds minus a long line.
+  softMaxWaitMs: 15000
 
 compose:
   # Pre-compose the redirect the moment an off-agenda episode opens, while the grace

@@ -177,7 +177,8 @@ export function redirectFor(s: Snapshot, p: PersonView, episode: Episode): Inter
 
 /** One person holds most of the recent speaking time while someone else is quiet. */
 function floorHog(s: Snapshot): Intervention | null {
-  if (s.people.length < 2) return null;
+  // A presentation is one person holding the floor by design.
+  if (s.people.length < 2 || s.topic?.type === "presentation") return null;
   const windowMs = s.policy.floorWindowSeconds * S;
   const total = s.people.reduce((sum, p) => sum + p.windowMs, 0);
   if (!total) return null;
@@ -195,6 +196,8 @@ function floorHog(s: Snapshot): Intervention | null {
   const pick = pickSpeaker(s, [hog.id]);
   if (!pick) return null;
   const question = nextQuestion(s, s.topic);
+  // soft: the line waits for the talker to breathe; hard: Karen cuts in as priority speaker.
+  const hard = s.policy.handover === "hard";
   return {
     trigger: "floorHog",
     kind: "floorHog",
@@ -203,7 +206,8 @@ function floorHog(s: Snapshot): Intervention | null {
     addresseeId: pick.person.id,
     vars: { ...base(s, hog), question, addresseeName: pick.person.name, recap: s.recaps[hog.id] ?? "" },
     actions: ["speak"],
-    priority: true,
+    priority: hard,
+    waitForRoom: !hard,
     redirects: true,
     question,
   };

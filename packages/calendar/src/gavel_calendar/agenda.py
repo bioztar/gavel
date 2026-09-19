@@ -56,7 +56,7 @@ def build_agenda(
     invite: ParsedInvite,
     session_id: str,
     attendee_map: dict[str, str] | None = None,
-    policy_overrides: dict[str, float | bool] | None = None,
+    policy_overrides: dict[str, float | bool | str] | None = None,
 ) -> dict:
     attendee_map = attendee_map or {}
     total_seconds = invite.duration_seconds
@@ -123,7 +123,7 @@ def build_agenda(
     # Only present when the invite genuinely overrides something — see
     # schema.py. `ears`'s Agenda.policy does not deep-merge a supplied dict,
     # so we merge the override onto its full default table ourselves: the
-    # wire payload always carries all ten keys, only the overridden ones
+    # wire payload always carries every key, only the overridden ones
     # changed, never a partial dict that would drop the rest for this session.
     if policy_overrides:
         agenda["policy"] = {**EARS_DEFAULT_POLICY, **policy_overrides}

@@ -55,6 +55,9 @@ export const Policy = z.object({
   muteSeconds: z.number(),
   requireStart: z.boolean().default(true),
   timed: z.boolean().default(true),
+  // How Karen hands the floor from someone hogging it. soft: she waits for a pause and never
+  // talks over them. hard: she cuts in at once, as priority speaker.
+  handover: z.enum(["soft", "hard"]).default("soft"),
 });
 export type Policy = z.infer<typeof Policy>;
 
@@ -90,8 +93,13 @@ export const PolicyConfig = z.object({
     .object({ seconds: z.number().positive(), chairWords: z.number().int().nonnegative(), relevanceWords: z.number().int().nonnegative() })
     .default({ seconds: 180, chairWords: 220, relevanceWords: 80 }),
   speak: z
-    .object({ quietMs: z.number().int().nonnegative(), maxWaitMs: z.number().int().nonnegative(), priorityMaxWaitMs: z.number().int().nonnegative() })
-    .default({ quietMs: 700, maxWaitMs: 2000, priorityMaxWaitMs: 0 }),
+    .object({
+      quietMs: z.number().int().nonnegative(),
+      maxWaitMs: z.number().int().nonnegative(),
+      priorityMaxWaitMs: z.number().int().nonnegative(),
+      softMaxWaitMs: z.number().int().nonnegative().default(15000),
+    })
+    .default({ quietMs: 700, maxWaitMs: 2000, priorityMaxWaitMs: 0, softMaxWaitMs: 15000 }),
   compose: z.object({
     precompose: z.boolean(),
     lineCacheSeconds: z.number(),

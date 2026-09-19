@@ -18,6 +18,9 @@ export const Topic = z.object({
   owner: z.string().nullish(),
   mustHear: z.array(z.string()).default([]),
   questions: z.array(z.string()).default([]),
+  // discussion: the room talks it through, and the chair hands the floor on from anyone hogging
+  // it (also when absent). presentation: one person has the floor by design, so no handovers.
+  type: z.enum(["discussion", "presentation"]).optional().catch(undefined),
 });
 export type Topic = z.infer<typeof Topic>;
 
@@ -44,5 +47,6 @@ export function mergePolicy(defaults: Policy, agenda: Agenda | null): Policy {
     const want = typeof defaults[key as keyof Policy];
     if (typeof value === want) (out as Record<string, unknown>)[key] = value;
   }
+  if (out.handover !== "soft" && out.handover !== "hard") out.handover = defaults.handover;
   return out;
 }
