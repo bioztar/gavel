@@ -38,6 +38,9 @@ logger = get_logger(__name__)
 RATE = 16_000
 BYTES_PER_MS = RATE * 2 // 1000  # 16 kHz mono s16le
 FRAME = 20 * BYTES_PER_MS
+# SLNG closes a socket past 2000 messages a minute; one per 20 ms frame is 3000. Audio goes
+# out in 60 ms batches (1000 a minute), which costs at most 60 ms of latency.
+BATCH = 60 * BYTES_PER_MS
 BUFFER_LIMIT = 10_000 * BYTES_PER_MS  # audio held while the socket connects (10 s)
 
 
@@ -214,6 +217,7 @@ class _Stream:
         self.flushed = True  # silence already sent since the last audio
         self.last_keepalive = 0.0
         self.pending: list[Word] = []
+        self.batch = bytearray()  # audio not yet queued as a message
         self.task: asyncio.Task[None] | None = None
         self.ws: Any = None
         self.closing = False
@@ -247,17 +251,25 @@ class _Stream:
             self.start()
 
     def queued_bytes_waiting(self) -> int:
-        return self.out.qsize() * FRAME
+        return self.out.qsize() * BATCH + len(self.batch)
 
     def push(self, data: bytes) -> None:
         self.queued_bytes += len(data)
-        self.out.put_nowait(data)
+        self.batch += data
+        if len(self.batch) >= BATCH:
+            self.send_batch()
+
+    def send_batch(self) -> None:
+        if self.batch:
+            self.out.put_nowait(bytes(self.batch))
+            self.batch.clear()
 
     def flush_silence(self) -> None:
         """Let the model hear the pause Discord does not send."""
         self.flushed = True
         if self.running:
             self.push(b"\x00" * self.owner.flush_silence_bytes)
+        self.send_batch()
 
     def keepalive(self, now: float) -> None:
         self.last_keepalive = now

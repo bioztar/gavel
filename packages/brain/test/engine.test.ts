@@ -189,9 +189,8 @@ describe("talking to Karen, as in the 2026-09-19 demo transcript", () => {
     engine.handle({ type: "session.started", sessionId: "s", title: "Sync", agenda, atMs: 0 });
     const artem = agenda.attendees[0]!.discordId;
     let n = 0;
-    const say = async (text: string, at: number) => {
+    const step = async (at: number) => {
       now = at;
-      engine.handle({ type: "transcript", discordId: artem, text, final: true, utteranceId: `u${n++}`, atMs: at });
       const iv = engine.tick();
       await engine.idle();
       // Karen finished speaking.
@@ -199,7 +198,13 @@ describe("talking to Karen, as in the 2026-09-19 demo transcript", () => {
       if (speak?.type === "speak") engine.handle({ type: "spoken", utteranceId: speak.utteranceId, atMs: at });
       return iv;
     };
-    return { engine, prompts, sent, say, tick: async (at: number) => ((now = at), engine.tick()) };
+    const say = async (text: string, at: number) => {
+      engine.handle({ type: "transcript", discordId: artem, text, final: true, utteranceId: `u${n++}`, atMs: at });
+      return step(at);
+    };
+    const speaking = (on: boolean, at: number) =>
+      engine.handle({ type: on ? "speaking.start" : "speaking.end", discordId: artem, atMs: at });
+    return { engine, prompts, sent, say, speaking, tick: step };
   }
 
   it("hears the name at the end of a sentence and starts the meeting", async () => {
@@ -209,12 +214,14 @@ describe("talking to Karen, as in the 2026-09-19 demo transcript", () => {
   });
 
   it("answers the question, not a bare '.', and tells the model where the meeting is", async () => {
-    const { prompts, say } = lobby(() => "Hi!");
-    const iv = await say("Hello, Karen.", 1_000);
+    const { prompts, say, tick } = lobby(() => "Hi!");
+    // A bare greeting waits for the rest of the question; nothing comes, so it is answered.
+    expect(await say("Hello, Karen.", 1_000)).toBeNull();
+    const iv = await tick(3_000);
     expect(iv?.vars.request).toBe("Hello.");
     expect(iv?.vars.meetingState).toMatch(/^Not started yet/);
     expect(iv?.vars.question).toBeUndefined();
-    const iv2 = await say("What is this meeting about, Karen?", 3_000);
+    const iv2 = await say("What is this meeting about, Karen?", 4_000);
     expect(iv2?.vars.request).toBe("What is this meeting about?");
     expect(iv2?.vars.agendaList).toMatch(/, and /);
     // Never served from the cache of an earlier answer.
@@ -230,10 +237,27 @@ describe("talking to Karen, as in the 2026-09-19 demo transcript", () => {
     expect(iv?.kind).toBe("addressed");
     expect(iv?.vars.request).toBe("please answer.");
     expect(iv?.vars.earlierWords).toBe("What is our agenda today?");
-    // Name alone and nothing after: answered from the earlier words once the wait runs out.
+    // Name alone and nothing after: answered from the earlier words once they go quiet.
     await say("Karen?", 20_000);
-    expect(await tick(23_000)).toBeNull();
-    expect((await tick(26_500))?.vars.request).toBe("(only your name)");
+    expect(await tick(21_000)).toBeNull();
+    expect((await tick(22_500))?.vars.request).toBe("(only your name)");
+  });
+
+  it("'Hey, Karen.' then the question a few seconds later is one request", async () => {
+    const { say, speaking, tick } = lobby(() => "ok");
+    speaking(true, 500);
+    expect(await say("Hey, Karen.", 1_000)).toBeNull();
+    expect(await tick(3_500)).toBeNull(); // still talking: the question is on its way
+    const iv = await say("How are we doing?", 4_000);
+    expect(iv?.vars.request).toBe("Hey. How are we doing?");
+  });
+
+  it("a talker who never pauses is answered once the follow-up wait runs out", async () => {
+    const { say, speaking, tick } = lobby(() => "ok");
+    speaking(true, 500);
+    await say("Karen,", 1_000);
+    expect(await tick(6_500)).toBeNull();
+    expect((await tick(7_000))?.kind).toBe("addressed");
   });
 
   it("with template fallback off, a model that gives nothing means Karen stays quiet", async () => {
@@ -270,6 +294,8 @@ describe("streamed speech", () => {
     const out = await engine.speak("Hello there.", true);
     expect(sent.map((f) => f.type)).toEqual(["speak.start", "speak.chunk", "speak.chunk", "speak.end"]);
     expect(sent[0]).toMatchObject({ text: "Hello there.", sampleRate: 48000, channels: 1, priority: true });
+    // ears holds it for a pause; a priority line waits less before cutting in.
+    expect(sent[0]).toMatchObject({ quietMs: config.policy.speak.quietMs, maxWaitMs: config.policy.speak.priorityMaxWaitMs });
     expect(sent[1]).toMatchObject({ audio: Buffer.from([1, 2]).toString("base64") });
     expect(new Set(sent.map((f) => ("utteranceId" in f ? f.utteranceId : null))).size).toBe(1);
     expect(out.ttsMs).toBe(210);

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import dataclasses
+import time
 from typing import Any
 
 from fastapi.testclient import TestClient
@@ -165,6 +167,43 @@ def test_priority_speak_does_not_cut_another_priority_line() -> None:
     ears.command(f'{{"type":"speak","utteranceId":"p2","audio":"{AUDIO}","priority":true}}')
     assert not [f for f in sent if f["type"] == "spoken"]
     assert len(voice.played) == 1
+
+
+def test_gated_speak_waits_for_a_pause() -> None:
+    ears, voice, _ = _wired()
+    now = time.time()
+    ears.on_pcm("2", b"\x01\x00" * 1920, now)  # someone is mid-sentence
+    ears.command(
+        f'{{"type":"speak","utteranceId":"g1","audio":"{AUDIO}","quietMs":600,"maxWaitMs":8000}}'
+    )
+    assert voice.played == []  # held while they talk
+    ears._last_voice_at = now - 1.0  # a second of quiet
+    ears._play_next()  # what the clock does each tick
+    assert len(voice.played) == 1
+
+
+def test_gated_speak_plays_anyway_after_max_wait() -> None:
+    ears, voice, _ = _wired()
+    ears._last_voice_at = time.time()  # nobody ever pauses
+    ears.command(
+        f'{{"type":"speak","utteranceId":"g1","audio":"{AUDIO}","quietMs":600,"maxWaitMs":3000}}'
+    )
+    assert voice.played == []
+    ears._playback[0] = dataclasses.replace(ears._playback[0], queued_at=time.time() - 4)
+    ears._play_next()
+    assert len(voice.played) == 1
+
+
+def test_gated_priority_line_does_not_cut_karen_before_the_pause() -> None:
+    ears, _, sent = _wired()
+    ears.command(f'{{"type":"speak","utteranceId":"u1","audio":"{AUDIO}"}}')
+    ears.on_pcm("2", b"\x01\x00" * 1920, time.time())
+    ears.command(
+        f'{{"type":"speak","utteranceId":"p1","audio":"{AUDIO}","priority":true,'
+        f'"quietMs":600,"maxWaitMs":3000}}'
+    )
+    assert not [f for f in sent if f["type"] == "spoken"]  # u1 keeps playing
+    assert ears._playback[0].utterance_id == "p1"  # but p1 is next in line
 
 
 async def test_mute_emits_moderation_and_lifts_itself() -> None:

@@ -144,6 +144,7 @@ only the timer that lifts a mute, so a brain that dies mid-mute never leaves any
 | `type` | Direction | Fields | Does |
 |---|---|---|---|
 | `speak` | brain → ears | + `priority` (bool, default false) | Jumps the queue, cuts off a non-priority line (it gets `spoken.interrupted`), plays as Discord's priority speaker so the room is ducked |
+| `speak`, `speak.start` | brain → ears | + `quietMs`, `maxWaitMs` (ints, both optional) | Wait for a pause: the line stays first in the queue (streamed audio keeps buffering) until no human has been heard for `quietMs`, then plays; after `maxWaitMs` in the queue it plays anyway. A held priority line does not cut off the line already playing. Unset: play as soon as it is first in line |
 | `mute` | brain → ears | `discordId`, `seconds` (ears caps at 60), `reason?` | Server-mutes them; ears unmutes after `seconds`, on `session.ended`, and on shutdown |
 | `unmute` | brain → ears | `discordId` | Lifts a mute early. ears only ever unmutes people it muted |
 | `moderation` | ears → brain | `action` (`muted` \| `unmuted` \| `failed`), `discordId`, `until?` (epoch ms), `error?` | The outcome of the above |

@@ -75,8 +75,11 @@ export const PolicyConfig = z.object({
     cacheSize: z.number().int().nonnegative(),
   }),
   addressed: z
-    .object({ followUpSeconds: z.number(), contextSeconds: z.number() })
-    .default({ followUpSeconds: 6, contextSeconds: 20 }),
+    .object({ followUpSeconds: z.number(), settleSeconds: z.number().default(2), contextSeconds: z.number() })
+    .default({ followUpSeconds: 6, settleSeconds: 2, contextSeconds: 20 }),
+  speak: z
+    .object({ quietMs: z.number().int().nonnegative(), maxWaitMs: z.number().int().nonnegative(), priorityMaxWaitMs: z.number().int().nonnegative() })
+    .default({ quietMs: 700, maxWaitMs: 8000, priorityMaxWaitMs: 3000 }),
   compose: z.object({
     precompose: z.boolean(),
     lineCacheSeconds: z.number(),

@@ -18,7 +18,7 @@ import binascii
 import time
 import uuid
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from .audio import rms, to_mono_16k
@@ -81,6 +81,10 @@ class _Utterance:
     text: str | None = None
     # A line still arriving over `speak.chunk` frames; `audio` is empty then.
     stream: PcmStream | None = None
+    # Wait for a pause in the room: nobody heard for `quiet_ms`, or `max_wait_ms` in line.
+    quiet_ms: int | None = None
+    max_wait_ms: int | None = None
+    queued_at: float = field(default_factory=time.time)
 
 
 class Ears:
@@ -118,6 +122,9 @@ class Ears:
         self._playback: deque[_Utterance] = deque()
         self._playing: _Utterance | None = None
         self._interrupted = False
+        # Last time any human's voice reached us — packets stop when their client goes quiet.
+        self._last_voice_at = 0.0
+        self._holding_since: float | None = None
         # Streamed lines still receiving chunks, queued or playing.
         self._streams: dict[str, PcmStream] = {}
         # People ears server-muted, and the timer that lifts it. ears only ever unmutes these.
@@ -272,6 +279,7 @@ class Ears:
         self.emit(Participants(participants=participants))
 
     def on_speaking(self, discord_id: str, speaking: bool, at: float) -> None:
+        self._last_voice_at = max(self._last_voice_at, at)
         if speaking:
             self.emit(SpeakingStart(discord_id=discord_id))
             frames = self.turns.speaking_start(discord_id, at)
@@ -282,6 +290,7 @@ class Ears:
             self.emit(frame)
 
     def on_pcm(self, discord_id: str, pcm: bytes, at: float) -> None:
+        self._last_voice_at = max(self._last_voice_at, at)
         if self.stream is not None:
             self.stream.feed(discord_id, pcm, at)
             return
@@ -298,6 +307,8 @@ class Ears:
             now = time.time()
             for frame in self.turns.tick(now):
                 self._emit_turn(frame)
+            if self._playing is None and self._playback:
+                self._play_next()  # a line waiting for a pause
             if self.stream is not None:
                 self.stream.tick(now)
             for chunk in self.segmenter.tick(now):
@@ -490,6 +501,8 @@ class Ears:
                     "brain",
                     frame.priority,
                     frame.text,
+                    quiet_ms=frame.quiet_ms,
+                    max_wait_ms=frame.max_wait_ms,
                 )
             )
         elif isinstance(frame, SpeakStart):
@@ -503,6 +516,8 @@ class Ears:
                     frame.priority,
                     frame.text,
                     stream,
+                    quiet_ms=frame.quiet_ms,
+                    max_wait_ms=frame.max_wait_ms,
                 )
             )
         elif isinstance(frame, SpeakChunk):
@@ -573,7 +588,13 @@ class Ears:
             text=item.text,
         )
         playing = self._playing
-        if item.priority and playing is not None and not playing.priority and self.voice:
+        if (
+            item.priority
+            and playing is not None
+            and not playing.priority
+            and self.voice
+            and self._may_start(item, time.time())
+        ):
             self.debug("speak.preempted", utteranceId=playing.utterance_id)
             self._interrupted = True
             self.voice.stop_playback()
@@ -595,7 +616,23 @@ class Ears:
     def _play_next(self) -> None:
         if self._playing is not None or not self._playback:
             return
-        item = self._playback.popleft()
+        now = time.time()
+        item = self._playback[0]
+        if item.quiet_ms is not None:
+            if not self._may_start(item, now):
+                if self._holding_since is None:
+                    self._holding_since = now
+                    self.debug("speak.holding", utteranceId=item.utterance_id)
+                return  # the clock asks again every tick
+            quiet = (now - self._last_voice_at) * 1000
+            self.debug(
+                "speak.released",
+                utteranceId=item.utterance_id,
+                waitedMs=int((now - item.queued_at) * 1000),
+                pause=quiet >= item.quiet_ms,
+            )
+        self._holding_since = None
+        self._playback.popleft()
         played = self.voice is not None and (
             self.voice.play_source(item.stream, self._on_played, item.priority)
             if item.stream is not None
@@ -613,6 +650,14 @@ class Ears:
             priority=item.priority,
         )
         logger.info("speak.playing", utterance_id=item.utterance_id, source=item.source)
+
+    def _may_start(self, item: _Utterance, now: float) -> bool:
+        """Nobody has been heard for `quiet_ms`, or the line has waited long enough."""
+        if item.quiet_ms is None:
+            return True
+        if (now - self._last_voice_at) * 1000 >= item.quiet_ms:
+            return True
+        return item.max_wait_ms is not None and (now - item.queued_at) * 1000 >= item.max_wait_ms
 
     def _on_played(self, error: Exception | None) -> None:
         item, self._playing = self._playing, None

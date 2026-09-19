@@ -165,6 +165,10 @@ class Speak(Frame):
     format: str | None = None
     # additive: jump the queue, cut off non-priority playback, duck the room.
     priority: bool = False
+    # additive: hold the line until nobody has spoken for `quiet_ms`; after `max_wait_ms`
+    # in the queue it plays anyway. Unset: play as soon as it is first in line.
+    quiet_ms: int | None = None
+    max_wait_ms: int | None = None
 
 
 # additive: a line streamed while it is synthesized. `speak.start` opens it (it queues and
@@ -178,6 +182,8 @@ class SpeakStart(Frame):
     sample_rate: Literal[48000] = 48000
     channels: Literal[1, 2] = 1
     priority: bool = False
+    quiet_ms: int | None = None
+    max_wait_ms: int | None = None
 
 
 class SpeakChunk(Frame):

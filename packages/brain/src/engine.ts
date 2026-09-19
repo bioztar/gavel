@@ -7,7 +7,7 @@
 import { randomUUID } from "node:crypto";
 import type { Config, InterventionKind } from "./config";
 import { type Agenda, type Attendee, mergePolicy } from "./contract/agenda";
-import type { EarsFrame, Participant } from "./contract/frames";
+import type { EarsFrame, Participant, PauseGate } from "./contract/frames";
 import { ContextBlock } from "./chair/context";
 import type { Llm, Usage } from "./chair/llm";
 import { STREAM_RATE, type Tts } from "./chair/tts";
@@ -102,8 +102,8 @@ export class Engine {
   private precomposed = new Map<string, Precomposed>();
   private directQueue: Intervention[] = [];
   private handledUtterances = new Set<string>();
-  /** People who said just "Karen," — their next words are the request. */
-  private awaitingRequest = new Map<string, number>();
+  /** People who said just "Karen," or "Hey, Karen." — their next words are the request. */
+  private awaitingRequest = new Map<string, { since: number; opener: string }>();
   /** Each person's recent final transcripts, for context when they address Karen. */
   private recentWords = new Map<string, Array<{ at: number; text: string }>>();
   private facts: string[] = [];
@@ -265,12 +265,15 @@ export class Engine {
       if (!this.ledger.holding(id, now, graceMs)) this.relevance.clear(id);
     }
     for (const id of this.people.keys()) this.maybeClassify(id);
-    // "Karen," and then nothing: answer from what they said before it.
-    const followUpMs = this.cfg.policy.addressed.followUpSeconds * 1000;
-    for (const [id, since] of this.awaitingRequest) {
-      if (now - since < followUpMs) continue;
+    // "Karen," and then nothing: once they have gone quiet (or the wait runs out), answer the
+    // greeting, or from what they said before it.
+    const { followUpSeconds, settleSeconds } = this.cfg.policy.addressed;
+    const gap = this.cfg.policy.engine.floorGapMs;
+    for (const [id, { since, opener }] of this.awaitingRequest) {
+      const settled = now - since >= settleSeconds * 1000 && !this.ledger.holding(id, now, gap);
+      if (!settled && now - since < followUpSeconds * 1000) continue;
       this.awaitingRequest.delete(id);
-      this.onRequest(id, "", since);
+      this.onRequest(id, opener, since);
     }
     this.ledger.prune(now, this.policy().floorWindowSeconds * 2000);
 
@@ -638,6 +641,7 @@ export class Engine {
         text,
         format: speech.format,
         priority,
+        ...this.pauseGate(priority),
       });
       if (!sent) {
         log.warn("chair.not_connected", { text });
@@ -661,7 +665,16 @@ export class Engine {
    */
   private async speakStreamed(utteranceId: string, text: string, priority: boolean): Promise<{ ttsMs?: number; utteranceId?: string }> {
     const wire = this.deps.wire;
-    const started = wire.send({ type: "speak.start", utteranceId, text, format: "pcm_s16le", sampleRate: STREAM_RATE, channels: 1, priority });
+    const started = wire.send({
+      type: "speak.start",
+      utteranceId,
+      text,
+      format: "pcm_s16le",
+      sampleRate: STREAM_RATE,
+      channels: 1,
+      priority,
+      ...this.pauseGate(priority),
+    });
     if (!started) {
       log.warn("chair.not_connected", { text });
       this.chairDone(this.now());
@@ -680,6 +693,12 @@ export class Engine {
       wire.send({ type: "speak.end", utteranceId, error: String(err).slice(0, 200) });
       return { utteranceId };
     }
+  }
+
+  /** ears starts the line at the next pause in the room (policy.yaml → speak). */
+  private pauseGate(priority: boolean): PauseGate {
+    const cfg = this.cfg.policy.speak;
+    return { quietMs: cfg.quietMs, maxWaitMs: priority ? cfg.priorityMaxWaitMs : cfg.maxWaitMs };
   }
 
   mute(discordId: string, seconds: number, reason?: string): boolean {
@@ -744,11 +763,13 @@ export class Engine {
     if (KAREN.test(text)) {
       // Her name can come anywhere: "Karen, what's the agenda?", "Let's start, Karen."
       const request = withoutName(text);
-      if (/[\p{L}\p{N}]/u.test(request)) this.onRequest(id, request, at);
-      else this.awaitingRequest.set(id, at);
+      // "Hey, Karen." is how a question starts, not the question: wait for the rest.
+      if (/[\p{L}\p{N}]/u.test(request) && !OPENER_ONLY.test(request)) this.onRequest(id, request, at);
+      else this.awaitingRequest.set(id, { since: at, opener: /[\p{L}\p{N}]/u.test(request) ? request : "" });
     } else if (this.awaitingRequest.has(id)) {
+      const { opener } = this.awaitingRequest.get(id)!;
       this.awaitingRequest.delete(id);
-      this.onRequest(id, text.trim(), at);
+      this.onRequest(id, `${opener} ${text.trim()}`.trim(), at);
     }
     this.remember(id, text, at);
   }
@@ -970,6 +991,9 @@ function addUnique(target: string[], values: string[] | undefined): void {
 }
 
 const KAREN = /\bkaren\b/i;
+/** A greeting or filler with nothing after it: "Hey.", "Hi there,", "Okay, so". */
+const OPENER_ONLY =
+  /^(?:(?:hey|hi|hello|hiya|yo|there|ok|okay|so|um+|uh+|well|right|alright|all right|good (?:morning|afternoon|evening))[\s.,!?;:-]*)+$/i;
 const START = /\b(?:(?:start|begin|kick\s*off|open)\b.*\b(?:meeting|agenda|session|call)|let'?s\s+(?:start|begin|get\s+started|kick\s*off))\b/i;
 
 /** "Let's start the meeting, please, Karen." → "Let's start the meeting, please." */

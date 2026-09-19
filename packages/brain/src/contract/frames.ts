@@ -58,9 +58,15 @@ export function parseEarsFrame(raw: unknown): EarsFrame | null {
   return parsed.success ? parsed.data : null;
 }
 
+/** ears holds the line until nobody has been heard for quietMs, or it has waited maxWaitMs. */
+export interface PauseGate {
+  quietMs?: number;
+  maxWaitMs?: number;
+}
+
 export type BrainFrame =
-  | { type: "speak"; utteranceId: string; audio: string; text?: string; format?: string; priority?: boolean }
-  | {
+  | ({ type: "speak"; utteranceId: string; audio: string; text?: string; format?: string; priority?: boolean } & PauseGate)
+  | ({
       type: "speak.start";
       utteranceId: string;
       text?: string;
@@ -68,7 +74,7 @@ export type BrainFrame =
       sampleRate: 48000;
       channels: 1 | 2;
       priority?: boolean;
-    }
+    } & PauseGate)
   | { type: "speak.chunk"; utteranceId: string; audio: string }
   | { type: "speak.end"; utteranceId: string; error?: string }
   | { type: "stop" }

@@ -26,8 +26,9 @@ engine:
   redirectExpirySeconds: 60
   # Never muted, whatever allowMute says.
   neverMuteRoles: [host]
-  # If the chair's `spoken` never arrives, stop waiting after this long.
-  spokenTimeoutSeconds: 20
+  # If the chair's `spoken` never arrives, stop waiting after this long. Covers the wait for
+  # a pause (speak.maxWaitMs) plus a long line.
+  spokenTimeoutSeconds: 30
 
 # The off-agenda classifier is the only model call that scales with talk, so it is rationed.
 relevance:
@@ -39,11 +40,24 @@ relevance:
 
 # Someone talking to Karen directly.
 addressed:
-  # "Karen," on its own: the next thing that person says within this long is the request.
+  # "Karen," or "Hey, Karen." on its own: the next thing that person says within this long is
+  # the request ("Hey, Karen. How are we doing?" arrives as two transcripts, ~3 s apart).
   followUpSeconds: 6
+  # ...but once they have gone quiet for this long, answer what they said.
+  settleSeconds: 2
   # What they said just before addressing her (e.g. "What's our agenda? … Karen?") goes
   # to the model too, from at most this far back.
   contextSeconds: 20
+
+# Karen waits for a breath instead of talking over people. The line is composed and
+# synthesized at once; ears holds the audio and starts it the moment nobody has been heard for
+# quietMs. Past the max wait it plays anyway.
+speak:
+  quietMs: 700
+  # Answers, silence prompts, topic moves: someone is usually just finishing.
+  maxWaitMs: 8000
+  # Redirects and floor handovers exist to interrupt a talker: give them a beat, then cut in.
+  priorityMaxWaitMs: 3000
 
 compose:
   # Pre-compose the redirect the moment an off-agenda episode opens, while the grace

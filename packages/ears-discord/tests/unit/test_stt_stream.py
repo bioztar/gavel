@@ -10,7 +10,16 @@ from typing import Any
 import websockets
 
 from ears.settings import Settings
-from ears.stt_stream import NovaProvider, Segment, SonioxProvider, StreamingStt, Word, _Stream
+from ears.stt_stream import (
+    BATCH,
+    FRAME,
+    NovaProvider,
+    Segment,
+    SonioxProvider,
+    StreamingStt,
+    Word,
+    _Stream,
+)
 
 
 def nova_result(
@@ -107,6 +116,22 @@ def test_segments_split_by_speaker_and_mapped_to_wall_clock() -> None:
     ]
     assert out[0].started_at == 2000.0 and abs(out[1].ended_at - 2001.4) < 1e-9
     assert abs((out[0].confidence or 0) - 0.9) < 1e-9
+
+
+def test_audio_goes_out_in_batches_under_the_message_rate_limit() -> None:
+    stream = _Stream(make_stt([]), "42")
+    stream.running = True  # no socket: only the outbound queue is under test
+    for _ in range(50):  # one second of 20 ms frames
+        stream.push(b"\x01" * FRAME)
+    sizes = []
+    while not stream.out.empty():
+        sizes.append(len(stream.out.get_nowait()))
+    # 50 frames would be 50 messages (3000/min); batched it is ~17 (1000/min).
+    assert len(sizes) <= 50 * FRAME // BATCH and all(n >= BATCH for n in sizes)
+    stream.flush_silence()  # the tail and the pause go out together
+    tail = stream.out.get_nowait()
+    assert isinstance(tail, bytes) and len(tail) >= stream.owner.flush_silence_bytes
+    assert stream.queued_bytes == 50 * FRAME + stream.owner.flush_silence_bytes
 
 
 async def test_round_trip_against_fake_slng() -> None:
