@@ -1,0 +1,23 @@
+# calendar — invite in, agenda out, join page starts the session. https://just.systems
+
+default:
+    @just --list
+
+setup:
+    uv sync
+
+# Serves POST /invite, GET /m/{sessionId}, on :$CALENDAR_PORT (default 8790)
+run:
+    uv run python -m gavel_calendar
+
+test *args:
+    uv run pytest {{args}}
+
+lint:
+    uv run ruff check .
+    uv run ruff format --check .
+
+typecheck:
+    uv run pyright
+
+check: lint typecheck test
