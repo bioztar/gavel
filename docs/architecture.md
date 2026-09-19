@@ -74,7 +74,26 @@ scripted replay. Only *what she says* goes to a model — so only that needs eva
 
 ---
 
-The projector version of this page is `docs/architecture.html` — two slides, arrow keys to move.
+## 2b. Before the meeting — the agenda gate
+
+`calendar` is where the agenda comes from, and it is the first place the chair says no.
+
+1. The host dictates a brief into `/compose` — one box, no form, no invitee list.
+2. A Nebius model turns that brief into a title, a purpose, a start, a duration and a list
+   of topics with owners, time budgets and who must be heard.
+3. **If it comes back with no topics, the invite does not go out.** The page says so and
+   asks the one question that is missing — what does this call have to decide? Measured
+   19 Sep: five different agenda-less briefs, five empty topic arrays, five refusals.
+4. What lands in the invitees' mailboxes is the *agenda*, not the dictated paragraph:
+   a purpose line, then every topic numbered with its owner, its minutes, and the people
+   who have to be heard on it. The same structure goes into the `.ics` DESCRIPTION.
+
+That is the whole reason the in-call triggers have anything to enforce: a topic budget and
+a must-be-heard list exist before anybody joins.
+
+---
+
+The projector version of this page is `docs/architecture.html` — three full-screen slides, served at `/architecture`. Arrow keys, space, click or swipe to move.
 
 ---
 
