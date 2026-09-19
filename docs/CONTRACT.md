@@ -234,3 +234,22 @@ An unknown or missing `persona` silently falls back to the configured default �
 not silence the chair. `packages/brain/config/personas.yaml` is the source of truth for a
 persona's tone and template lines; `chair-video`'s own settings decide which asset file a
 persona renders with.
+
+## 6. stream-vonage (packages/stream-vonage)
+
+Puts the live gavel stage on Vonage Video as a second, parallel surface (HLS broadcast +
+archive) for judges/viewers. It is additive only: Discord (§2) stays the meeting and the
+only place brain and ears talk to each other; `stream-vonage` never touches that wire, makes
+no moderation decisions, and reads brain's state only one-way (poll `GET /state`, relay it
+into the Vonage session via `session.signal()` for anyone watching). See
+`packages/stream-vonage/README.md` for the two supported Vonage auth styles, the full
+endpoint list, and the `audioSource` publishing gotcha.
+
+| Endpoint | Request | Response |
+|---|---|---|
+| `POST /stream/start` | — | `{"hlsUrl","sessionId","archiveId","broadcastId", ...}`; 503 if credentials absent (names the missing setting), 409 if already active |
+| `POST /stream/stop` | — | `{"archiveId","archiveUrl","hlsUrl"}` — `archiveUrl` is commonly still `null` right after stop (Vonage encodes async) |
+| `GET /healthz` | — | `{"credentials":"present"\|"absent","authStyle":"jwt"\|"api_key"\|null}` |
+
+A dead or unconfigured `stream-vonage` must never affect the Discord call — it has no
+inbound dependency from brain or ears, only an outbound poll of brain's read-only `/state`.

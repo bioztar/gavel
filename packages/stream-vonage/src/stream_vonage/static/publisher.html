@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>gavel — Vonage publisher</title>
+<script src="https://static.opentok.com/v2/js/opentok.min.js"></script>
+<style>
+  body { font-family: system-ui, sans-serif; background: #111; color: #eee; margin: 0; padding: 1.5rem; }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 1rem; }
+  button { font: inherit; padding: 0.5rem 1rem; margin-right: 0.5rem; cursor: pointer; }
+  button:disabled { cursor: not-allowed; opacity: 0.5; }
+  #log { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 0.85rem;
+         background: #1c1c1c; border: 1px solid #333; padding: 0.75rem; margin-top: 1rem;
+         max-height: 40vh; overflow-y: auto; }
+  #publisher { width: 480px; height: 270px; background: #000; margin-top: 1rem; }
+  #agenda { margin-top: 1rem; padding: 0.75rem; background: #1c1c1c; border: 1px solid #333;
+            font-size: 0.9rem; }
+  .warn { color: #f4b942; }
+  .err { color: #f45042; }
+  .ok { color: #6fcf6f; }
+</style>
+</head>
+<body>
+<h1>gavel — Vonage publisher</h1>
+<p>
+  Share the gavel stage window (check "Share tab audio" / "Also share system audio" so the
+  call audio is captured), then start the stream. Never leave this tab closed while live.
+</p>
+<button id="btnShare">1. Capture screen</button>
+<button id="btnStart" disabled>2. Start stream</button>
+<button id="btnStop" disabled>3. Stop stream</button>
+<div id="publisher"></div>
+<div id="agenda"><em>agenda overlay — waiting for brain state…</em></div>
+<div id="log"></div>
+
+<script>
+const logEl = document.getElementById("log");
+function log(msg, cls) {
+  const line = document.createElement("div");
+  if (cls) line.className = cls;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+const btnShare = document.getElementById("btnShare");
+const btnStart = document.getElementById("btnStart");
+const btnStop = document.getElementById("btnStop");
+
+let displayStream = null;
+let session = null;
+let publisher = null;
+let agendaPollTimer = null;
+
+btnShare.addEventListener("click", async () => {
+  try {
+    displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+    const hasAudio = displayStream.getAudioTracks().length > 0;
+    log(`screen capture granted (audio: ${hasAudio ? "yes" : "no — check 'share audio' next time"})`,
+        hasAudio ? "ok" : "warn");
+    btnShare.disabled = true;
+    btnStart.disabled = false;
+  } catch (err) {
+    log(`getDisplayMedia failed: ${err}`, "err");
+  }
+});
+
+btnStart.addEventListener("click", async () => {
+  btnStart.disabled = true;
+  try {
+    const resp = await fetch("/stream/start", { method: "POST" });
+    const body = await resp.json();
+    if (!resp.ok) {
+      log(`POST /stream/start -> ${resp.status}: ${body.detail || JSON.stringify(body)}`, "err");
+      btnStart.disabled = false;
+      return;
+    }
+    log(`stream started — hlsUrl ready, sessionId=${body.sessionId}`, "ok");
+
+    const partnerId = body.applicationId || body.apiKey;
+    session = OT.initSession(partnerId, body.sessionId);
+
+    // The `audioSource: false` gotcha: that value means "publish no audio
+    // track at all" to the Vonage SDK, silently dropping call audio even
+    // though getDisplayMedia captured it. Pass the real MediaStreamTrack, or
+    // omit the key entirely when the browser granted no audio track.
+    const videoTrack = displayStream.getVideoTracks()[0];
+    const audioTrack = displayStream.getAudioTracks()[0];
+    const publisherOptions = {
+      insertMode: "append",
+      width: "100%",
+      height: "100%",
+      videoSource: videoTrack,
+      publishAudio: !!audioTrack,
+      publishVideo: true,
+    };
+    if (audioTrack) {
+      publisherOptions.audioSource = audioTrack;
+    }
+
+    publisher = OT.initPublisher("publisher", publisherOptions, (err) => {
+      if (err) {
+        log(`initPublisher failed: ${err.message}`, "err");
+        return;
+      }
+      session.connect(body.token, (connectErr) => {
+        if (connectErr) {
+          log(`session.connect failed: ${connectErr.message}`, "err");
+          return;
+        }
+        session.publish(publisher, (pubErr) => {
+          if (pubErr) {
+            log(`session.publish failed: ${pubErr.message}`, "err");
+            return;
+          }
+          log("publishing — HLS broadcast + archive are live", "ok");
+        });
+      });
+    });
+
+    session.on("signal:brainState", (event) => {
+      try {
+        renderAgenda(JSON.parse(event.data));
+      } catch (e) {
+        // malformed payload from a mid-broadcast brain restart — ignore this tick
+      }
+    });
+
+    startAgendaPoll();
+    btnStop.disabled = false;
+  } catch (err) {
+    log(`stream start failed: ${err}`, "err");
+    btnStart.disabled = false;
+  }
+});
+
+btnStop.addEventListener("click", async () => {
+  btnStop.disabled = true;
+  stopAgendaPoll();
+  try {
+    if (session) session.disconnect();
+  } catch (e) { /* already disconnected */ }
+  try {
+    const resp = await fetch("/stream/stop", { method: "POST" });
+    const body = await resp.json();
+    if (!resp.ok) {
+      log(`POST /stream/stop -> ${resp.status}: ${body.detail || JSON.stringify(body)}`, "err");
+    } else {
+      log(`stream stopped — archiveId=${body.archiveId} archiveUrl=${body.archiveUrl || "(still encoding, poll later)"}`, "ok");
+    }
+  } catch (err) {
+    log(`stream stop failed: ${err}`, "err");
+  }
+  btnShare.disabled = false;
+  btnStart.disabled = true;
+});
+
+function renderAgenda(state) {
+  document.getElementById("agenda").textContent = JSON.stringify(state, null, 2);
+}
+
+function startAgendaPoll() {
+  const pollMs = __BRAIN_POLL_MS__;
+  const tick = async () => {
+    try {
+      const resp = await fetch("/brain-state");
+      if (resp.ok) renderAgenda(await resp.json());
+    } catch (e) {
+      // brain unreachable this tick — the next poll (or the signal relay) will catch up
+    }
+  };
+  tick();
+  agendaPollTimer = setInterval(tick, pollMs);
+}
+
+function stopAgendaPoll() {
+  if (agendaPollTimer) clearInterval(agendaPollTimer);
+  agendaPollTimer = null;
+}
+</script>
+</body>
+</html>
