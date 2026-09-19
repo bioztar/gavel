@@ -1,5 +1,9 @@
 """HTTP surface.
 
+    GET  /                  redirects to /board (Traefik routes the whole host here)
+    GET  /compose            the brief textarea — see compose.py
+    POST /compose/parse      brief → LLM → editable confirm form
+    POST /compose/send       confirm → meeting created, .ics + email sent best-effort
     POST /invite            upload or paste an .ics → {sessionId, joinUrl}
     GET  /m/{session_id}    the join page: title, agenda with budgets, expected
                              attendees, one Join button
@@ -9,6 +13,8 @@
     GET  /health
 
 Both the Join button and the scheduler end in `service.start` — see scheduler.py.
+The compose routes' form-parsing and HTML live in `compose.py`; the routes stay
+here so they share this module's single `store` instance.
 """
 
 from __future__ import annotations
@@ -19,11 +25,11 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, Form, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
+from fastapi.responses import HTMLResponse, RedirectResponse
 
-from . import scheduler, service
-from .agenda import build_agenda
+from . import compose, scheduler, service
+from .agenda import attendee_name, build_agenda
 from .ears_client import EarsClient
 from .feed_store import FeedRegistry
 from .ics_parser import InvalidInvite, parse_ics
@@ -60,6 +66,12 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="gavel calendar", lifespan=lifespan)
+
+
+@app.get("/", include_in_schema=False)
+async def root() -> RedirectResponse:
+    # The whole host routes here (Traefik); a judge types the bare domain.
+    return RedirectResponse("/board", status_code=307)
 
 
 @app.get("/health")
@@ -109,6 +121,22 @@ async def invite(
     )
     join_url = f"{settings.calendar_public_url}/m/{session_id}"
     return {"sessionId": session_id, "joinUrl": join_url}
+
+
+@app.get("/compose", response_class=HTMLResponse)
+async def compose_form() -> str:
+    return compose.render_brief_form(settings.compose_default_attendees)
+
+
+@app.post("/compose/parse", response_class=HTMLResponse)
+async def compose_parse(brief: str = Form(...), attendees: str = Form(...)) -> str:
+    return await compose.render_confirm_form(brief, attendees, settings)
+
+
+@app.post("/compose/send", response_class=HTMLResponse)
+async def compose_send(request: Request) -> str:
+    form = await request.form()
+    return await compose.handle_send(form, store, settings)
 
 
 @app.get("/board", response_class=HTMLResponse)
@@ -170,7 +198,7 @@ def _render_join_page(record: InviteRecord) -> str:
     e = html.escape
     rows = "".join(
         f"<tr><td>{e(t['title'])}</td><td>{t['budgetSeconds'] // 60} min</td>"
-        f"<td>{e(_owner_name(record, t.get('owner')))}</td></tr>"
+        f"<td>{e(attendee_name(record.agenda, t.get('owner')))}</td></tr>"
         for t in record.agenda["topics"]
     )
     attendees = "".join(
@@ -210,11 +238,3 @@ def _render_started_page(record: InviteRecord, result: dict[str, str]) -> str:
 <p>ears meeting <code>{e(result["meetingId"])}</code>, session <code>{e(result["sessionId"])}</code>.</p>
 </body></html>"""
 
-
-def _owner_name(record: InviteRecord, owner_id: str | None) -> str:
-    if owner_id is None:
-        return ""
-    for a in record.agenda["attendees"]:
-        if a["discordId"] == owner_id:
-            return str(a["name"])
-    return owner_id
