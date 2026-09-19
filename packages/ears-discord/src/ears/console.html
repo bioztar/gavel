@@ -159,6 +159,8 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin:
         <button class="small" id="b-add-topic">+ add</button></label>
       <div id="topics"></div>
 
+      <label class="row" style="color:var(--text);font-size:12px"><input type="checkbox" id="m-require-start" style="width:auto;margin:0 6px 0 0" checked>
+        Wait for “Karen, let's start the meeting” — off: Karen opens it herself once everyone is in the call</label>
       <details><summary>Policy (interrupt thresholds)</summary><div class="grid2" id="policy"></div></details>
       <details><summary>Agenda JSON — import / export</summary>
         <textarea id="m-json" rows="8" class="mono" placeholder="Paste an agenda.json (contract shape) and press Import"></textarea>
@@ -353,7 +355,7 @@ function renderBrain() {
   if (!b) { $("brain-phase").textContent = "offline"; return; }
   $("brain-phase").textContent = b.agendaFinished ? "agenda finished" : b.phase;
   const lobby = b.phase === "gathering"
-    ? (b.readyToStart ? `Everyone is here. Say “Karen, let's start the meeting.”` : `Waiting for ${b.missingAttendees.join(", ")}.`)
+    ? (b.readyToStart ? (b.requireStart === false ? "Everyone is here. Karen is opening the meeting…" : `Everyone is here. Say “Karen, let's start the meeting.”`) : `Waiting for ${b.missingAttendees.join(", ")}.`)
     : b.agendaFinished ? "The full agenda is complete." : b.topic ? `Current: ${b.topic.title} · ${clock(b.topic.elapsedSeconds * 1000)}` : "No active topic.";
   $("brain-state").innerHTML = `<div class="row"><strong class="grow">${esc(b.title || b.purpose || "Meeting")}</strong><span class="phase">${esc(b.phase)}</span></div>
     <div class="muted" style="margin:3px 0 6px">${esc(lobby)}</div>
@@ -431,6 +433,7 @@ function renderTopics() {
 }
 function renderPolicy() {
   const p = current.agenda.policy;
+  $("m-require-start").checked = p.requireStart !== false;
   $("policy").innerHTML = Object.keys(POLICY_DEFAULTS).map((k) => `
     <div><label>${k}</label><input type="number" step="any" data-p="${k}" value="${p[k] ?? POLICY_DEFAULTS[k]}"></div>`).join("");
 }
@@ -447,6 +450,7 @@ document.addEventListener("input", (e) => {
     const t = current.agenda.topics[+d.mh];
     t.mustHear = el.checked ? [...new Set([...t.mustHear, el.value])] : t.mustHear.filter((x) => x !== el.value);
   } else if (d.p !== undefined) current.agenda.policy[d.p] = +el.value;
+  else if (el.id === "m-require-start") current.agenda.policy.requireStart = el.checked;
 });
 document.addEventListener("click", (e) => {
   const d = e.target.dataset;

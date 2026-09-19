@@ -175,7 +175,9 @@ an additional command channel.
 ### Additive — policy
 
 `policy` also takes `offAgendaGraceSeconds` (20), `allowMute` (false),
-`escalateAfterSeconds` (10) and `muteSeconds` (15). Absent means the default.
+`escalateAfterSeconds` (10), `muteSeconds` (15) and `requireStart` (true — false: the
+chair opens the meeting herself once everyone is in the call, no "Karen, let's start the
+meeting"). Absent means the default.
 
 `session.started.agenda` is optional for the brain to use: it is whatever the host typed
 into the ears console (`http://localhost:8787/console`). A brain that loads its agenda

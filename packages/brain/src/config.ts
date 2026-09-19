@@ -50,6 +50,7 @@ export const Policy = z.object({
   allowMute: z.boolean(),
   escalateAfterSeconds: z.number(),
   muteSeconds: z.number(),
+  requireStart: z.boolean().default(true),
 });
 export type Policy = z.infer<typeof Policy>;
 
@@ -66,6 +67,7 @@ export const PolicyConfig = z.object({
     redirectExpirySeconds: z.number(),
     neverMuteRoles: z.array(z.string()),
     spokenTimeoutSeconds: z.number(),
+    autoStartDelayMs: z.number().int().nonnegative().default(3000),
   }),
   relevance: z.object({
     minNewWords: z.number().int().positive(),

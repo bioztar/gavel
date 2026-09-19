@@ -20,6 +20,7 @@
     }
   ],
   "policy": {
+    "requireStart": false,
     "offAgendaGraceSeconds": 5,
     "minSecondsBetweenInterventions": 12,
     "escalateAfterSeconds": 6,

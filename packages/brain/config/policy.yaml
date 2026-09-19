@@ -13,6 +13,7 @@ defaults:
   allowMute: false                # may the chair escalate to a short, announced mute
   escalateAfterSeconds: 10        # still talking this long after being redirected → escalate
   muteSeconds: 15
+  requireStart: true              # wait for "Karen, let's start the meeting"; false: she opens it herself
 
 engine:
   tickMs: 250
@@ -29,6 +30,8 @@ engine:
   # If the chair's `spoken` never arrives, stop waiting after this long. Covers the wait for
   # a pause (speak.maxWaitMs) plus a long line.
   spokenTimeoutSeconds: 30
+  # With requireStart off, the chair opens this long after everyone expected is in the call.
+  autoStartDelayMs: 3000
 
 # The off-agenda classifier is the only model call that scales with talk, so it is rationed.
 relevance:

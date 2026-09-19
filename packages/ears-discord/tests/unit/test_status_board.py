@@ -69,6 +69,9 @@ def test_render_overrun_lobby_and_raw_notes() -> None:
     assert "waiting for Ana and Marc" in lobby["description"]
     assert "Nothing captured yet" in fields(lobby)["📝 Notes"]
 
+    auto = render({"phase": "gathering", "missingAttendees": [], "requireStart": False})
+    assert "Karen is opening the meeting" in auto["description"]
+
     # An older brain without `digest`: the raw notes.
     raw = render(
         {

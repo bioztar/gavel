@@ -115,6 +115,8 @@ export class Engine {
   private decisions: string[] = [];
   private openItems: string[] = [];
   /** Bumped whenever a note is added; the digest is redone when it moves. */
+  /** When everyone expected was first in the lobby, for requireStart: false. */
+  private lobbyFullSince: number | null = null;
   private notesVersion = 0;
   private digest: { notes: Notes; seen: Set<string>; version: number } | null = null;
   private digesting = false;
@@ -211,6 +213,7 @@ export class Engine {
     this.facts = [];
     this.decisions = [];
     this.openItems = [];
+    this.lobbyFullSince = null;
     this.notesVersion = 0;
     this.digest = null;
     this.digestAt = 0;
@@ -293,6 +296,7 @@ export class Engine {
       this.onRequest(id, opener, since);
     }
     this.ledger.prune(now, this.policy().floorWindowSeconds * 2000);
+    this.maybeAutoStart(now);
 
     if (this.directQueue.length && !this.pending && !this.composing) {
       const direct = this.directQueue.shift()!;
@@ -834,6 +838,51 @@ export class Engine {
     this.remember(id, text, at);
   }
 
+  /** Karen opens the meeting: the agenda, then the first topic's question to whoever starts. */
+  private queueStart(id: string): void {
+    const starter = this.startingPerson(id);
+    const topic = this.topic();
+    const question = topic?.questions[0] ?? render(this.cfg.chair.fallbackQuestion, {
+      topicTitle: topic?.title ?? "the first topic",
+      topicGoal: topic?.goal ?? "",
+    });
+    this.directQueue.push({
+      trigger: "meetingStart",
+      kind: "startMeeting",
+      topicId: topic?.id ?? null,
+      addresseeId: starter.id,
+      vars: {
+        name: this.nameOf(id),
+        agendaList: this.agendaList(),
+        topicTitle: topic?.title ?? "",
+        topicGoal: topic?.goal ?? "",
+        addresseeName: starter.name,
+        question,
+        purpose: this.agenda?.purpose ?? "",
+      },
+      actions: ["speak", "start"],
+      priority: false,
+      question,
+    });
+  }
+
+  /**
+   * A meeting with `requireStart: false` needs no "Karen, let's start": she opens it herself
+   * once everyone expected is in the call and has been for engine.autoStartDelayMs.
+   */
+  private maybeAutoStart(now: number): void {
+    if (this.phase !== "gathering" || this.policy().requireStart) return;
+    if (!this.people.size || this.missingAttendees().length) {
+      this.lobbyFullSince = null;
+      return;
+    }
+    if (this.directQueue.some((iv) => iv.kind === "startMeeting") || this.pending) return;
+    this.lobbyFullSince ??= now;
+    if (now - this.lobbyFullSince < this.cfg.policy.engine.autoStartDelayMs) return;
+    log.info("meeting.auto_start", { sessionId: this.sessionId });
+    this.queueStart(this.people.keys().next().value!);
+  }
+
   private remember(id: string, text: string, at: number): void {
     const keepMs = this.cfg.policy.addressed.contextSeconds * 1000;
     const list = (this.recentWords.get(id) ?? []).filter((w) => at - w.at <= keepMs);
@@ -869,30 +918,7 @@ export class Engine {
         return;
       }
 
-      const starter = this.startingPerson(id);
-      const topic = this.topic();
-      const question = topic?.questions[0] ?? render(this.cfg.chair.fallbackQuestion, {
-        topicTitle: topic?.title ?? "the first topic",
-        topicGoal: topic?.goal ?? "",
-      });
-      this.directQueue.push({
-        trigger: "meetingStart",
-        kind: "startMeeting",
-        topicId: topic?.id ?? null,
-        addresseeId: starter.id,
-        vars: {
-          name: who,
-          agendaList: this.agendaList(),
-          topicTitle: topic?.title ?? "",
-          topicGoal: topic?.goal ?? "",
-          addresseeName: starter.name,
-          question,
-          purpose: this.agenda?.purpose ?? "",
-        },
-        actions: ["speak", "start"],
-        priority: false,
-        question,
-      });
+      this.queueStart(id);
       return;
     }
 
@@ -1039,6 +1065,7 @@ export class Engine {
       chairName: "Karen",
       phase: this.phase,
       readyToStart: this.phase === "gathering" && this.missingAttendees().length === 0,
+      requireStart: this.policy().requireStart,
       missingAttendees: this.missingAttendees(),
       agendaFinished: this.agendaCompleted,
       topic: s.topic && {

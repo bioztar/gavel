@@ -122,6 +122,8 @@ def _status_line(state: dict[str, Any], phase: str) -> str:
         missing = state.get("missingAttendees") or []
         if missing:
             return f"⏳ **Waiting to start** — waiting for {_names(missing)}."
+        if state.get("requireStart") is False:
+            return "⏳ **Starting** — Karen is opening the meeting."
         return "⏳ **Ready to start** — say *“Karen, let's start the meeting.”*"
     if phase == "finished" or state.get("agendaFinished"):
         return "🏁 **Agenda complete.**"

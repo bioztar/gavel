@@ -347,3 +347,46 @@ describe("streamed speech", () => {
     expect(sent.at(-1)).toMatchObject({ type: "speak.end", error: "Error: socket closed" });
   });
 });
+
+describe("requireStart: false (the cats-and-dogs demo)", () => {
+  function lobbyOf(agendaFile: string) {
+    const config = loadConfig();
+    let now = 0;
+    const engine = new Engine({
+      config: () => config,
+      clock: () => now,
+      wire: { connected: true, send: () => true },
+      store: new MemoryStore(),
+      llm: new StubLlm(),
+      tts: new SilentTts(),
+      fallbackAgenda: null,
+    });
+    const agenda = loadAgendaFile(resolve(FIXTURES, agendaFile));
+    const people = [{ discordId: "1", name: "Ana" }, { discordId: "2", name: "Marc" }];
+    engine.handle({ type: "ready", channelId: "c", participants: people, atMs: 0 });
+    engine.handle({ type: "session.started", sessionId: "s", title: "Demo", agenda: { ...agenda, attendees: people.map((p) => ({ ...p, role: "attendee" })) }, atMs: 0 });
+    const tick = async (at: number) => {
+      now = at;
+      const iv = engine.tick();
+      await engine.idle();
+      return iv;
+    };
+    return { engine, tick };
+  }
+
+  it("Karen opens the meeting herself once everyone has been in the call a moment", async () => {
+    const { engine, tick } = lobbyOf("agenda.cats-dogs.json");
+    expect(engine.view().requireStart).toBe(false);
+    expect(await tick(1_000)).toBeNull(); // everyone is here: the delay starts
+    expect(await tick(3_500)).toBeNull();
+    expect((await tick(4_000))?.kind).toBe("startMeeting");
+    expect(engine.phase).toBe("active");
+  });
+
+  it("by default she still waits to be asked", async () => {
+    const { engine, tick } = lobbyOf("agenda.demo.json");
+    expect(engine.view().requireStart).toBe(true);
+    expect(await tick(60_000)).toBeNull();
+    expect(engine.phase).toBe("gathering");
+  });
+});

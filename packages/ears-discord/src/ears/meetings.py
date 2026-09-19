@@ -43,6 +43,9 @@ DEFAULT_POLICY: dict[str, float | bool] = {
     "allowMute": False,
     "escalateAfterSeconds": 10,
     "muteSeconds": 15,
+    # False: the chair opens the meeting herself once everyone is in the call, instead of
+    # waiting for "Karen, let's start the meeting".
+    "requireStart": True,
 }
 
 
