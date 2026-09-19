@@ -15,6 +15,7 @@ into a file that is tracked, an issue, or a chat message.
 ## 1. Discord — blocks `ears-discord`, which blocks everything — ✅ done
 
 Discord Developer Portal → New Application → Bot.
+Full walkthrough, including invite links for other servers: [DISCORD-SETUP.md](DISCORD-SETUP.md).
 
 - **Bot token** → `DISCORD_EARS_TOKEN`
 - **Privileged intents:** none needed. ears uses Guilds and Guild Voice States, which are not privileged.

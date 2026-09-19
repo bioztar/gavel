@@ -33,6 +33,7 @@ The bot must be invited with the **`bot`** scope, not just `applications.command
 (View Channel, Connect, Speak, Use Voice Activity, Mute Members, Priority Speaker). No
 privileged intents. Without the last two the chair still talks, but `mute` comes back
 `failed` and priority lines do not duck the room.
+Creating the app and sharing invite links: [docs/DISCORD-SETUP.md](../../docs/DISCORD-SETUP.md).
 
 ## The console — `http://127.0.0.1:8787/console`
 
