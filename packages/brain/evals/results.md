@@ -6,16 +6,16 @@ Generated: 2026-09-19 · lines: offline, YAML templates · judged dimensions **n
 
 | Case | Trigger | Generated line | names the right person | under 20 words | hands the floor somewhere specific | polite enough for a real meeting | invents nothing | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Floor hog at 62%<br><sub>`01-floor-hog-62`</sub> | `floorHog`<br><sub>floorHog</sub> | Thanks Vitaly, love the passion. Marc, floor's yours before this becomes a podcast. What is not done that you expected to be done?<br><sub>[template]</sub> | pass | **fail** | pass | — | — | 23 words |
+| Floor hog at 62%<br><sub>`01-floor-hog-62`</sub> | `floorHog`<br><sub>floorHog</sub> | Thanks Vitaly, love the passion. Marc, floor's yours before this becomes a podcast. What is not done?<br><sub>[template]</sub> | pass | pass | pass | — | — | — |
 | Floor hog at 81%<br><sub>`02-floor-hog-81`</sub> | `floorHog`<br><sub>floorHog</sub> | Thanks Vitaly, love the passion. Ana, floor's yours before this becomes a podcast. What date can you defend?<br><sub>[template]</sub> | pass | pass | pass | — | — | — |
 | Topic 1.2x over budget<br><sub>`03-topic-over-budget`</sub> | `topicOverrun`<br><sub>topicOverrun</sub> | The date just got a red card for overtime. Onward to Blocker owners. What's your take on Blocker owners?<br><sub>[template]</sub> | pass | pass | pass | — | — | — |
 | Topic at risk with two agenda items left<br><sub>`04-topic-at-risk-two-left`</sub> | `topicOverrun`<br><sub>topicOverrun</sub> | Where we actually are just got a red card for overtime. Onward to The date. What date can you defend?<br><sub>[template]</sub> | pass | pass | pass | — | — | — |
 | A mustHear attendee silent at 70% through the meeting<br><sub>`05-musthear-silent-70pct`</sub> | `silence`<br><sub>silence</sub> | Ana, you've been suspiciously quiet on The date. What date can you defend?<br><sub>[template]</sub> | pass | pass | pass | — | — | — |
 | 15 seconds of silence<br><sub>`06-silence-15s`</sub> | `silence`<br><sub>silence</sub> | Vitaly, you've been suspiciously quiet on Blocker owners. What's your take on Blocker owners?<br><sub>[template]</sub> | pass | pass | pass | — | — | — |
-| The fire drill<br><sub>`07-fire-drill`</sub> | `offAgenda`<br><sub>offAgenda</sub> | Marc, I've bagged the building fire drill at four for later — the agenda's a little jealous. Back to The date: What date can you defend?<br><sub>[template]</sub> | pass | **fail** | pass | — | — | 26 words |
-| Crosstalk<br><sub>`08-crosstalk`</sub> | `groupOffAgenda`<br><sub>offAgenda</sub> | Everyone, I've parked vendor pricing tiers / pricing for the enterprise plan for later. Let's come back to Where we actually are: What is not done that you expected to be done?<br><sub>[template]</sub> | pass | **fail** | pass | — | — | 32 words |
+| The fire drill<br><sub>`07-fire-drill`</sub> | `offAgenda`<br><sub>offAgenda</sub> | Marc, I've bagged the building fire drill at four; the agenda's jealous. The date: What date can you defend?<br><sub>[template]</sub> | pass | pass | pass | — | — | — |
+| Crosstalk<br><sub>`08-crosstalk`</sub> | `groupOffAgenda`<br><sub>offAgenda</sub> | Everyone, I've parked vendor pricing tiers for later. Back to Where we actually are: What is not done?<br><sub>[template]</sub> | pass | pass | pass | — | — | — |
 | A monologue by the meeting's own host<br><sub>`09-host-monologue`</sub> | `floorHog`<br><sub>floorHog</sub> | Thanks Vitaly, love the passion. Marc, floor's yours before this becomes a podcast. What's your take on Blocker owners?<br><sub>[template]</sub> | pass | pass | pass | — | — | — |
-| An empty agenda<br><sub>`10-empty-agenda`</sub> | `floorHog`<br><sub>floorHog</sub> | Vitaly, I'm gently confiscating the mic. Marc:<br><sub>[template]</sub> | pass | pass | pass | — | — | — |
+| An empty agenda<br><sub>`10-empty-agenda`</sub> | `floorHog`<br><sub>floorHog</sub> | Thanks Vitaly, love the passion. Marc, floor's yours before this becomes a podcast.<br><sub>[template]</sub> | pass | pass | pass | — | — | — |
 
 ## What each case is for
 

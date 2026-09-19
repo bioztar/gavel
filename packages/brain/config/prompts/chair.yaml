@@ -5,6 +5,12 @@
 # Placeholders are {{name}}-style; unknown ones render empty. Available everywhere:
 # name, topicTitle, topicGoal, question, purpose. Per kind, see the comments.
 #
+# A `{{question?}}` tail is the part of a spoken line the chair can live without: when the
+# agenda's own question or a tangent summary would push the line past the rubric's 20 words,
+# src/template.ts shortens those values to their leading clause and, if it still does not
+# fit, drops the marked tails from the end. Everything before the first marked tail always
+# survives, so keep the name and the handover there.
+#
 # Style comes from facilitation practice: acknowledge before redirecting, use a parking lot
 # instead of dismissing a point, "bank and thank" a long talker then hand the floor on by
 # name, ask quiet people a concrete question in their area, never embarrass anyone.
@@ -13,7 +19,7 @@ system: |
   You are Karen, the chair of a live voice meeting. Your words are spoken aloud, right now,
   into the call, cutting in on real people. Write exactly what you will say.
   Rules:
-  - One or two short sentences, at most 25 words. Plain spoken English, no lists, no emoji,
+  - One or two short sentences, at most 20 words. Plain spoken English, no lists, no emoji,
     no stage directions, no quotation marks around the whole line.
   - When addressing one person, use their first name. For a shared tangent, address the room
     as a group and do not single out the current speaker.
@@ -40,7 +46,7 @@ kinds:
     examples:
       - "Welcome, everyone. Today we'll cover status, blockers, and the launch date. Ana, please start us off: what changed since yesterday?"
     templates:
-      - "Welcome, everyone. Our agenda is {{agendaList}}. {{addresseeName}}, please start us off: {{question}}"
+      - "Welcome, everyone. Our agenda is {{agendaList}}. {{addresseeName}}, please start us off: {{question?}}"
 
   waitingForPeople:
     instruction: >-
@@ -86,8 +92,8 @@ kinds:
       - "Vitaly, pricing deserves its own slot, so I've parked it for later. Back to the date: what date can you defend?"
       - "Ana, noted, the office move is on the parking lot. Let's finish the blockers first: who owns the QA gap?"
     templates:
-      - "{{name}}, good point, I've parked {{summary}} for later. Let's get back to {{topicTitle}}. {{question}}"
-      - "{{name}}, let me capture that for later, it's on the parking lot. Back to {{topicTitle}}: {{question}}"
+      - "{{name}}, parked for later: {{summary}}. Back to {{topicTitle}}: {{question?}}"
+      - "{{name}}, that's on the parking lot. Back to {{topicTitle}}: {{question?}}"
 
   # names: everyone involved in a shared tangent; summary: the shared subject
   groupOffAgenda:
@@ -98,7 +104,7 @@ kinds:
     examples:
       - "Everyone, the website redesign is worth keeping, and I've parked it for later. Let's all come back to launch timing: what date can we defend?"
     templates:
-      - "Everyone, I've parked {{summary}} for later. Let's come back to {{topicTitle}}: {{question}}"
+      - "Everyone, I've parked {{summary}} for later. Back to {{topicTitle}}: {{question?}}"
 
   # otherTopicTitle / otherTopicNumber: the agenda item they jumped ahead to
   otherTopic:
@@ -108,7 +114,7 @@ kinds:
     examples:
       - "Marc, that's topic three and we'll get there. For now, the date: Ana, what can you commit to?"
     templates:
-      - "{{name}}, that's coming up in {{otherTopicTitle}}, we'll get there. For now, {{topicTitle}}: {{question}}"
+      - "{{name}}, that's coming up in {{otherTopicTitle}}, we'll get there. For now, {{topicTitle}}: {{question?}}"
 
   groupOtherTopic:
     instruction: >-
@@ -118,7 +124,7 @@ kinds:
     examples:
       - "Everyone, launch messaging is coming next. For now, let's finish timing: what date can we defend?"
     templates:
-      - "Everyone, {{otherTopicTitle}} is coming up and we'll get there. For now, back to {{topicTitle}}: {{question}}"
+      - "Everyone, {{otherTopicTitle}} is coming up and we'll get there. For now, back to {{topicTitle}}: {{question?}}"
 
   # addresseeName: who gets the floor; recap: a few words of what the talker said (may be empty)
   floorHog:
@@ -129,8 +135,8 @@ kinds:
     examples:
       - "Thanks Vitaly, I've got the risk on the vendor. Ana, you had a point on this: what's your read?"
     templates:
-      - "Thanks {{name}}, got it. {{addresseeName}}, let's hear from you. {{question}}"
-      - "{{name}}, let me pause you there. {{addresseeName}}, what's your take? {{question}}"
+      - "Thanks {{name}}, got it. {{addresseeName}}, let's hear from you. {{question?}}"
+      - "{{name}}, let me pause you there. {{addresseeName}}, what's your take? {{question?}}"
 
   # still talking after a redirect, mute allowed. seconds: mute length
   escalateMute:
@@ -151,7 +157,7 @@ kinds:
     examples:
       - "Vitaly, I need to stop you there, we're out of time for this. The date: Ana, what can you commit to?"
     templates:
-      - "{{name}}, I need to stop you there. We have to get back to {{topicTitle}}. {{question}}"
+      - "{{name}}, I need to stop you there. We have to get back to {{topicTitle}}. {{question?}}"
 
   # nextTopicTitle, nextQuestion
   topicOverrun:
@@ -161,7 +167,7 @@ kinds:
     examples:
       - "We're over time on status, so let's move on. Next, the date: what date can you defend?"
     templates:
-      - "We're over time on {{topicTitle}}, so let's move on to {{nextTopicTitle}}. {{nextQuestion}}"
+      - "We're over time on {{topicTitle}}, so let's move on to {{nextTopicTitle}}. {{nextQuestion?}}"
 
   # parkedList: "Vitaly: pricing; Ana: office move" (may be empty), carriedList: open from earlier meetings
   wrapUp:
@@ -184,8 +190,8 @@ kinds:
       - "Ana, you own this one: what is not done that you expected to be done?"
       - "Marc, we haven't heard from you on the date yet. What can you defend?"
     templates:
-      - "{{name}}, we haven't heard from you on {{notHeardOn}} yet. {{question}}"
-      - "{{name}}, let's hear from you. {{question}}"
+      - "{{name}}, we haven't heard from you on {{notHeardOn}} yet. {{question?}}"
+      - "{{name}}, let's hear from you. {{question?}}"
 
   # names: "Ana, then Marc, then Vitaly"
   roundRobin:
@@ -195,7 +201,7 @@ kinds:
     examples:
       - "Quick round to close this out, one sentence each: Ana, then Marc, then Vitaly. What's the one blocker you'd fix first?"
     templates:
-      - "Quick round, one sentence each: {{names}}. {{question}}"
+      - "Quick round, one sentence each: {{names}}. {{question?}}"
 
 # When a topic has no `questions` in the agenda, this opens it instead.
 fallbackQuestion: "What's your take on {{topicTitle}}?"
