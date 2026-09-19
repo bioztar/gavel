@@ -3,7 +3,7 @@
 **Status:** live and validated
 **Host:** `uk-lon-1` (173.234.79.39) · **Domain:** https://gavel.pro7ocol.com
 **Deployed commit:** `5baf50b` (`feat(scripts): set-vonage-key.sh` — on top of Artem's `3227f0a`, Karen waits for a pause + STT fix)
-**Deployed at:** 2026-09-19 16:39 UTC · **Last validated:** 2026-09-19 16:39 UTC
+**Deployed at:** 2026-09-19 17:02 UTC · **Last validated:** 2026-09-19 17:02 UTC
 **Checkout on the box:** `/home/coder/DEV/gavel` · **Compose project:** `gavel`
 
 ---
@@ -356,12 +356,16 @@ docker compose up -d --wait stream-vonage
 curl -s localhost:8792/healthz     # credentials: "present", authStyle: "jwt"
 ```
 
-Until the key is installed, `/healthz` reports `{"credentials":"absent","authStyle":null}`
-and `POST /stream/start` fails with `VONAGE_API_SECRET is not set` — the setting name, never
-a value.
+**Installed and verified 2026-09-19 17:02 UTC.** `/healthz` reports
+`{"credentials":"present","authStyle":"jwt"}`, the container sees a 28-line PEM, and a real
+`createSession` call against Vonage returned a 110-character session id — which is the only
+proof that matters: it means the JWT is accepted *and* the Application has the **Video**
+capability enabled. A Messages- or Voice-only Application authenticates fine and then 4xxs
+on session create, so healthz alone would not have caught it.
 
-**The Application needs the Video capability enabled.** If it was created with only Messages
-or Voice, JWT auth will succeed and session creation will still 4xx.
+Before the key was installed, `/healthz` reported `{"credentials":"absent","authStyle":null}`
+and `POST /stream/start` failed with `VONAGE_API_SECRET is not set` — the setting name, never
+a value.
 
 ### Exposure
 
