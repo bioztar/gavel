@@ -800,8 +800,13 @@ $("say").onkeydown = (e) => { if (e.key === "Enter") say(); };
 
 /* One voice for this box and for the chair. ears stores it and tells the brain
    over the wire, so both apply it to their next line — no restart either side. */
-const CUSTOM = "\u0000custom";
 let currentVoice = null;
+
+/* The "type your own" row is marked with a data attribute, not a sentinel value:
+   any string put in `value` could collide with a real voice id, and a NUL one —
+   which cannot — is rewritten to U+FFFD when the parser reads this markup, so the
+   pick came back as an id nobody asked for and was saved as the voice. */
+const isCustomPick = () => $("voice").selectedOptions[0]?.dataset.custom === "1";
 
 function renderVoices(v) {
   currentVoice = v.voice;
@@ -809,7 +814,7 @@ function renderVoices(v) {
   $("voice").hidden = false;
   $("voice").innerHTML =
     v.known.map((id) => `<option value="${esc(id)}" ${id === v.voice ? "selected" : ""}>${esc(id)}</option>`).join("") +
-    `<option value="${CUSTOM}">Another voice id…</option>`;
+    `<option value="" data-custom="1">Another voice id…</option>`;
   $("voice").title = `Karen's voice for the say-box and the chair · model ${v.model}`;
 }
 
@@ -837,9 +842,8 @@ function showCustom(on) {
 }
 
 $("voice").onchange = () => {
-  const picked = $("voice").value;
-  if (picked === CUSTOM) return showCustom(true);
-  setVoice(picked);
+  if (isCustomPick()) return showCustom(true);
+  setVoice($("voice").value);
 };
 
 $("voice-custom").onkeydown = (e) => {

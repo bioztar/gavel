@@ -34,6 +34,8 @@ DEFAULT_TTS_VOICES: tuple[str, ...] = (
     "aura-2-luna-en",
     "aura-2-athena-en",
     "aura-2-hera-en",
+    "aura-2-minerva-en",
+    "aura-2-theia-en",
     "aura-2-orion-en",
     "aura-2-arcas-en",
     "aura-2-perseus-en",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -260,8 +261,19 @@ def test_voices_offers_the_known_list_and_what_is_selected() -> None:
     _, client, _ = make()
     body = client.get("/api/voices").json()
     assert body["voice"] == "aura-2-thalia-en"
-    assert "aura-2-thalia-en" in body["known"]
+    assert {"aura-2-thalia-en", "aura-2-hera-en", "aura-2-minerva-en", "aura-2-theia-en"} <= set(
+        body["known"]
+    )
     assert body["model"] == "deepgram/aura:2"
+
+
+def test_the_pickers_type_your_own_row_cannot_be_read_as_a_voice_id() -> None:
+    """The regression: that row was marked by a NUL sentinel in its `value`, and
+    the HTML parser rewrites NUL to U+FFFD — so picking it saved "\ufffdcustom"
+    as the voice instead of opening the field for a typed id."""
+    console = (Path(__file__).parents[2] / "src/ears/console.html").read_text()
+    assert "\u0000" not in console
+    assert '<option value="" data-custom="1">' in console
 
 
 def test_changing_the_voice_tells_every_brain_at_once() -> None:
