@@ -4,12 +4,12 @@
 <title>gavel — architecture</title>
 <!-- Brand glyphs from simple-icons (CC0), inlined: the deck must render with no network. -->
 <style>
-  :root{--bg:#07090f;--ink:#eef1f7;--dim:#7d879e;--line:#212838;--card:#0d111a;
-        --ours:#5b8cff;--spon:#ffb340;--room:#3fd6a0;--off:#b98bff}
+  :root{--bg:#fbfbfd;--ink:#1d1d1f;--dim:#6e6e73;--line:#e4e4ea;--card:#ffffff;
+        --ours:#0071e3;--spon:#b25000;--room:#087443;--off:#6b3fd6}
   *{box-sizing:border-box;margin:0}
   html,body{height:100%;overflow:hidden;background:var(--bg)}
   body{color:var(--ink);font:400 16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-       background-image:radial-gradient(1200px 700px at 76% -10%,#141c2f 0%,transparent 60%)}
+       background-image:radial-gradient(1200px 700px at 76% -10%,#edf2fb 0%,transparent 60%)}
   .slide{position:fixed;inset:0;display:none;flex-direction:column;
          padding:clamp(22px,4.2vh,54px) clamp(26px,4vw,70px) clamp(52px,7vh,78px)}
   .slide.on{display:flex}
@@ -26,7 +26,7 @@
   .chip{display:flex;align-items:center;gap:clamp(8px,.8vw,14px)}
   .g{width:clamp(32px,3.1vw,54px);height:clamp(32px,3.1vw,54px);flex:none}
   .mono{display:grid;place-items:center;flex:none;border-radius:13px;font-weight:700;
-        color:#07090f;background:var(--m);letter-spacing:-.03em;line-height:1;
+        color:#fff;background:var(--m);letter-spacing:-.03em;line-height:1;
         width:clamp(32px,3.1vw,54px);height:clamp(32px,3.1vw,54px);font-size:clamp(14px,1.4vw,24px)}
   .mono.c2{font-size:clamp(12px,1.2vw,20px)} .mono.c3{font-size:clamp(10px,1vw,17px)}
   .chip b{display:block;font-size:clamp(15px,1.5vw,26px);font-weight:600;letter-spacing:-.01em}
@@ -39,7 +39,7 @@
         gap:10px;flex:none;padding-right:clamp(4px,.8vw,14px)}
   .face img{width:clamp(88px,9.8vw,168px);height:clamp(88px,9.8vw,168px);border-radius:50%;
             object-fit:cover;border:2px solid var(--ours);
-            box-shadow:0 0 0 7px rgba(91,140,255,.10)}
+            box-shadow:0 0 0 7px rgba(0,113,227,.12)}
   .face b{font-size:clamp(13px,1.2vw,19px)}
   .face span{font-size:clamp(10px,.95vw,14px);color:var(--dim);letter-spacing:.14em;
              text-transform:uppercase}
@@ -51,7 +51,7 @@
   .lane.hear{--k:var(--room)} .lane.think{--k:var(--ours)} .lane.speak{--k:var(--spon)}
   .lane::before{content:"";height:3px;border-radius:3px;background:var(--k);
                 width:34px;display:block;opacity:.85;order:-1}
-  .arrow{flex:none;align-self:center;color:#3c465e;font-size:clamp(20px,2.3vw,36px);
+  .arrow{flex:none;align-self:center;color:#c2c6d2;font-size:clamp(20px,2.3vw,36px);
          line-height:1}
   .return{margin-top:clamp(10px,1.6vh,22px);display:flex;align-items:center;gap:12px;
           color:var(--dim);font-size:clamp(11px,1.05vw,16px)}
@@ -59,10 +59,10 @@
             font-style:normal}
 
   /* --- slide 2 tiles --- */
-  .tiles{display:grid;flex:1;grid-template-columns:repeat(4,1fr);gap:clamp(10px,1.2vw,22px);width:100%}
+  .tiles{display:grid;flex:1;grid-template-columns:repeat(3,1fr);gap:clamp(10px,1.2vw,22px);width:100%}
   .tile{background:var(--card);border:1px solid var(--line);border-radius:20px;
         padding:clamp(18px,2.8vh,38px) clamp(16px,1.6vw,30px);
-        display:flex;flex-direction:column;justify-content:center;gap:clamp(10px,1.5vh,20px);min-width:0}
+        display:flex;flex-direction:column;justify-content:flex-start;gap:clamp(10px,1.5vh,20px);min-width:0}
   .tile .mono,.tile .g{width:clamp(42px,3.8vw,64px);height:clamp(42px,3.8vw,64px);
                        font-size:clamp(16px,1.6vw,26px)}
   .tile b{font-size:clamp(15px,1.5vw,25px);font-weight:600;letter-spacing:-.015em}
@@ -75,7 +75,7 @@
   .stop{flex:1;background:var(--card);border:1px solid var(--line);border-radius:20px;
         padding:clamp(18px,2.8vh,38px) clamp(16px,1.6vw,30px);display:flex;
         flex-direction:column;justify-content:center;gap:clamp(14px,2.4vh,30px);min-width:0}
-  .stop.now{border-color:#2c3a52}
+  .stop.now{border-color:#c9dcee}
   .when{font-size:clamp(11px,1.05vw,15px);letter-spacing:.2em;text-transform:uppercase;
         color:var(--dim)}
   .stop.now .when{color:var(--room)} .stop.next .when{color:var(--ours)}
@@ -91,18 +91,31 @@
   /* A monogram tile IS a <span> inside .chip/.tile, so the caption rules above
      (`.chip span`, `.tile span`) outrank a bare `.mono` and were flattening it.
      Same specificity, later in the file: this wins. */
-  span.mono{display:grid;color:#07090f;margin:0;font-size:clamp(14px,1.4vw,24px)}
+  span.mono{display:grid;color:#fff;margin:0;font-size:clamp(14px,1.4vw,24px)}
   .tile span.mono{font-size:clamp(16px,1.6vw,26px)}
   .stop span.mono{font-size:clamp(14px,1.4vw,22px)}
+
+  .lane,.tile,.stop{box-shadow:0 1px 2px rgba(20,22,30,.05),0 10px 30px rgba(20,22,30,.06)}
+
+  /* --- slide 2: what each machine actually did --- */
+  .prs{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;
+       gap:clamp(7px,1.1vh,13px)}
+  .prs li{font-size:clamp(12px,1.12vw,17px);color:var(--ink)}
+  .prs li b{display:inline;font-size:inherit;font-weight:600;color:var(--ours);margin-right:.45em}
+  .prs li span{display:block;color:var(--dim);font-size:clamp(11px,1.02vw,15px);margin-top:1px}
+  .todo{border:1px dashed #c9cad2;border-radius:12px;color:var(--dim);
+        padding:clamp(7px,1.1vh,13px) clamp(10px,1vw,16px);font-size:clamp(11px,1.05vw,16px)}
+  .todo b{display:block;font-size:inherit;font-weight:600;color:var(--ink);letter-spacing:.01em}
+  .todo i{font-style:normal;color:#b0b3be}
 
   /* --- nav --- */
   nav{position:fixed;left:0;right:0;bottom:clamp(14px,2.2vh,26px);display:flex;
       align-items:center;justify-content:center;gap:11px;z-index:5}
   nav button{width:9px;height:9px;padding:0;border:0;border-radius:50%;cursor:pointer;
-             background:#2d3549}
+             background:#d2d2d7}
   nav button[aria-current="true"]{background:var(--ink);width:26px;border-radius:5px}
   .hint{position:fixed;right:clamp(16px,2vw,28px);bottom:clamp(14px,2.2vh,26px);
-        color:#39415a;font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+        color:#a9adb8;font-size:12px;letter-spacing:.1em;text-transform:uppercase}
   @media (max-width:820px){
     html,body{overflow:auto}
     .slide{position:static;min-height:100vh}
@@ -133,24 +146,24 @@
 
       <div class="lane hear"><h2>Hear</h2>
         <div class="chip"><svg class="g" viewBox="0 0 24 24" width="42" height="42" aria-label="Discord" role="img"><path fill="#5865F2" d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg><div><b>Discord</b><span>the call</span></div></div>
-        <div class="chip"><span class="mono c2" style="--m:#3fd6a0">SL</span><div><b>SLNG</b><span>speech → text</span></div></div>
+        <div class="chip"><span class="mono c2" style="--m:#087443">SL</span><div><b>SLNG</b><span>speech → text</span></div></div>
         <div class="chip"><svg class="g" viewBox="0 0 24 24" width="42" height="42" aria-label="PostgreSQL" role="img"><path fill="#4169E1" d="M23.5594 14.7228a.5269.5269 0 0 0-.0563-.1191c-.139-.2632-.4768-.3418-1.0074-.2321-1.6533.3411-2.2935.1312-2.5256-.0191 1.342-2.0482 2.445-4.522 3.0411-6.8297.2714-1.0507.7982-3.5237.1222-4.7316a1.5641 1.5641 0 0 0-.1509-.235C21.6931.9086 19.8007.0248 17.5099.0005c-1.4947-.0158-2.7705.3461-3.1161.4794a9.449 9.449 0 0 0-.5159-.0816 8.044 8.044 0 0 0-1.3114-.1278c-1.1822-.0184-2.2038.2642-3.0498.8406-.8573-.3211-4.7888-1.645-7.2219.0788C.9359 2.1526.3086 3.8733.4302 6.3043c.0409.818.5069 3.334 1.2423 5.7436.4598 1.5065.9387 2.7019 1.4334 3.582.553.9942 1.1259 1.5933 1.7143 1.7895.4474.1491 1.1327.1441 1.8581-.7279.8012-.9635 1.5903-1.8258 1.9446-2.2069.4351.2355.9064.3625 1.39.3772a.0569.0569 0 0 0 .0004.0041 11.0312 11.0312 0 0 0-.2472.3054c-.3389.4302-.4094.5197-1.5002.7443-.3102.064-1.1344.2339-1.1464.8115-.0025.1224.0329.2309.0919.3268.2269.4231.9216.6097 1.015.6331 1.3345.3335 2.5044.092 3.3714-.6787-.017 2.231.0775 4.4174.3454 5.0874.2212.5529.7618 1.9045 2.4692 1.9043.2505 0 .5263-.0291.8296-.0941 1.7819-.3821 2.5557-1.1696 2.855-2.9059.1503-.8707.4016-2.8753.5388-4.1012.0169-.0703.0357-.1207.057-.1362.0007-.0005.0697-.0471.4272.0307a.3673.3673 0 0 0 .0443.0068l.2539.0223.0149.001c.8468.0384 1.9114-.1426 2.5312-.4308.6438-.2988 1.8057-1.0323 1.5951-1.6698zM2.371 11.8765c-.7435-2.4358-1.1779-4.8851-1.2123-5.5719-.1086-2.1714.4171-3.6829 1.5623-4.4927 1.8367-1.2986 4.8398-.5408 6.108-.13-.0032.0032-.0066.0061-.0098.0094-2.0238 2.044-1.9758 5.536-1.9708 5.7495-.0002.0823.0066.1989.0162.3593.0348.5873.0996 1.6804-.0735 2.9184-.1609 1.1504.1937 2.2764.9728 3.0892.0806.0841.1648.1631.2518.2374-.3468.3714-1.1004 1.1926-1.9025 2.1576-.5677.6825-.9597.5517-1.0886.5087-.3919-.1307-.813-.5871-1.2381-1.3223-.4796-.839-.9635-2.0317-1.4155-3.5126zm6.0072 5.0871c-.1711-.0428-.3271-.1132-.4322-.1772.0889-.0394.2374-.0902.4833-.1409 1.2833-.2641 1.4815-.4506 1.9143-1.0002.0992-.126.2116-.2687.3673-.4426a.3549.3549 0 0 0 .0737-.1298c.1708-.1513.2724-.1099.4369-.0417.156.0646.3078.26.3695.4752.0291.1016.0619.2945-.0452.4444-.9043 1.2658-2.2216 1.2494-3.1676 1.0128zm2.094-3.988-.0525.141c-.133.3566-.2567.6881-.3334 1.003-.6674-.0021-1.3168-.2872-1.8105-.8024-.6279-.6551-.9131-1.5664-.7825-2.5004.1828-1.3079.1153-2.4468.079-3.0586-.005-.0857-.0095-.1607-.0122-.2199.2957-.2621 1.6659-.9962 2.6429-.7724.4459.1022.7176.4057.8305.928.5846 2.7038.0774 3.8307-.3302 4.7363-.084.1866-.1633.3629-.2311.5454zm7.3637 4.5725c-.0169.1768-.0358.376-.0618.5959l-.146.4383a.3547.3547 0 0 0-.0182.1077c-.0059.4747-.054.6489-.115.8693-.0634.2292-.1353.4891-.1794 1.0575-.11 1.4143-.8782 2.2267-2.4172 2.5565-1.5155.3251-1.7843-.4968-2.0212-1.2217a6.5824 6.5824 0 0 0-.0769-.2266c-.2154-.5858-.1911-1.4119-.1574-2.5551.0165-.5612-.0249-1.9013-.3302-2.6462.0044-.2932.0106-.5909.019-.8918a.3529.3529 0 0 0-.0153-.1126 1.4927 1.4927 0 0 0-.0439-.208c-.1226-.4283-.4213-.7866-.7797-.9351-.1424-.059-.4038-.1672-.7178-.0869.067-.276.1831-.5875.309-.9249l.0529-.142c.0595-.16.134-.3257.213-.5012.4265-.9476 1.0106-2.2453.3766-5.1772-.2374-1.0981-1.0304-1.6343-2.2324-1.5098-.7207.0746-1.3799.3654-1.7088.5321a5.6716 5.6716 0 0 0-.1958.1041c.0918-1.1064.4386-3.1741 1.7357-4.4823a4.0306 4.0306 0 0 1 .3033-.276.3532.3532 0 0 0 .1447-.0644c.7524-.5706 1.6945-.8506 2.802-.8325.4091.0067.8017.0339 1.1742.081 1.939.3544 3.2439 1.4468 4.0359 2.3827.8143.9623 1.2552 1.9315 1.4312 2.4543-1.3232-.1346-2.2234.1268-2.6797.779-.9926 1.4189.543 4.1729 1.2811 5.4964.1353.2426.2522.4522.2889.5413.2403.5825.5515.9713.7787 1.2552.0696.087.1372.1714.1885.245-.4008.1155-1.1208.3825-1.0552 1.717-.0123.1563-.0423.4469-.0834.8148-.0461.2077-.0702.4603-.0994.7662zm.8905-1.6211c-.0405-.8316.2691-.9185.5967-1.0105a2.8566 2.8566 0 0 0 .135-.0406 1.202 1.202 0 0 0 .1342.103c.5703.3765 1.5823.4213 3.0068.1344-.2016.1769-.5189.3994-.9533.6011-.4098.1903-1.0957.333-1.7473.3636-.7197.0336-1.0859-.0807-1.1721-.151zm.5695-9.2712c-.0059.3508-.0542.6692-.1054 1.0017-.055.3576-.112.7274-.1264 1.1762-.0142.4368.0404.8909.0932 1.3301.1066.887.216 1.8003-.2075 2.7014a3.5272 3.5272 0 0 1-.1876-.3856c-.0527-.1276-.1669-.3326-.3251-.6162-.6156-1.1041-2.0574-3.6896-1.3193-4.7446.3795-.5427 1.3408-.5661 2.1781-.463zm.2284 7.0137a12.3762 12.3762 0 0 0-.0853-.1074l-.0355-.0444c.7262-1.1995.5842-2.3862.4578-3.4385-.0519-.4318-.1009-.8396-.0885-1.2226.0129-.4061.0666-.7543.1185-1.0911.0639-.415.1288-.8443.1109-1.3505.0134-.0531.0188-.1158.0118-.1902-.0457-.4855-.5999-1.938-1.7294-3.253-.6076-.7073-1.4896-1.4972-2.6889-2.0395.5251-.1066 1.2328-.2035 2.0244-.1859 2.0515.0456 3.6746.8135 4.8242 2.2824a.908.908 0 0 1 .0667.1002c.7231 1.3556-.2762 6.2751-2.9867 10.5405zm-8.8166-6.1162c-.025.1794-.3089.4225-.6211.4225a.5821.5821 0 0 1-.0809-.0056c-.1873-.026-.3765-.144-.5059-.3156-.0458-.0605-.1203-.178-.1055-.2844.0055-.0401.0261-.0985.0925-.1488.1182-.0894.3518-.1226.6096-.0867.3163.0441.6426.1938.6113.4186zm7.9305-.4114c.0111.0792-.049.201-.1531.3102-.0683.0717-.212.1961-.4079.2232a.5456.5456 0 0 1-.075.0052c-.2935 0-.5414-.2344-.5607-.3717-.024-.1765.2641-.3106.5611-.352.297-.0414.6111.0088.6356.1851z"/></svg><svg class="g" viewBox="0 0 24 24" width="42" height="42" aria-label="Redis" role="img"><path fill="#FF4438" d="M22.71 13.145c-1.66 2.092-3.452 4.483-7.038 4.483-3.203 0-4.397-2.825-4.48-5.12.701 1.484 2.073 2.685 4.214 2.63 4.117-.133 6.94-3.852 6.94-7.239 0-4.05-3.022-6.972-8.268-6.972-3.752 0-8.4 1.428-11.455 3.685C2.59 6.937 3.885 9.958 4.35 9.626c2.648-1.904 4.748-3.13 6.784-3.744C8.12 9.244.886 17.05 0 18.425c.1 1.261 1.66 4.648 2.424 4.648.232 0 .431-.133.664-.365a100.49 100.49 0 0 0 5.54-6.765c.222 3.104 1.748 6.898 6.014 6.898 3.819 0 7.604-2.756 9.33-8.965.2-.764-.73-1.361-1.261-.73zm-4.349-5.013c0 1.959-1.926 2.922-3.685 2.922-.941 0-1.664-.247-2.235-.568 1.051-1.592 2.092-3.225 3.21-4.973 1.972.334 2.71 1.43 2.71 2.619z"/></svg><div><b>Postgres · Redis</b><span>memory</span></div></div>
       </div>
 
       <div class="arrow">→</div>
 
       <div class="lane think"><h2>Think</h2>
-        <div class="chip"><span class="mono c1" style="--m:#5b8cff">g</span><div><b>Rules</b><span>every 250 ms</span></div></div>
-        <div class="chip"><span class="mono c1" style="--m:#b98bff">M</span><div><b>Mastra</b><span>the agent</span></div></div>
-        <div class="chip"><span class="mono c1" style="--m:#5b8cff">N</span><div><b>Nebius</b><span>the words</span></div></div>
+        <div class="chip"><span class="mono c1" style="--m:#0071e3">g</span><div><b>Rules</b><span>every 250 ms</span></div></div>
+        <div class="chip"><span class="mono c1" style="--m:#6b3fd6">M</span><div><b>Mastra</b><span>the agent</span></div></div>
+        <div class="chip"><svg class="g" aria-label="Nebius" role="img" fill="none" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><clipPath id="nbA"><path d="m0 0h96v96h-96z"/></clipPath><mask id="nbB" height="96" maskUnits="userSpaceOnUse" width="96" x="0" y="0"><path d="m96 0h-96v96h96z" fill="#fff"/></mask><g clip-path="url(#nbA)"><g mask="url(#nbB)"><path d="m96 0h-96v96h96z" fill="#daff33"/><path clip-rule="evenodd" d="m46.3331 27.4668 12.243 33.8335c4.0549 9.1563 9.2098 6.3939 9.2098 6.3939 0 4.0685-3.2659 7.8683-8.0338 7.8683-4.7678 0-7.4679-2.9684-9.5229-7.5796l-12.2487-33.8336c-4.0536-8.8496-9.7663-6.0873-9.8787-6.032.0607-.0018.0929-.0018.0929-.0018l.0083 44.5261h-10.0072l-.0083-34.6309c0-9.3288 8.8962-9.8628 9.9143-9.8934.0004-4.068 3.2587-7.8673 8.0321-7.8673 4.7737 0 8.1385 2.5999 10.1992 7.2168zm21.464-4.2986.0082 44.526s10.0072 0 10.0072-9.8951l-.0082-34.6309z" fill="#052b42" fill-rule="evenodd"/></g></g></svg><div><b>Nebius</b><span>the words</span></div></div>
       </div>
 
       <div class="arrow">→</div>
 
       <div class="lane speak"><h2>Speak</h2>
-        <div class="chip"><span class="mono c2" style="--m:#3fd6a0">SL</span><div><b>SLNG</b><span>text → speech</span></div></div>
-        <div class="chip"><span class="mono c3" style="--m:#ffb340">fal</span><div><b>fal</b><span>her face</span></div></div>
-        <div class="chip"><svg class="g" viewBox="0 0 24 24" width="42" height="42" aria-label="Vonage" role="img"><path fill="#ffffff" d="M9.279 11.617l-4.54-10.07H0l6.797 15.296a.084.084 0 0 0 .153 0zm9.898-10.07s-6.148 13.868-6.917 15.565c-1.838 4.056-3.2 5.07-4.588 5.289a.026.026 0 0 0 .004.052h4.34c1.911 0 3.219-1.285 5.06-5.341C17.72 15.694 24 1.547 24 1.547z"/></svg><div><b>Vonage</b><span>the stage</span></div></div>
+        <div class="chip"><span class="mono c2" style="--m:#087443">SL</span><div><b>SLNG</b><span>text → speech</span></div></div>
+        <div class="chip"><span class="mono c3" style="--m:#b25000">fal</span><div><b>fal</b><span>her face</span></div></div>
+        <div class="chip"><svg class="g" viewBox="0 0 24 24" width="42" height="42" aria-label="Vonage" role="img"><path fill="#1d1d1f" d="M9.279 11.617l-4.54-10.07H0l6.797 15.296a.084.084 0 0 0 .153 0zm9.898-10.07s-6.148 13.868-6.917 15.565c-1.838 4.056-3.2 5.07-4.588 5.289a.026.026 0 0 0 .004.052h4.34c1.911 0 3.219-1.285 5.06-5.341C17.72 15.694 24 1.547 24 1.547z"/></svg><div><b>Vonage</b><span>the stage</span></div></div>
       </div>
     </div>
     <div class="return"><svg class="g" viewBox="0 0 24 24" width="22" height="22" aria-label="Docker" role="img"><path fill="#2496ED" d="M13.983 11.078h2.119a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.119a.185.185 0 00-.185.185v1.888c0 .102.083.185.185.185m-2.954-5.43h2.118a.186.186 0 00.186-.186V3.574a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m0 2.716h2.118a.187.187 0 00.186-.186V6.29a.186.186 0 00-.186-.185h-2.118a.185.185 0 00-.185.185v1.887c0 .102.082.185.185.186m-2.93 0h2.12a.186.186 0 00.184-.186V6.29a.185.185 0 00-.185-.185H8.1a.185.185 0 00-.185.185v1.887c0 .102.083.185.185.186m-2.964 0h2.119a.186.186 0 00.185-.186V6.29a.185.185 0 00-.185-.185H5.136a.186.186 0 00-.186.185v1.887c0 .102.084.185.186.186m5.893 2.715h2.118a.186.186 0 00.186-.185V9.006a.186.186 0 00-.186-.186h-2.118a.185.185 0 00-.185.185v1.888c0 .102.082.185.185.185m-2.93 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.083.185.185.185m-2.964 0h2.119a.185.185 0 00.185-.185V9.006a.185.185 0 00-.184-.186h-2.12a.186.186 0 00-.186.186v1.887c0 .102.084.185.186.185m-2.92 0h2.12a.185.185 0 00.184-.185V9.006a.185.185 0 00-.184-.186h-2.12a.185.185 0 00-.184.185v1.888c0 .102.082.185.185.185M23.763 9.89c-.065-.051-.672-.51-1.954-.51-.338.001-.676.03-1.01.087-.248-1.7-1.653-2.53-1.716-2.566l-.344-.199-.226.327c-.284.438-.49.922-.612 1.43-.23.97-.09 1.882.403 2.661-.595.332-1.55.413-1.744.42H.751a.751.751 0 00-.75.748 11.376 11.376 0 00.692 4.062c.545 1.428 1.355 2.48 2.41 3.124 1.18.723 3.1 1.137 5.275 1.137.983.003 1.963-.086 2.93-.266a12.248 12.248 0 003.823-1.389c.98-.567 1.86-1.288 2.61-2.136 1.252-1.418 1.998-2.997 2.553-4.4h.221c1.372 0 2.215-.549 2.68-1.009.309-.293.55-.65.707-1.046l.098-.288Z"/></svg><svg class="g" viewBox="0 0 24 24" width="22" height="22" aria-label="Traefik Proxy" role="img"><path fill="#24A1C1" d="M12 1.19c1.088 0 2.056.768 2.056 1.714 0 .947-.921 1.715-2.056 1.715-.13 0-.3-.022-.509-.064a.685.685 0 0 0-.475.076l-7.37 4.195a.344.344 0 0 0 .001.597l7.99 4.49c.208.116.461.116.669 0l8.034-4.468a.343.343 0 0 0 .003-.598l-2.507-1.424a.683.683 0 0 0-.67-.003l-2.647 1.468a.234.234 0 0 0-.119.18l-.001.025c0 .946-.921 1.714-2.056 1.714s-2.056-.768-2.056-1.714c0-.947.921-1.715 2.056-1.715.042 0 .09.002.145.007l.087.008.096.013a.685.685 0 0 0 .425-.08l3.913-2.173c.3-.166.662-.171.965-.017l.04.023 5.465 3.104c.686.39.693 1.368.03 1.773l-.037.021-3.656 2.033a.343.343 0 0 0 .007.604l3.62 1.906c.72.378.736 1.402.03 1.804l-10.995 6.272a1.03 1.03 0 0 1-1.019 0L.526 16.43a1.03 1.03 0 0 1 .034-1.806l3.66-1.911a.343.343 0 0 0 .01-.603L.524 10.029a1.03 1.03 0 0 1-.041-1.77l.036-.021L9.618 3.06a.688.688 0 0 0 .308-.369l.011-.036c.32-.952 1.046-1.466 2.063-1.466Zm5.076 12.63-4.492 2.586-.041.022c-.306.158-.671.152-.973-.018l-4.478-2.527a.682.682 0 0 0-.65-.01L3.86 15.224a.343.343 0 0 0-.012.602l7.887 4.515c.21.12.467.121.677 0l7.956-4.547a.343.343 0 0 0-.01-.602l-2.623-1.384a.683.683 0 0 0-.659.012z"/></svg>
@@ -164,10 +177,22 @@
   <h1>Built and <em>checked</em> by machines too.</h1>
   <p class="sub">Whether to interrupt is plain code. Only her words go to a model — so only her words need evals.</p>
   <div class="body"><div class="tiles">
-    <div class="tile"><span class="mono c1" style="--m:#5b8cff">D</span><b>Devin</b><span>wrote three PRs</span><u>merged into main</u></div>
-    <div class="tile"><span class="mono c2" style="--m:#3fd6a0">QC</span><b>Quality Clouds</b><span>Norma scanned the repo</span><u>findings fixed</u></div>
-    <div class="tile"><span class="mono c1" style="--m:#b98bff">G</span><b>Galtea</b><span>ten frozen cases, traces sent</span><u>scored, 5 dimensions</u></div>
-    <div class="tile"><span class="mono c2" style="--m:#ffb340">LF</span><b>Langfuse</b><span>one trace per meeting</span><u>on with the keys</u></div>
+    <div class="tile"><svg class="g" aria-label="Devin" role="img" viewBox="0 0 425 425" fill="none" xmlns="http://www.w3.org/2000/svg"> <path d="M70 159.333V91.3471C70 88.3592 71.594 85.5983 74.1816 84.1044L133.043 50.1205C135.631 48.6265 138.819 48.6265 141.407 50.1205L200.269 84.1044C202.856 85.5983 204.45 88.3592 204.45 91.3471V126.068C204.708 137.606 210.806 148.734 221.531 154.926C232.256 161.117 244.942 160.834 255.063 155.289L285.132 137.929C287.719 136.435 290.907 136.435 293.495 137.929L352.357 171.913C354.944 173.406 356.538 176.167 356.538 179.155V247.123C356.538 250.111 354.944 252.872 352.357 254.366L293.495 288.35C290.907 289.844 287.719 289.844 285.132 288.35L255.306 271.13C245.146 265.456 232.344 265.117 221.534 271.358C210.809 277.55 204.711 288.678 204.453 300.215V334.926C204.453 337.914 202.859 340.675 200.271 342.169L141.41 376.153C138.822 377.647 135.634 377.647 133.046 376.153L74.1845 342.169C71.5969 340.675 70.0028 337.914 70.0028 334.926V266.959C70.0029 263.971 71.5969 261.21 74.1845 259.716L133.046 225.732C135.634 224.238 138.822 224.238 141.41 225.732L171.547 243.132C181.656 248.638 194.306 248.906 205.005 242.729C215.815 236.488 221.922 225.231 222.088 213.595C221.83 202.057 215.732 189.737 205.008 183.545C194.283 177.353 181.597 177.636 171.476 183.181L141.269 200.72C138.67 202.229 135.461 202.228 132.864 200.716L74.1576 166.562C71.5835 165.065 70 162.311 70 159.333Z" fill="#1d1d1f"/> </svg><b>Devin</b>
+      <span>three PRs, all merged into main</span>
+      <ol class="prs">
+        <li><b>#1</b>Chair eval set<span>ten frozen cases, offline scorer, results table</span></li>
+        <li><b>#2</b>Recurring events<span>RRULE/RDATE/EXDATE expanded in the feed poller</span></li>
+        <li><b>#3</b>Shorter lines<span>spoken chair lines fitted to the 20-word budget</span></li>
+      </ol>
+    </div>
+    <div class="tile"><span class="mono c2" style="--m:#087443">QC</span><b>Quality Clouds</b>
+      <span>Norma scanned the repo</span><u>findings fixed</u>
+      <p class="todo"><b>What it improved</b><i>&mdash; fill in before the pitch</i></p>
+    </div>
+    <div class="tile"><span class="mono c1" style="--m:#6b3fd6">G</span><b>Galtea</b>
+      <span>ten frozen cases, traces sent</span><u>scored, 5 dimensions</u>
+      <p class="todo"><b>What it improved</b><i>&mdash; fill in before the pitch</i></p>
+    </div>
   </div></div>
 </section>
 
@@ -191,9 +216,9 @@
       <div class="arrow">→</div>
       <div class="stop then"><p class="when">Then</p>
         <div class="plats">
-          <div class="chip"><span class="mono c1" style="--m:#5b6bd6">T</span><div><b>Microsoft Teams</b><span>enterprise add-on</span></div></div>
-          <div class="chip"><span class="mono c1" style="--m:#2f9e6e">&sect;</span><div><b>Company rules</b><span>set once, enforced in every meeting</span></div></div>
-          <div class="chip"><span class="mono c1" style="--m:#b8791f">&rarr;</span><div><b>Hand-off plugin</b><span>transcript, decisions and open items into the team's own knowledge agent</span></div></div>
+          <div class="chip"><span class="mono c1" style="--m:#4b53bc">T</span><div><b>Microsoft Teams</b><span>enterprise add-on</span></div></div>
+          <div class="chip"><span class="mono c1" style="--m:#0f7a52">&sect;</span><div><b>Company rules</b><span>set once, enforced in every meeting</span></div></div>
+          <div class="chip"><span class="mono c1" style="--m:#9a5f18">&rarr;</span><div><b>Hand-off plugin</b><span>transcript, decisions and open items into the team's own knowledge agent</span></div></div>
         </div>
       </div>
     </div>
