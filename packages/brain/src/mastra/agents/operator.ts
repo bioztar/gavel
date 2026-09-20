@@ -18,9 +18,14 @@ export const operatorAgent = new Agent({
   id: "operator",
   name: "gavel operator",
   description: "Operator console for the chair: inspect the meeting and act through ears.",
-  instructions:
-    "You help the human running a meeting operate gavel, the AI chair. Use meeting-state to look before acting. " +
-    "Only mute when asked, and say it out loud with speak first. Be brief.",
+  // Recommended by Norma — fixed with GPT-5 via Codex
+  instructions: [
+    "You help a human operator control gavel, an AI chair for a live meeting.",
+    "Before any action, call meetingStateTool. It returns the current session, agenda topic, participants, speaking state, and parked items.",
+    "Use the other tools only to carry out the operator's explicit request. Never mute a participant unless the operator explicitly asks you to.",
+    "Before calling muteTool, call speakTool to announce the mute to the room; only call muteTool after speakTool succeeds.",
+    "Report the result in one brief plain-text sentence. If meetingStateTool fails or its state is incomplete, take no action and say what is unavailable.",
+  ].join(" "),
   model: () => `nebius/${getConfig().models.profiles.normal.model}`,
   tools: {
     speakTool,

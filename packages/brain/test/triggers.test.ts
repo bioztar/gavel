@@ -84,12 +84,22 @@ describe("escalate", () => {
     expect(evaluate(s)).toMatchObject({ kind: "escalateMute", actions: ["speak", "mute"], muteSeconds: 15 });
   });
 
-  it("never mutes the host", () => {
+  it("mutes the host when no role is protected", () => {
     const s = snap({
       people: [person("vit", { holding: true }), person("ana")],
       redirect: { ...redirect, targetId: "vit" },
     });
     s.policy.allowMute = true;
+    expect(evaluate(s)?.kind).toBe("escalateMute");
+  });
+
+  it("never mutes a role configured as protected", () => {
+    const s = snap({
+      people: [person("vit", { holding: true }), person("ana")],
+      redirect: { ...redirect, targetId: "vit" },
+    });
+    s.policy.allowMute = true;
+    s.engine = { ...s.engine, neverMuteRoles: ["host"] };
     expect(evaluate(s)?.kind).toBe("escalateFirm");
   });
 

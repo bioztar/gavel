@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Iterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -36,8 +36,8 @@ def _record(**kw: Any) -> InviteRecord:
     record = InviteRecord(
         session_id="abc123",
         title="Launch readiness",
-        start=datetime(2026, 9, 20, 10, 0, tzinfo=UTC),
-        end=datetime(2026, 9, 20, 10, 30, tzinfo=UTC),
+        start=datetime.now(UTC) + timedelta(hours=1),
+        end=datetime.now(UTC) + timedelta(hours=1, minutes=30),
         agenda={
             "purpose": "Ship on Tuesday",
             "attendees": [{"name": "Ana", "role": "host", "discordId": "1"}],
@@ -54,8 +54,12 @@ def _brain(session_id: str = "ears-1", **kw: Any) -> dict[str, Any]:
         "sessionId": session_id,
         "phase": "active",
         "chairName": "Karen",
-        "topic": {"index": 0, "title": "Where we actually are", "budgetSeconds": 120,
-                  "elapsedSeconds": 150},
+        "topic": {
+            "index": 0,
+            "title": "Where we actually are",
+            "budgetSeconds": 120,
+            "elapsedSeconds": 150,
+        },
         "topics": [{"title": "Where we actually are", "budgetSeconds": 120, "done": False}],
         "people": [
             {"name": "Vitaly", "role": "host", "totalSeconds": 180, "speaking": True},
@@ -65,9 +69,12 @@ def _brain(session_id: str = "ears-1", **kw: Any) -> dict[str, Any]:
             {"at": 1, "kind": "startMeeting", "line": "Here is the agenda."},
             {"at": 2, "kind": "floorHog", "line": "Vitaly, you've had eight of the last ten."},
         ],
-        "digest": {"facts": ["Staging is green"], "decisions": ["Ship Tuesday"],
-                   "openItems": ["Ana to confirm the copy"],
-                   "parked": [{"name": "Vitaly", "summary": "the hiring plan"}]},
+        "digest": {
+            "facts": ["Staging is green"],
+            "decisions": ["Ship Tuesday"],
+            "openItems": ["Ana to confirm the copy"],
+            "parked": [{"name": "Vitaly", "summary": "the hiring plan"}],
+        },
     }
     state.update(kw)
     return state

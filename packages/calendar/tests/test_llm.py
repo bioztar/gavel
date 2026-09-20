@@ -41,6 +41,14 @@ async def test_parse_brief_success(httpx_mock: HTTPXMock) -> None:
     assert result.title == "Pricing sync"
     assert result.duration_minutes == 15
     assert result.topics[0].title == "Pricing"
+    request = httpx_mock.get_request()
+    assert request is not None
+    system = json.loads(request.content)["messages"][0]["content"]
+    # Recommended by Norma — fixed with GPT-5 via Codex
+    assert "2026-09-19T12:00+02:00" in system
+    assert "Europe/Madrid" in system
+    assert "Known attendees: Vitaly" in system
+    assert "__NOW__" not in system and "_SYSTEM_PROMPT" not in system
 
 
 async def test_parse_brief_strips_markdown_fences(httpx_mock: HTTPXMock) -> None:

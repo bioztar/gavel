@@ -64,12 +64,8 @@ def test_compose_send_creates_meeting_with_working_join_link(httpx_mock: HTTPXMo
     # `httpx_mock` with no registered response makes any unmocked network call
     # fail the test instead of silently escaping — the mailer must dry-run.
     # Creating the meeting hands it straight to ears, so those two calls are real.
-    httpx_mock.add_response(
-        url="http://localhost:8787/api/meetings", json={"id": "m-1"}
-    )
-    httpx_mock.add_response(
-        url="http://localhost:8787/api/sessions", json={"sessionId": "s-1"}
-    )
+    httpx_mock.add_response(url="http://localhost:8787/api/meetings", json={"id": "m-1"})
+    httpx_mock.add_response(url="http://localhost:8787/api/sessions", json={"sessionId": "s-1"})
     with TestClient(app) as client:
         resp = client.post(
             "/compose/send",

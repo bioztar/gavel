@@ -62,9 +62,7 @@ class Invite(Base):
     # session in memory and drops it when the next starts, so this banked copy
     # is the only thing the report can be rendered from afterwards.
     last_state: Mapped[dict[str, Any] | None] = mapped_column(JSONType, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

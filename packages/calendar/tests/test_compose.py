@@ -266,16 +266,30 @@ def test_invite_email_does_not_repeat_the_owner_as_must_be_heard():
             {"discordId": "artem", "name": "Artem"},
         ],
         "topics": [
-            {"title": "Architecture", "budgetSeconds": 300, "type": "presentation",
-             "owner": "vitaly", "mustHear": ["vitaly"]},
-            {"title": "Open discussion", "budgetSeconds": 360, "type": "discussion",
-             "owner": "vitaly", "mustHear": ["vitaly", "artem"]},
+            {
+                "title": "Architecture",
+                "budgetSeconds": 300,
+                "type": "presentation",
+                "owner": "vitaly",
+                "mustHear": ["vitaly"],
+            },
+            {
+                "title": "Open discussion",
+                "budgetSeconds": 360,
+                "type": "discussion",
+                "owner": "vitaly",
+                "mustHear": ["vitaly", "artem"],
+            },
         ],
     }
     start = datetime(2026, 9, 20, 10, 0)
     body = render_invite_text(
-        agenda, title="demo", start=start, end=start + timedelta(minutes=15),
-        join_url="https://x/j", discord_url="https://d/x",
+        agenda,
+        title="demo",
+        start=start,
+        end=start + timedelta(minutes=15),
+        join_url="https://x/j",
+        discord_url="https://d/x",
     )
     arch, disc = body.split("2. Open discussion")
     assert "must be heard: —" in arch

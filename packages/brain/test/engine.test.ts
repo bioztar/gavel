@@ -76,9 +76,9 @@ describe("engine on replay.offagenda.jsonl", () => {
     for (const [kind, gap] of gaps) if (!kind.startsWith("escalate")) expect(gap).toBeGreaterThanOrEqual(45_000);
   });
 
-  it("with allowMute the host is still never muted", async () => {
+  it("with allowMute the host may be muted when no role is protected", async () => {
     const { sent } = await replay({ allowMute: true });
-    expect(sent.some((f) => f.type === "mute")).toBe(false);
+    expect(sent.some((f) => f.type === "mute")).toBe(true);
   });
 });
 

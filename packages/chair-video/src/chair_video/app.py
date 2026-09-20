@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import mimetypes
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -100,7 +101,7 @@ async def _sweep_loop(app: FastAPI) -> None:
 
 
 @asynccontextmanager
-async def _lifespan(app: FastAPI) -> Any:
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     sweeper = asyncio.create_task(_sweep_loop(app))
     yield
     sweeper.cancel()
@@ -159,7 +160,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         cached = cache.get(key)
         if cached is not None:
             log.info("speak_video.cache_hit", key=key, persona=persona)
-            return SpeakVideoResponse(videoUrl=cached["videoUrl"], durationMs=cached["durationMs"], latencyMs=0)
+            return SpeakVideoResponse(
+                videoUrl=cached["videoUrl"], durationMs=cached["durationMs"], latencyMs=0
+            )
 
         try:
             fal = FalClient(settings, client=http_client)
@@ -192,7 +195,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         duration_ms = wav_duration_ms(audio_bytes) or 0
         cache.set(key, {"videoUrl": result_url, "durationMs": duration_ms})
-        return SpeakVideoResponse(videoUrl=result_url, durationMs=duration_ms, latencyMs=result.latency_ms)
+        return SpeakVideoResponse(
+            videoUrl=result_url, durationMs=duration_ms, latencyMs=result.latency_ms
+        )
 
     @app.get("/idle")
     def idle(persona: str | None = None) -> FileResponse:
@@ -269,7 +274,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         director: DirectorManager = app.state.director
         queue = director.subscribe()
 
-        async def gen() -> Any:
+        async def gen() -> AsyncIterator[str]:
             try:
                 while True:
                     payload = await queue.get()
@@ -298,7 +303,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         parsed = urlsplit(target)
         # Exact host match, not a suffix check — "wma.fal.run.evil.com" or a
         # userinfo trick ("wma.fal.run@evil.com") must not pass.
-        if parsed.scheme != "https" or parsed.hostname != settings.director_proxy_host or "@" in parsed.netloc:
+        if (
+            parsed.scheme != "https"
+            or parsed.hostname != settings.director_proxy_host
+            or "@" in parsed.netloc
+        ):
             raise HTTPException(403, "target host not allowlisted")
         if not settings.fal_key:
             raise HTTPException(500, "FAL_KEY is not set")

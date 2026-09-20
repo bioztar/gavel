@@ -102,7 +102,7 @@ def _topic_row(agenda: dict, n: int, topic: dict, striped: bool) -> str:
     bg = _WASH if striped else "#ffffff"
     badge = (
         f'<span style="display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;'
-        f'background:#eaf3fe;color:{_ACCENT};font-size:11px;font-weight:600;letter-spacing:.04em;'
+        f"background:#eaf3fe;color:{_ACCENT};font-size:11px;font-weight:600;letter-spacing:.04em;"
         f'text-transform:uppercase">presentation</span>'
         if topic.get("type") == "presentation"
         else ""
@@ -137,9 +137,7 @@ def render_invite_html(
         else ""
     )
     head = f"padding:9px 14px;text-align:left;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:{_DIM};background:{_WASH};border-bottom:1px solid {_LINE}"
-    bullets = "".join(
-        f'<li style="margin:0 0 6px">{b}</li>' for b in _HOW_IT_RUNS
-    )
+    bullets = "".join(f'<li style="margin:0 0 6px">{b}</li>' for b in _HOW_IT_RUNS)
     return f"""<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>
 <body style="margin:0;padding:0;background:#fbfbfd">

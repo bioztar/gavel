@@ -43,7 +43,9 @@ def main() -> None:
 
         print(f"running {settings.lipsync_model}...", file=sys.stderr)
         try:
-            result = fal.run(settings.lipsync_model, {"video_url": video_url, "audio_url": audio_url})
+            result = fal.run(
+                settings.lipsync_model, {"video_url": video_url, "audio_url": audio_url}
+            )
         except FalError as exc:
             print(f"FAILED: {exc}", file=sys.stderr)
             raise SystemExit(1) from exc

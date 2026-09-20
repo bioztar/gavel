@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import html
+import logging
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -46,6 +47,7 @@ settings = get_settings()
 store = InviteStore()
 ears = EarsClient(settings.ears_api_url)
 feed_registry = FeedRegistry()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -245,7 +247,10 @@ async def join(session_id: str) -> str:
     try:
         result = await service.start(store, ears, session_id)
     except Exception as exc:  # ears unreachable, meeting rejected, etc.
-        raise HTTPException(502, f"could not start the session: {exc}") from exc
+        logger.exception("join.start_failed session_id=%s", session_id)
+        # Recommended by Norma — fixed with GPT-5 via Codex
+        # Upstream URLs and transport details remain server-side; callers get a stable error.
+        raise HTTPException(502, "could not start the session") from exc
     return _render_started_page(record, result)
 
 
@@ -287,4 +292,3 @@ def _render_started_page(record: InviteRecord, result: dict[str, str]) -> str:
 <p>{e(record.title)} is live. <a href="/m/{e(record.session_id)}">Follow it in the room</a>.</p>
 <p>ears meeting <code>{e(result["meetingId"])}</code>, session <code>{e(result["sessionId"])}</code>.</p>
 </body></html>"""
-

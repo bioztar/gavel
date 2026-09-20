@@ -33,9 +33,7 @@ async def test_dry_run_when_no_from_email() -> None:
 
 
 async def test_send_succeeds(httpx_mock: HTTPXMock) -> None:
-    httpx_mock.add_response(
-        url="https://api.resend.com/emails", method="POST", json={"id": "abc"}
-    )
+    httpx_mock.add_response(url="https://api.resend.com/emails", method="POST", json={"id": "abc"})
     result = await send_invite(
         api_key="key123",
         from_email="from@test.dev",

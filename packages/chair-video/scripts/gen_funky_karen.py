@@ -95,7 +95,9 @@ def main() -> None:
             out_path = AVATARS_DIR / f"karen-funky-{i:02d}.png"
             out_path.write_bytes(image_bytes)
             print(f"  -> {out_path} ({len(image_bytes)} bytes, {result.latency_ms}ms)")
-            prompts_md.append(f"### karen-funky-{i:02d}.png\n\n```\n{prompt}\n```\nstrength={strength}\n")
+            prompts_md.append(
+                f"### karen-funky-{i:02d}.png\n\n```\n{prompt}\n```\nstrength={strength}\n"
+            )
 
     prompts_path = AVATARS_DIR / "PROMPTS.md"
     existing = prompts_path.read_text()

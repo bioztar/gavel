@@ -50,10 +50,14 @@ def main() -> None:
 
         for model in VIDEO_INPUT_MODELS:
             for label, audio_uri in audio_uris.items():
-                rows.append(_run(fal, model, label, {"video_url": video_uri, "audio_url": audio_uri}))
+                rows.append(
+                    _run(fal, model, label, {"video_url": video_uri, "audio_url": audio_uri})
+                )
         for model in IMAGE_INPUT_MODELS:
             for label, audio_uri in audio_uris.items():
-                rows.append(_run(fal, model, label, {"image_url": image_uri, "audio_url": audio_uri}))
+                rows.append(
+                    _run(fal, model, label, {"image_url": image_uri, "audio_url": audio_uri})
+                )
 
     print("\n| model | utterance | latency |")
     print("|---|---|---|")

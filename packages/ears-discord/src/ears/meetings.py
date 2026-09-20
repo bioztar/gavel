@@ -163,9 +163,7 @@ class Meeting(MeetingIn):
     created_at: str
     updated_at: str
 
-    def agenda_for(
-        self, session_id: str, participants: list[Participant]
-    ) -> dict[str, Any]:
+    def agenda_for(self, session_id: str, participants: list[Participant]) -> dict[str, Any]:
         """Build this run's agenda from the saved roster and whoever is in the channel.
 
         A saved roster is an invitation list — only `packages/calendar` ever writes one

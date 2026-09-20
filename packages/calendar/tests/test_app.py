@@ -78,6 +78,24 @@ def test_join_unknown_session_404s() -> None:
         assert resp.status_code == 404
 
 
+def test_join_does_not_expose_upstream_error_details(httpx_mock: HTTPXMock) -> None:
+    httpx_mock.add_response(
+        url=f"{ears._base_url}/api/meetings",
+        method="POST",
+        status_code=500,
+        text="private upstream path and transport details",
+    )
+
+    with TestClient(app) as client:
+        invite_resp = client.post("/invite", files={"file": ("demo.ics", FIXTURE.read_bytes())})
+        session_id = invite_resp.json()["sessionId"]
+        response = client.post(f"/m/{session_id}/join")
+
+    # Recommended by Norma — fixed with GPT-5 via Codex
+    assert response.status_code == 502
+    assert response.json() == {"detail": "could not start the session"}
+
+
 def test_board_lists_pending_invites_with_join_buttons() -> None:
     with TestClient(app) as client:
         invite_resp = client.post("/invite", files={"file": ("demo.ics", FIXTURE.read_bytes())})

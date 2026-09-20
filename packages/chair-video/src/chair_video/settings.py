@@ -119,10 +119,14 @@ class Settings(BaseSettings):
     director_sweep_interval_s: float = 5.0
 
     def avatar_image_path(self, persona: str) -> str:
-        return self.avatar_image_by_persona.get(persona, self.avatar_image_by_persona[self.default_persona])
+        return self.avatar_image_by_persona.get(
+            persona, self.avatar_image_by_persona[self.default_persona]
+        )
 
     def idle_video_path(self, persona: str) -> str:
-        return self.idle_video_by_persona.get(persona, self.idle_video_by_persona[self.default_persona])
+        return self.idle_video_by_persona.get(
+            persona, self.idle_video_by_persona[self.default_persona]
+        )
 
     def normalize_persona(self, persona: str | None) -> str:
         """Unknown/missing persona falls back to the configured default rather than erroring —

@@ -171,7 +171,7 @@ def test_an_invited_attendee_is_bound_to_the_speaker_with_their_name() -> None:
 
 
 def test_one_speaker_answers_for_one_attendee() -> None:
-    """"Vitaly" and "Vitaly P" cannot both be the one Vitaly who actually joined."""
+    """Vitaly and Vitaly P cannot both be the one Vitaly who actually joined."""
     ears, client, sent = make()
     agenda = {
         **INVITED,
@@ -298,6 +298,20 @@ def test_brain_state_is_proxied_for_the_console(httpx_mock: HTTPXMock) -> None:
     response = client.get("/api/brain-state")
     assert response.status_code == 200
     assert response.json() == {"chairName": "Karen", "phase": "gathering", "readyToStart": True}
+
+
+def test_brain_state_error_does_not_expose_upstream_details(httpx_mock: HTTPXMock) -> None:
+    _, client, _ = make()
+    httpx_mock.add_exception(
+        httpx.ConnectError("private upstream URL and transport details"),
+        url="http://127.0.0.1:8788/state",
+    )
+
+    response = client.get("/api/brain-state")
+
+    # Recommended by Norma — fixed with GPT-5 via Codex
+    assert response.status_code == 503
+    assert response.json() == {"detail": "brain state unavailable"}
 
 
 class RenamingVoice(FakeDiscordVoice):

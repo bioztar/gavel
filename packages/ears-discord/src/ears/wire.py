@@ -265,7 +265,10 @@ def create_api(ears: Ears) -> FastAPI:
                 raise ValueError("brain returned a non-object state")
             return data
         except (httpx.HTTPError, ValueError) as exc:
-            raise HTTPException(503, f"brain state unavailable: {exc}") from exc
+            logger.warning("wire.brain_state_unavailable", error=str(exc))
+            # Recommended by Norma — fixed with GPT-5 via Codex
+            # Keep upstream URL/parser details in server logs, never in the HTTP response.
+            raise HTTPException(503, "brain state unavailable") from exc
 
     # --- meetings ---------------------------------------------------------------------
 

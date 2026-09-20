@@ -242,7 +242,7 @@ def render_room_page(record: InviteRecord, *, stage_url: str, discord_url: str =
     e = html.escape
     agenda_rows = "".join(
         f"<li><span>{e(t.get('title', ''))}</span>"
-        f"<span class=\"mins\">{int(t.get('budgetSeconds') or 0) // 60} min</span></li>"
+        f'<span class="mins">{int(t.get("budgetSeconds") or 0) // 60} min</span></li>'
         for t in record.agenda.get("topics", [])
     )
     # Getting into the voice channel is the one thing anyone arriving at this

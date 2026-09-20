@@ -24,18 +24,18 @@ logger = logging.getLogger(__name__)
 # is unset on purpose; this is pinned in code, not settings.
 MODEL = "deepseek-ai/DeepSeek-V4.1-Flash"
 
-_SYSTEM_PROMPT = """You turn a short, spoken-style meeting brief into strict JSON. \
+_SYSTEM_PROMPT_TEMPLATE = """You turn a short, spoken-style meeting brief into strict JSON. \
 Reply with ONLY a JSON object — no prose, no markdown code fences — matching exactly \
 this shape:
-{{"title": string, "purpose": string, "start": ISO-8601 datetime with a UTC offset, \
-"duration_minutes": integer, "topics": [{{"title": string, "minutes": integer or null, \
+{"title": string, "purpose": string, "start": ISO-8601 datetime with a UTC offset, \
+"duration_minutes": integer, "topics": [{"title": string, "minutes": integer or null, \
 "owner": string or null, "must_hear": [string, ...], "type": "discussion" or \
-"presentation"}}]}}
+"presentation"}]}
 
-The current date and time is {now}, timezone {timezone}. Resolve every relative time \
+The current date and time is __NOW__, timezone __TIMEZONE__. Resolve every relative time \
 in the brief ("in one hour", "tomorrow at 10", "half an hour") against that clock, \
-and always emit "start" with the {timezone} UTC offset — you have no other clock. \
-Known attendees: {attendees}. Use their names, never their emails, for "owner" and \
+and always emit "start" with the __TIMEZONE__ UTC offset — you have no other clock. \
+Known attendees: __ATTENDEES__. Use their names, never their emails, for "owner" and \
 "must_hear" when the brief names them. The person dictating the brief is the FIRST \
 name in that list, so "me", "I", "my" and "mine" mean that person and nobody else. \
 The brief is dictated TO the chair and often opens by addressing her by name — that \
@@ -52,6 +52,17 @@ is "presentation"; anything the room talks through together is "discussion" — 
 doubt, "discussion". "purpose" is one plain sentence saying what this meeting has to \
 decide or produce, written for the people being invited — not a restatement of the \
 brief's wording, and never longer than one sentence."""
+
+
+def _build_system_prompt(*, now: datetime, timezone: str, attendees: list[str]) -> str:
+    # Recommended by Norma — fixed with GPT-5 via Codex
+    # Resolve application context before the HTTP request so the model receives only the
+    # complete natural-language task and JSON contract, never a Python formatting expression.
+    return (
+        _SYSTEM_PROMPT_TEMPLATE.replace("__NOW__", now.isoformat(timespec="minutes"))
+        .replace("__TIMEZONE__", timezone)
+        .replace("__ATTENDEES__", ", ".join(attendees) or "none listed")
+    )
 
 
 class BriefTopic(BaseModel):
@@ -105,11 +116,7 @@ class NebiusClient:
             logger.warning("compose.llm_skipped reason=nebius_api_key_unset")
             return None
 
-        system = _SYSTEM_PROMPT.format(
-            now=now.isoformat(timespec="minutes"),
-            timezone=timezone,
-            attendees=", ".join(attendees) or "none listed",
-        )
+        system = _build_system_prompt(now=now, timezone=timezone, attendees=attendees)
         body = {
             "model": MODEL,
             "temperature": 0,

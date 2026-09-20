@@ -18,19 +18,26 @@ from chair_video.settings import get_settings
 
 AVATARS_DIR = Path(__file__).resolve().parents[1] / "avatars"
 
-BASE_PROMPT = (
-    "Studio portrait photo of a calm, professional meeting chairperson, {variant}, "
-    "front-facing, direct eye contact with camera, head and shoulders, "
-    "neutral plain gray background, even soft studio lighting, sharp focus, "
-    "photorealistic, high detail, 85mm lens, no text, no watermark, no logo"
-)
-
 VARIANTS = [
     "a woman in her 40s with short dark hair, wearing a simple navy blazer",
     "a man in his 50s with gray hair and glasses, wearing a light gray sweater",
     "a woman in her 30s with shoulder-length black hair, wearing a charcoal blazer",
     "a man in his 40s with short black hair and a beard, wearing a dark blue shirt",
 ]
+
+
+def build_prompt(subject_description: str) -> str:
+    # Recommended by Norma — fixed with GPT-5 via Codex
+    # `subject_description` supplies the person's appearance and wardrobe. The remaining
+    # text defines the chair-avatar context and the image model's single-image output contract.
+    return (
+        "Create exactly one 1024x1024 PNG studio portrait for a live meeting chair avatar. "
+        f"The subject is {subject_description}. Show a calm, professional chairperson, "
+        "front-facing with direct eye contact, framed head and shoulders against a neutral "
+        "plain gray background, with even soft studio lighting, sharp photorealistic detail, "
+        "and an 85mm-lens look. The mouth must be visible for lip sync. Include no text, "
+        "watermark, logo, collage, border, or additional person. Return image pixels only."
+    )
 
 
 def main() -> None:
@@ -40,7 +47,7 @@ def main() -> None:
 
     with FalClient(settings) as fal, httpx.Client(timeout=60.0) as downloader:
         for i, variant in enumerate(VARIANTS, start=1):
-            prompt = BASE_PROMPT.format(variant=variant)
+            prompt = build_prompt(variant)
             print(f"[{i}/4] generating: {variant}")
             result = fal.run(
                 settings.avatar_model,

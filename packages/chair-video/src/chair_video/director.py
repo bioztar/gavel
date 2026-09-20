@@ -108,7 +108,11 @@ class DirectorManager:
     def verify_token(self, token: str | None) -> bool:
         """Used by the fal-proxy route: only the stage page holding the
         current session's token may forward requests through it."""
-        return token is not None and self._session is not None and secrets.compare_digest(token, self._session.token)
+        return (
+            token is not None
+            and self._session is not None
+            and secrets.compare_digest(token, self._session.token)
+        )
 
     # --- SSE -------------------------------------------------------------
 
@@ -117,7 +121,9 @@ class DirectorManager:
         `start` if a session is live (so a page reload rejoins), `idle`
         otherwise — then streams whatever happens next."""
         queue: asyncio.Queue[str] = asyncio.Queue()
-        hello: dict[str, Any] = self._start_event(self._session) if self._session else {"type": "idle"}
+        hello: dict[str, Any] = (
+            self._start_event(self._session) if self._session else {"type": "idle"}
+        )
         queue.put_nowait(json.dumps(hello))
         self._subscribers.append(queue)
         return queue
@@ -139,7 +145,9 @@ class DirectorManager:
             "token": session.token,
             "endpointId": self._settings.director_endpoint_id,
             "promptVersion": session.prompt_version,
-            "prompt": prompt_by_persona.get(session.persona, prompt_by_persona[self._settings.default_persona]),
+            "prompt": prompt_by_persona.get(
+                session.persona, prompt_by_persona[self._settings.default_persona]
+            ),
             "resolution": self._settings.director_resolution,
             "aspectRatio": self._settings.director_aspect_ratio,
         }
@@ -192,16 +200,24 @@ class DirectorManager:
         age_s = self._now() - session.started_at
         if session.last_heartbeat_at is None:
             heartbeat_age_s = None
-            state = "starting" if age_s < self._settings.director_heartbeat_timeout_s else "degraded"
+            state = (
+                "starting" if age_s < self._settings.director_heartbeat_timeout_s else "degraded"
+            )
         else:
             heartbeat_age_s = self._now() - session.last_heartbeat_at
-            state = "degraded" if heartbeat_age_s > self._settings.director_heartbeat_timeout_s else session.stage_state
+            state = (
+                "degraded"
+                if heartbeat_age_s > self._settings.director_heartbeat_timeout_s
+                else session.stage_state
+            )
         return {
             "active": True,
             "sessionId": session.session_id,
             "persona": session.persona,
             "promptVersion": session.prompt_version,
             "ageSeconds": round(age_s, 1),
-            "heartbeatAgeSeconds": round(heartbeat_age_s, 1) if heartbeat_age_s is not None else None,
+            "heartbeatAgeSeconds": round(heartbeat_age_s, 1)
+            if heartbeat_age_s is not None
+            else None,
             "state": state,
         }

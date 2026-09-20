@@ -61,11 +61,15 @@ def test_session_stop_clears_state(client: TestClient) -> None:
     assert client.get("/healthz").json()["director"] == {"active": False}
 
 
-def test_speak_uploads_audio_and_returns_incremented_prompt_version(httpx_mock, client: TestClient) -> None:
+def test_speak_uploads_audio_and_returns_incremented_prompt_version(
+    httpx_mock, client: TestClient
+) -> None:
     _mock_fal_upload(httpx_mock, "https://cdn/audio.wav")
     audio_b64 = base64.b64encode(b"fake-wav-bytes").decode()
 
-    r = client.post("/director/speak", json={"audioBase64": audio_b64, "format": "wav", "persona": "funky"})
+    r = client.post(
+        "/director/speak", json={"audioBase64": audio_b64, "format": "wav", "persona": "funky"}
+    )
 
     assert r.status_code == 200
     body = r.json()
@@ -83,7 +87,7 @@ def test_heartbeat_accepts_valid_session_token(httpx_mock, client: TestClient) -
     client.post("/director/speak", json={"audioBase64": audio_b64, "format": "wav"})
 
     director = client.app.state.director  # type: ignore[attr-defined]
-    token = director._session.token  # noqa: SLF001 - only way to get it without the SSE stream
+    token = director._session.token
 
     r = client.post("/director/heartbeat", json={"token": token, "state": "live"})
     assert r.status_code == 200
@@ -103,7 +107,7 @@ def test_fal_proxy_rejects_non_allowlisted_host(httpx_mock, client: TestClient) 
     audio_b64 = base64.b64encode(b"fake-wav-bytes").decode()
     client.post("/director/speak", json={"audioBase64": audio_b64, "format": "wav"})
     director = client.app.state.director  # type: ignore[attr-defined]
-    token = director._session.token  # noqa: SLF001
+    token = director._session.token
 
     r = client.post(
         "/director/fal-proxy",
@@ -113,12 +117,14 @@ def test_fal_proxy_rejects_non_allowlisted_host(httpx_mock, client: TestClient) 
     assert r.status_code == 403
 
 
-def test_fal_proxy_forwards_allowlisted_request_with_key_attached(httpx_mock, client: TestClient) -> None:
+def test_fal_proxy_forwards_allowlisted_request_with_key_attached(
+    httpx_mock, client: TestClient
+) -> None:
     _mock_fal_upload(httpx_mock, "https://cdn/audio.wav")
     audio_b64 = base64.b64encode(b"fake-wav-bytes").decode()
     client.post("/director/speak", json={"audioBase64": audio_b64, "format": "wav"})
     director = client.app.state.director  # type: ignore[attr-defined]
-    token = director._session.token  # noqa: SLF001
+    token = director._session.token
 
     httpx_mock.add_response(url="https://wma.fal.run/ice", json={"iceServers": []})
 

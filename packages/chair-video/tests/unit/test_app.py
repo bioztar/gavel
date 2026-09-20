@@ -39,7 +39,9 @@ def _mock_fal_run(httpx_mock, model: str, video_url: str) -> None:
             "response_url": "https://queue.fal.run/response",
         },
     )
-    httpx_mock.add_response(url="https://queue.fal.run/response", json={"video": {"url": video_url}})
+    httpx_mock.add_response(
+        url="https://queue.fal.run/response", json={"video": {"url": video_url}}
+    )
 
 
 def test_idle_defaults_to_configured_persona(client: TestClient) -> None:

@@ -52,7 +52,7 @@ def _form_str(form: FormData, key: str, default: str = "") -> str:
 
 
 def _attendees_from_field(raw: str) -> list[tuple[str, str]]:
-    """"Name <email>, email2, ..." -> [(name, email), ...]. A bare address
+    """ "Name <email>, email2, ..." -> [(name, email), ...]. A bare address
     falls back to its local part for a name, same convention as
     `ics_parser._attendee_name`.
     """
@@ -210,7 +210,6 @@ td input:focus, td select:focus { border-color: var(--accent); background: var(-
 """
 
 
-
 def render_brief_form() -> str:
     """Page one is one box and one button.
 
@@ -310,11 +309,7 @@ def _rows_from_lines(typed: str, host_name: str) -> list[_Row]:
     better than refusing a second time, which is the one way this beat can
     dead-end in front of a room.
     """
-    parts = [
-        chunk.strip(" \t-*\u2022")
-        for line in typed.splitlines()
-        for chunk in line.split(";")
-    ]
+    parts = [chunk.strip(" \t-*\u2022") for line in typed.splitlines() for chunk in line.split(";")]
     return [_Row(title=chunk, owner=host_name) for chunk in parts if chunk]
 
 
@@ -614,9 +609,7 @@ async def handle_send(
     )
 
 
-async def _safe_start(
-    store: InviteStore, ears: EarsClient | None, session_id: str
-) -> bool:
+async def _safe_start(store: InviteStore, ears: EarsClient | None, session_id: str) -> bool:
     """Make this the meeting ears is running. Best-effort, like the mail: an ears that is
     down or busy costs the head start, never the invite — the scheduler starts it at the
     event's own time, and the room page's own Join button starts it on a click."""
@@ -662,12 +655,17 @@ async def _safe_mail(
         )
     except Exception as exc:  # isolation of last resort, see mailer.py
         logger.exception("compose.ics_build_failed")
-        return MailResult(sent=False, reason=f"invite not sent (ics build failed: {type(exc).__name__})")
+        return MailResult(
+            sent=False, reason=f"invite not sent (ics build failed: {type(exc).__name__})"
+        )
 
     # The email carries the agenda itself, not the brief that was dictated to
     # produce it: owner and must-be-heard per topic, in the order they will run.
     kw = {
-        "title": title, "start": start, "end": end, "join_url": join_url,
+        "title": title,
+        "start": start,
+        "end": end,
+        "join_url": join_url,
         "discord_url": settings.discord_meeting_url,
     }
     try:
