@@ -94,6 +94,11 @@
 - After `docker compose up -d --build calendar`, Traefik serves `404` for a few
   seconds while it re-resolves the new container. It clears itself. Do not go
   hunting for a routing misconfiguration — `curl` the route again.
+- **Editing `docs/architecture.html` or `docs/demo-script.html` needs `docker compose restart
+  calendar`.** They are single-file bind mounts, so the container holds the inode it was
+  started with; `git pull` writes a new file and the old one keeps being served. Confirmed
+  2026-09-20: host copy had the new deck slide, `/app/architecture.html` did not, restart
+  fixed it. The mount saves the *rebuild*, not the restart.
 - **Invites now survive a calendar redeploy** (`calendar_invites`, Alembic `0001` on the
   calendar lineage). Verified 2026-09-20: an invite taken before `restart calendar` still
   answered 200 on `/m/{id}` after it. With `POSTGRES_DSN` empty or Postgres unreachable at
