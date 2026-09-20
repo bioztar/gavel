@@ -34,12 +34,10 @@ with sync_playwright() as p:
     b = p.chromium.launch(executable_path=EXE)
     page = b.new_page(viewport={"width": 1920, "height": 1080})
     for seg in SCRIPT["segments"]:
-        _, _, placeholder = _asm.SHOT_MAP[seg["id"]]
-        placeholder = None if _asm.SHOT_MAP[seg["id"]][0] == "room-live" else placeholder
+        shot_file, _, placeholder = _asm.SHOTS_BY_NAME[seg["shot"]]
         badge = BADGE.format(what=placeholder.upper()) if placeholder else ""
         # the meeting room fills its own bottom edge, so its label goes to the top
-        shot = _asm.SHOT_MAP[seg["id"]][0]
-        top = shot == "room-live"
+        top = shot_file == "room-live"
         if top:
             # the room uses all four edges; the label goes in the empty column under the agenda
             page.set_content(ROOM_TPL.format(label=LABEL[seg["speaker"]]))

@@ -11,7 +11,9 @@ import httpx  # noqa: E402
 
 ROOT = pathlib.Path("/Users/alex/DEV/_assets/gavel-video")
 OUT = ROOT / "karen"; OUT.mkdir(parents=True, exist_ok=True)
-IDLE = pathlib.Path("/Users/alex/DEV/gavel/packages/chair-video/avatars/idle-formal.mp4")
+# kling image-to-video gives her head and shoulder movement; the old idle loop was
+# nearly a still, which read as a photo with a moving mouth.
+IDLE = pathlib.Path("/Users/alex/DEV/_assets/gavel-video/karen/_live-kling-video.mp4")
 SCRIPT = json.loads(pathlib.Path(__file__).with_name("script.json").read_text())
 S = get_settings()
 

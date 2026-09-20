@@ -2,7 +2,8 @@
   "voices": {
     "vitaly": {
       "engine": "minimax",
-      "voice": "Voicedc785cd01789891341"
+      "voice": "Voicedc785cd01789891341",
+      "speed": 1.3
     },
     "artem": {
       "engine": "elevenlabs",
@@ -15,16 +16,23 @@
   },
   "segments": [
     {
+      "id": "00-karen-open",
+      "speaker": "karen",
+      "shot": "card",
+      "face": true,
+      "text": "Vitaly, parked for later: cloud pricing. Back to solution and architecture. What does the room need to understand first?"
+    },
+    {
       "id": "01-open",
       "speaker": "vitaly",
       "shot": "arch1",
-      "text": "Most meetings get booked with a title, a time and nothing else. The few that do have an agenda have nobody enforcing it, because the person who could is the person talking. So we built a chair that will not let you schedule a meeting without an agenda, and then sits in the call and holds you to it. Including me. Watch."
+      "text": "That is an AI chair, and it just took the floor off me in the middle of my own sentence. It can do that because it would not let this meeting be booked without an agenda in the first place. Let me show you how that works."
     },
     {
       "id": "02-thin-brief",
       "speaker": "vitaly",
       "shot": "compose",
-      "text": "Karen, set up a meeting with Artem tomorrow at ten. Thirty minutes."
+      "text": "I ask for a meeting the way I normally ask for one. Karen, set up a meeting with Artem tomorrow at ten. Thirty minutes."
     },
     {
       "id": "03-karen-gate",
@@ -37,68 +45,68 @@
       "id": "04-gate-note",
       "speaker": "vitaly",
       "shot": "gate",
-      "text": "A title, a time, a length, and nothing about what it is for. She refuses. And notice the boxes are still there: she is not blocking me, she is asking the one question the meeting needs. A chair that only says no is just an obstacle."
+      "text": "A title, a time, a length. Nothing about what the meeting is for. So she will not book it. She still gives me the box to fix it, right there. She asks for the agenda instead of just saying no."
     },
     {
       "id": "05-real-brief",
       "speaker": "vitaly",
       "shot": "compose",
-      "text": "Karen, set up a meeting with Artem in fifteen minutes, fifteen minutes long, called gavel live demo. Three topics. One: solution and architecture, five minutes, I present it. Two: open discussion, six minutes, I want both Artem and me heard on it. Three: roadmap, four minutes, I present it."
+      "text": "So I tell her. Karen, set up a meeting with Artem in fifteen minutes, fifteen minutes long, called gavel live demo. Three topics. One, solution and architecture, five minutes, I present it. Two, open discussion, six minutes, and I want both Artem and me heard on it. Three, roadmap, four minutes, I present it."
     },
     {
       "id": "06-confirm",
       "speaker": "vitaly",
       "shot": "confirm",
-      "text": "Every topic comes back with an owner, a time budget, and a type. Rows one and three are presentations. Row two is a discussion, and it names who has to be heard on it: Artem, and me. The parse is a draft. The table is the contract."
+      "text": "She comes back with three topics. Each one has an owner, a number of minutes, and a type. Topic two is a discussion, and it says who has to be heard on it. Artem and me. If she got a row wrong, I just fix the row."
     },
     {
       "id": "07-gauge",
       "speaker": "vitaly",
-      "shot": "confirm",
-      "text": "How hard she chairs is a dial. Low, medium, high. On medium she waits for a pause. On high she cuts in mid-sentence, and after a warning she is allowed to mute. And nobody is exempt. Not the organizer, not me. If the host is the one running over, the host is the one who gets chaired. I am leaving it on high."
+      "shot": "gauge",
+      "text": "Then I choose how hard she chairs. Low, medium, high. On medium she waits for a pause. On high she cuts in mid-sentence, and she can mute someone who ignores a warning. Nobody is exempt. If I am the one running over, she chairs me. I am putting this on high."
     },
     {
       "id": "08-send",
       "speaker": "vitaly",
       "shot": "invite",
-      "text": "Real invite, real calendar file, real mailbox. And the invite is not what I dictated. I dictated a paragraph. They get this: purpose in one line, every topic numbered, with an owner, a time budget, and who must be heard on it. The agenda has teeth before anybody joins."
+      "text": "Send. That is a real invite, a real calendar file, a real inbox. I dictated a paragraph. What everyone gets is this. The purpose on one line, every topic numbered, with an owner, its minutes, and who has to speak on it."
     },
     {
       "id": "09-join",
       "speaker": "vitaly",
-      "shot": "calendar",
-      "text": "Accepted, and it is in my calendar. And the invite carries two links, not one. One drops me straight into the Discord call. The other opens the meeting room."
+      "shot": "invite-top",
+      "text": "I accept it, and it lands in my calendar. There are two links inside. One takes me into the Discord call. The other one opens the meeting room."
     },
     {
       "id": "09b-room",
       "speaker": "vitaly",
       "shot": "room",
-      "text": "This is the room, and it is the page you put on the shared screen. Karen on the left, the agenda under her, topic one already struck through. On the right, the topic that is actually running: how much of its six minutes it has had, and who is holding the floor right now. Underneath, what the room decided, what is still open, and what she parked."
+      "text": "This is the room, and this is the page you put on the shared screen. Karen is on the left with the agenda under her. Topic one is already crossed off. On the right is whatever is running right now, how much of its six minutes it has used, and who is doing the talking. Along the bottom: what got decided, what is still open, and anything she parked."
     },
     {
       "id": "10-karen-opens",
       "speaker": "karen",
-      "shot": "discord",
+      "shot": "room",
       "face": true,
       "text": "Good afternoon. This is gavel live demo, fifteen minutes, three topics. First: solution and architecture, five minutes, presented by Vitaly. Vitaly, the floor is yours."
     },
     {
       "id": "11-opened-note",
       "speaker": "vitaly",
-      "shot": "discord",
+      "shot": "room",
       "text": "Nobody typed start. She opened the meeting herself."
     },
     {
       "id": "12-architecture",
       "speaker": "vitaly",
       "shot": "arch1",
-      "text": "Three moves. Hear: she is in the Discord call as a participant, audio goes to SLNG for speech to text, turns land in Postgres and Redis. Think: this is the part people assume is a model, and isn't. Whether to interrupt is plain code. Who has held the floor, for how long, against the agenda's own budget. Deterministic, testable, and it runs every two hundred and fifty milliseconds. Mastra and Nebius are only asked for the words. The decision was already made. Then text to speech back into the same call, and fal lip-syncs her face. Six containers behind Traefik. One of them knows what Discord is. That is the whole reason this moves to Teams."
+      "text": "Three parts. She sits in the Discord call the same way a person does. The audio goes out to speech to text, and the turns land in Postgres and Redis. Then the decision to interrupt, which is ordinary code. It looks at who has held the floor, for how long, against the minutes on the agenda, and it runs four times a second. The model is only asked to write the sentence she says. Her speech goes back into the same call, and fal moves her face so there is someone to look at. Six containers. One of them knows what Discord is, which is why putting this into Teams is a realistic job."
     },
     {
       "id": "13-drift",
       "speaker": "vitaly",
       "shot": "arch1",
-      "text": "And honestly the interesting part is the cost curve, because once you are running six containers you start asking whether it is cheaper on a reserved instance or spot, and I priced this out against three providers last month, and the pricing pages are all deliberately incomparable, which is a whole separate rant, actually let me tell you about the egress fees..."
+      "text": "And the really interesting thing here is the cost, because once you are running six containers you start looking at reserved instances against spot, and I compared three providers last month, and their pricing pages are impossible to line up, and then there are egress fees on top, which honestly deserve their own talk..."
     },
     {
       "id": "14-karen-catch",
@@ -110,45 +118,45 @@
     {
       "id": "15-catch-note",
       "speaker": "vitaly",
-      "shot": "console",
-      "text": "That was eight seconds. I did not cue her. And notice she parked it rather than binned it. She wrote that line just now, it is not a canned string."
+      "shot": "room",
+      "text": "Eight seconds, and I did not cue her. She parked the topic rather than dropping it, and she wrote that sentence herself just now."
     },
     {
       "id": "16-handoff-q",
       "speaker": "vitaly",
-      "shot": "discord",
+      "shot": "room",
       "text": "Artem, you have been building the Discord side. What breaks first at scale?"
     },
     {
       "id": "17-artem",
       "speaker": "artem",
-      "shot": "discord",
-      "text": "The voice connection, before anything else. Discord gives you one gateway per guild and the audio arrives as per-speaker Opus packets, so the first thing that breaks is not the model, it is decoding four people at once and keeping their streams apart. We buffer per speaker and hand SLNG a clean mono stream each, and that is fine for six people in a room. At thirty it is not, because speech to text cost is linear in speakers, so we would push voice activity detection to the edge and only transcribe whoever holds the floor. The second one is the tick. The brain evaluates every two hundred and fifty milliseconds against the agenda, and that loop is cheap, but it reads the last two minutes of turns out of Redis every time. At a hundred concurrent meetings we would keep that window in memory per session and only write through. And the third is the one nobody expects: reconnects. Discord drops a voice websocket every so often, and if you rejoin without carrying the floor state over, the chair forgets who has been talking and stops interrupting exactly when it matters."
+      "shot": "room",
+      "text": "The voice connection, before anything else. Discord gives you one gateway per server, and the audio comes in as separate packets per speaker. So the first thing that struggles is not the model, it is decoding four people at once and keeping their streams apart. Right now we buffer each speaker and hand over one clean stream each, and for six people in a room that is fine. At thirty it stops being fine, because transcription cost goes up with every speaker. So we would detect speech on the edge and only transcribe whoever has the floor. Second thing is the tick. The brain checks the agenda four times a second, and that part is cheap, but every check reads the last two minutes of turns out of Redis. At a hundred meetings at once we would hold that window in memory and write through. And the third one nobody expects: reconnects. Discord drops the voice socket now and then, and if you come back without the floor state, the chair forgets who has been talking and goes quiet exactly when you need it."
     },
     {
       "id": "18-karen-handover",
       "speaker": "karen",
-      "shot": "discord",
+      "shot": "room",
       "face": true,
       "text": "Thank you Artem. Vitaly, you have not spoken on this topic yet, and the agenda says you must be heard. Your turn."
     },
     {
       "id": "19-handover-note",
       "speaker": "vitaly",
-      "shot": "console",
-      "text": "Sixty seconds, one voice, and the chair moved the floor. Nobody in this room had to be the person who interrupts."
+      "shot": "room",
+      "text": "One person talked for a minute, and she moved the floor without anyone asking her to. The board was tracking the share the whole time."
     },
     {
       "id": "20-roadmap",
       "speaker": "vitaly",
       "shot": "arch3",
-      "text": "Discord is a demo choice, not a product choice. One container knows what a voice call is. Everything else is platform agnostic by construction. Teams is where this actually belongs: an add-on inside the suite where the calendar, the agenda and the org chart already live. And the category is not meeting notes. Notes are a record of what happened. This changes what happens, inside the hour, while it can still be fixed. Time governance, sitting on top of a calendar that already knows what the meeting was for."
+      "text": "Discord is where we built it. It is not where it belongs. Only one container knows what a voice call is, so Meet, Zoom or Teams is the same piece of work again. Teams is the one worth doing, because the calendar, the agenda and the org chart are already sitting there. The other half is what happens after the call. Everything she collected, the transcript, the decisions, the open items, should go straight into whatever the company already uses to keep its knowledge. She plugs into the team's own agent and hands it the result. And a notes tool writes the meeting up afterwards. This one fixes the meeting while it is still running."
     },
     {
       "id": "21-close",
       "speaker": "vitaly",
       "shot": "arch3",
-      "text": "So: I asked for a meeting the way everybody asks for a meeting, and it said no. I said what it was for, and three people got an agenda with an owner on every line. It opened the call itself. It caught me going off topic in eight seconds. And it took the floor off the person who had held it for a minute and gave it to the person who had not spoken. It never wrote my agenda. It refused to work without one, and then it held me to it. That is a role every company needs and nobody can afford to staff. Thank you."
+      "text": "So I asked for a meeting the way everyone asks for a meeting, and it said no. I told it what the meeting was for, and three people got an agenda with an owner on every line. It started the call itself. It caught me going off topic in eight seconds. And it took the floor off the person who had held it for a minute and gave it to the person who had not spoken. It never wrote my agenda. It refused to work without one, and then it held me to it. Every company needs someone doing that job, and nobody can afford to pay a person to do it. Thank you."
     }
   ]
 }

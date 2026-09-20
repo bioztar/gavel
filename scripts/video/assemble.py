@@ -1,8 +1,13 @@
-"""Build the v1 submission video from synthesized audio, live screenshots and Karen clips.
+"""Build the submission video from synthesized audio, live screenshots and Karen clips.
 
-Every segment becomes its own 1920x1080 clip (slow Ken Burns over the shot, speaker
-label, Karen picture-in-picture when she talks), then all of them are concatenated.
-Shots that stand in for footage we have not captured yet carry a PLACEHOLDER badge.
+Each segment becomes its own 1920x1080 clip and they are concatenated. Three things here
+were learned the hard way and should not be undone:
+
+* Every clip is **stereo**. Mixing mono segments with a stereo card makes `concat -c copy`
+  pin the whole track to the first stream's layout, and players go silent.
+* Speed comes from the TTS, never from `atempo`. Time-stretching the cloned voice by 1.5
+  made it break up.
+* Levels are a fixed per-file gain, not `loudnorm`. Single-pass loudnorm pumped.
 """
 from __future__ import annotations
 import json, pathlib, subprocess
@@ -11,91 +16,95 @@ ROOT = pathlib.Path("/Users/alex/DEV/_assets/gavel-video")
 SHOTS, AUDIO, KAREN, OUT = ROOT / "shots", ROOT / "audio", ROOT / "karen", ROOT / "out"
 OUT.mkdir(parents=True, exist_ok=True)
 SCRIPT = json.loads(pathlib.Path(__file__).with_name("script.json").read_text())
-FONT = "/tmp/claude-501/ArialBold.ttf"
-FONT_R = "/tmp/claude-501/Arial.ttf"
-# page screenshots put the content in a column; crop to it so the frame is not 40% whitespace
+LABEL = {"vitaly": "VITALY", "artem": "ARTEM", "karen": "KAREN  ·  the chair"}
+TARGET_MEAN_DB, PEAK_CEILING_DB = -20.0, -1.5
 PAGE_CROP = "crop=1290:726:315:40"
-LABEL = {"vitaly": "VITALY", "artem": "ARTEM", "karen": "KAREN  (the chair)"}
-# Karen stays at 1.0: her clips are lip-synced to the un-sped audio.
-TEMPO_BY_SPEAKER = {"vitaly": 1.5, "artem": 1.0, "karen": 1.0}
 
-# segment id -> (shot, full-frame?, placeholder-for)
-SHOT_MAP = {
-    "01-open": ("arch1", True, None),
-    "02-thin-brief": ("compose", False, None),
-    "03-karen-gate": ("focus-gate", False, None),
-    "04-gate-note": ("focus-gate", False, None),
-    "05-real-brief": ("compose-empty", False, None),
-    "06-confirm": ("focus-agenda", False, None),
-    "07-gauge": ("focus-gauge", False, None),
-    "08-send": ("invite-agenda", False, None),
-    "09-join": ("invite", False, "calendar accept + join"),
-    "09b-room": ("room-live", True, None),
-    "10-karen-opens": ("room-live", True, None),
-    "11-opened-note": ("room-live", True, None),
-    "12-architecture": ("arch1", True, None),
-    "13-drift": ("arch1", True, None),
-    "14-karen-catch": ("arch1", True, None),
-    "15-catch-note": ("room-live", True, None),
-    "16-handoff-q": ("room-live", True, None),
-    "17-artem": ("room-live", True, None),
-    "18-karen-handover": ("room-live", True, None),
-    "19-handover-note": ("room-live", True, None),
-    "20-roadmap": ("arch3", True, None),
-    "21-close": ("arch3", True, None),
+# logical shot -> (file, full-bleed?, what it stands in for)
+SHOTS_BY_NAME = {
+    "card": ("card-title", True, None),
+    "arch1": ("arch1", True, None),
+    "arch3": ("arch3", True, None),
+    "compose": ("compose", False, None),
+    "gate": ("focus-gate", False, None),
+    "confirm": ("focus-agenda", False, None),
+    "gauge": ("focus-gauge", False, None),
+    "invite": ("invite-agenda", False, None),
+    "invite-top": ("invite", False, "calendar accept"),
+    "room": ("room-live", True, None),
 }
 
 
+def probe(path: pathlib.Path, entries: str) -> str:
+    return subprocess.run(["ffprobe", "-v", "error", "-show_entries", entries,
+                           "-of", "csv=p=0", str(path)],
+                          capture_output=True, text=True, check=True).stdout.strip()
+
+
 def dur(path: pathlib.Path) -> float:
-    out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
-                          "-of", "csv=p=0", str(path)], capture_output=True, text=True, check=True)
-    return float(out.stdout.strip())
+    return float(probe(path, "format=duration"))
 
 
-def esc(text: str) -> str:
-    return text.replace("\\", "\\\\").replace(":", "\\:").replace("'", "")
+def gain_db(audio: pathlib.Path) -> float:
+    """Fixed gain to a common speaking level, clamped so nothing clips.
+
+    The cloned voice comes back ~20 dB under the other two engines, because it
+    inherited the level of the quiet sample it was cloned from.
+    """
+    out = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(audio),
+                          "-af", "volumedetect", "-f", "null", "-"],
+                         capture_output=True, text=True).stderr
+    mean = peak = None
+    for line in out.splitlines():
+        if "mean_volume:" in line:
+            mean = float(line.split("mean_volume:")[1].split("dB")[0])
+        elif "max_volume:" in line:
+            peak = float(line.split("max_volume:")[1].split("dB")[0])
+    if mean is None or peak is None:
+        return 0.0
+    return round(min(TARGET_MEAN_DB - mean, PEAK_CEILING_DB - peak), 2)
 
 
 def build(seg: dict) -> pathlib.Path:
     sid = seg["id"]
-    shot, full, placeholder = SHOT_MAP[sid]
-    audio = AUDIO / f"{sid}.mp3"
-    dest = OUT / f"{sid}.mp4"
-    TEMPO = TEMPO_BY_SPEAKER[seg["speaker"]]
-    seconds = dur(audio) / TEMPO + 0.28
-    frames = int(seconds * 30) + 2
+    shot, full, placeholder = SHOTS_BY_NAME[seg["shot"]]
+    audio, dest = AUDIO / f"{sid}.mp3", OUT / f"{sid}.mp4"
+    seconds = dur(audio) + 0.30
     face = KAREN / f"{sid}.mp4"
     use_face = seg.get("face") and face.exists()
 
     if shot.startswith("focus-"):
-        base = ("[0:v]scale=w=1640:h=860:force_original_aspect_ratio=decrease,"
-                "pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0xf7f8fa")
+        chain = ("[0:v]scale=w=1640:h=860:force_original_aspect_ratio=decrease,"
+                 "pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0xf7f8fa")
     else:
-        base = f"[0:v]{'' if full else PAGE_CROP + ','}scale=1920:-2,crop=1920:1080"
-    chain = base + ",fps=30,setsar=1"
+        chain = f"[0:v]{'' if full else PAGE_CROP + ','}scale=1920:-2,crop=1920:1080"
+    chain += ",fps=30,setsar=1"
 
-    overlay = ROOT / "overlays" / f"{sid}.png"
     cmd = ["ffmpeg", "-y", "-v", "error", "-loop", "1", "-i", str(SHOTS / f"{shot}.png"),
-           "-i", str(audio), "-loop", "1", "-i", str(overlay)]
+           "-i", str(audio), "-loop", "1", "-i", str(ROOT / "overlays" / f"{sid}.png")]
+
     if use_face:
         cmd += ["-i", str(face)]
-        if shot == "room-live":
+        if shot == "room-live":  # into the room's own video panel
             r = json.loads((SHOTS / "room-stage.json").read_text())
-            fc = (f"{chain}[bg];"
-                  f"[3:v]scale={r['width']}:{r['height']},setsar=1[pip];"
-                  f"[bg][pip]overlay={r['x']}:{r['y']}[withface];"
-                  f"[withface][2:v]overlay=0:0[v]")
-        else:
-            fc = (f"{chain}[bg];"
-                  f"[3:v]scale=440:440,setsar=1[pip];"
-                  f"[bg][pip]overlay=W-w-72:H-h-168[withface];"
-                  f"[withface][2:v]overlay=0:0[v]")
+            box = (r["x"], r["y"], r["width"], r["height"])
+        else:                    # a large card-side portrait
+            box = (1150, 168, 660, 660)
+        x, y, w, h = box
+        # cover, then centre-crop: scaling a square clip into a 16:9 panel squashes her face
+        fit = (f"[3:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
+               f"crop={w}:{h},setsar=1[pip]")
+        fc = f"{chain}[bg];{fit};[bg][pip]overlay={x}:{y}[withface];[withface][2:v]overlay=0:0[v]"
     else:
         fc = f"{chain}[bg];[bg][2:v]overlay=0:0[v]"
-    fc += f";[1:a]atempo={TEMPO},loudnorm=I=-16:TP=-1.5:LRA=11[a]"
-    cmd += ["-filter_complex", fc, "-map", "[v]", "-map", "[a]",
-            "-t", f"{seconds:.2f}", "-r", "30", "-c:v", "libx264", "-preset", "veryfast",
-            "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
+
+    # gain to a common level, then short fades so the cuts between clips do not click
+    fc += (f";[1:a]volume={gain_db(audio)}dB,afade=t=in:st=0:d=0.05,"
+           f"afade=t=out:st={max(seconds - 0.30, 0.1):.2f}:d=0.25[a]")
+
+    cmd += ["-filter_complex", fc, "-map", "[v]", "-map", "[a]", "-t", f"{seconds:.2f}",
+            "-r", "30", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+            "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
             str(dest)]
     subprocess.run(cmd, check=True)
     return dest
@@ -103,18 +112,17 @@ def build(seg: dict) -> pathlib.Path:
 
 def card(name: str, seconds: float) -> pathlib.Path:
     dest = OUT / f"{name}.mp4"
-    subprocess.run(
-        ["ffmpeg", "-y", "-v", "error", "-loop", "1", "-i", str(SHOTS / f"{name}.png"),
-         "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", str(seconds),
-         "-vf", "scale=1920:1080,setsar=1,fps=30", "-c:v", "libx264", "-preset", "veryfast",
-         "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
-          "-ar", "48000", "-ac", "2", str(dest)],
-        check=True)
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-loop", "1", "-i", str(SHOTS / f"{name}.png"),
+                    "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", str(seconds),
+                    "-vf", "scale=1920:1080,setsar=1,fps=30", "-c:v", "libx264",
+                    "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
+                    "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2", str(dest)],
+                   check=True)
     return dest
 
 
 if __name__ == "__main__":
-    parts = [card("card-title", 3.2)]
+    parts = []
     for seg in SCRIPT["segments"]:
         parts.append(build(seg))
         print("built", seg["id"], flush=True)

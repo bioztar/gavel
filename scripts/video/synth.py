@@ -46,7 +46,9 @@ def synth(seg: dict) -> tuple[str, float]:
         with FalClient(SETTINGS) as fal:
             if voice["engine"] == "minimax":
                 res = fal.run("fal-ai/minimax/speech-02-hd",
-                              {"text": seg["text"], "voice_setting": {"custom_voice_id": voice["voice"], "speed": 1.05}})
+                              {"text": seg["text"],
+                               "voice_setting": {"custom_voice_id": voice["voice"],
+                                                 "speed": voice.get("speed", 1.0)}})
             else:
                 res = fal.run("fal-ai/elevenlabs/tts/turbo-v2.5",
                               {"text": seg["text"], "voice": voice["voice"]})
