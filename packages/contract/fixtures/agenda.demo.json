@@ -39,7 +39,8 @@
   "policy": {
     "floorShareThreshold": 0.6,
     "floorWindowSeconds": 120,
-    "floorMinSpeakingSeconds": 45,
+    "softHandoverSeconds": 45,
+    "hardHandoverSeconds": 90,
     "topicOverrunFactor": 1.2,
     "silenceSeconds": 15,
     "minSecondsBetweenInterventions": 45

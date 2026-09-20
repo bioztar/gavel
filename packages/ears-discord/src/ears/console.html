@@ -170,6 +170,7 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; margi
     </h2>
     <div class="scroll pad">
       <label class="row"><span class="grow">Discord servers &amp; meeting channels</span>
+        <button class="small" id="b-refresh-names" title="Re-read everyone's Discord server profile name — Discord never tells the bot when someone renames themselves">refresh names</button>
         <button class="small" id="b-refresh-discord">refresh</button></label>
       <div id="discord-servers"><div class="muted">Loading Discord servers…</div></div>
 
@@ -188,11 +189,12 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; margi
         Wait for “Karen, let's start the meeting” — off: Karen opens it herself once everyone is in the call</label>
       <label class="row" style="color:var(--text);font-size:12px"><input type="checkbox" id="m-timed" style="width:auto;margin:0 6px 0 0" checked>
         Timed agenda — topics in order, each with a time budget. Off: any order, no time limits</label>
-      <label class="row" style="color:var(--text);font-size:12px">Floor handover
-        <select id="m-handover" style="width:auto;margin:0 6px">
-          <option value="soft">soft — waits for a pause</option>
-          <option value="hard">hard — cuts in at once</option>
-        </select></label>
+      <label class="row" style="color:var(--text);font-size:12px">Floor handover — seconds of the window one person may hold
+        <span class="muted" style="font-size:11px">soft waits for their next pause, hard cuts in at once (0: never)</span></label>
+      <div class="row">
+        <div class="grow"><label>soft after (s)</label><input type="number" step="any" id="m-soft-handover"></div>
+        <div class="grow"><label>hard after (s)</label><input type="number" step="any" id="m-hard-handover"></div>
+      </div>
       <details><summary>Policy (interrupt thresholds)</summary><div class="grid2" id="policy"></div></details>
       <details><summary>Agenda JSON — import / export</summary>
         <textarea id="m-json" rows="8" class="mono" placeholder="Paste an agenda.json (contract shape) and press Import"></textarea>
@@ -376,6 +378,14 @@ $("discord-servers").onchange = async (e) => {
   } catch (error) { toast(error.message); await loadDiscordServers().catch(() => {}); }
 };
 $("b-refresh-discord").onclick = () => loadDiscordServers().catch((e) => toast(e.message));
+$("b-refresh-names").onclick = async (e) => {
+  e.target.disabled = true;
+  try {
+    const { participants } = await api("POST", "/api/discord/refresh-names");
+    toast(participants.length ? `names: ${participants.map((p) => p.name).join(", ")}` : "nobody in the call");
+  } catch (error) { toast(error.message); }
+  finally { e.target.disabled = false; }
+};
 setInterval(() => loadDiscordServers().catch(() => {}), 5000);
 
 function insightList(values, empty) {
@@ -406,8 +416,10 @@ async function pollBrain() {
 setInterval(pollBrain, 1500);
 
 /* ═════════════ meetings ═════════════ */
-const POLICY_DEFAULTS = { floorShareThreshold: 0.6, floorWindowSeconds: 120, floorMinSpeakingSeconds: 45,
-  topicOverrunFactor: 1.2, silenceSeconds: 15, minSecondsBetweenInterventions: 45 };
+const POLICY_DEFAULTS = { floorShareThreshold: 0.6, floorWindowSeconds: 120, softHandoverSeconds: 45,
+  hardHandoverSeconds: 90, topicOverrunFactor: 1.2, silenceSeconds: 15, minSecondsBetweenInterventions: 45 };
+// Shown as their own inputs above the policy grid, not twice.
+const HANDOVER_KEYS = ["softHandoverSeconds", "hardHandoverSeconds"];
 let meetings = [], current = null; // current: meeting being edited (id may be null)
 
 function blankMeeting() {
@@ -477,8 +489,9 @@ function renderPolicy() {
   const p = current.agenda.policy;
   $("m-require-start").checked = p.requireStart !== false;
   $("m-timed").checked = p.timed !== false;
-  $("m-handover").value = p.handover === "hard" ? "hard" : "soft";
-  $("policy").innerHTML = Object.keys(POLICY_DEFAULTS).map((k) => `
+  $("m-soft-handover").value = p.softHandoverSeconds ?? p.floorMinSpeakingSeconds ?? POLICY_DEFAULTS.softHandoverSeconds;
+  $("m-hard-handover").value = p.hardHandoverSeconds ?? POLICY_DEFAULTS.hardHandoverSeconds;
+  $("policy").innerHTML = Object.keys(POLICY_DEFAULTS).filter((k) => !HANDOVER_KEYS.includes(k)).map((k) => `
     <div><label>${k}</label><input type="number" step="any" data-p="${k}" value="${p[k] ?? POLICY_DEFAULTS[k]}"></div>`).join("");
 }
 document.addEventListener("input", (e) => {
@@ -496,7 +509,8 @@ document.addEventListener("input", (e) => {
   } else if (d.p !== undefined) current.agenda.policy[d.p] = +el.value;
   else if (el.id === "m-require-start") current.agenda.policy.requireStart = el.checked;
   else if (el.id === "m-timed") { current.agenda.policy.timed = el.checked; renderTopics(); }
-  else if (el.id === "m-handover") current.agenda.policy.handover = el.value;
+  else if (el.id === "m-soft-handover") current.agenda.policy.softHandoverSeconds = +el.value;
+  else if (el.id === "m-hard-handover") current.agenda.policy.hardHandoverSeconds = +el.value;
 });
 document.addEventListener("click", (e) => {
   const d = e.target.dataset;

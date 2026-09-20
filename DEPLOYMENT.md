@@ -166,7 +166,7 @@ read, printed or logged:
 | `DISCORD_EARS_TOKEN` | set | ears — Karen's bot login |
 | `NEBIUS_API_KEY` | set | brain — all LLM calls |
 | `NEBIUS_BASE_URL` | set | brain |
-| `SLNG_API_KEY` | set | ears — STT (`deepgram/nova:3`) + TTS (`slng/fish/tts:s2.1-pro`) |
+| `SLNG_API_KEY` | set | ears — STT (`deepgram/nova:3`) + TTS (`deepgram/aura:2`, Karen's voice) |
 | `FAL_KEY` | set | chair-video — lip-sync + avatars |
 | `EARS_WIRE_URL` | set | — |
 | `CONCIERGE_WEBHOOK_URL` | set | — |

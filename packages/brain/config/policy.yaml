@@ -5,7 +5,10 @@
 defaults:
   floorShareThreshold: 0.6        # share of speaking time in the window that counts as hogging
   floorWindowSeconds: 120         # ...measured afresh after each floor handover
-  floorMinSpeakingSeconds: 45     # ...and at least this much speaking in the window
+  # Two handover thresholds, both counting the talker's speaking time in the window above.
+  softHandoverSeconds: 45         # past this, Karen hands the floor on at their next pause
+  hardHandoverSeconds: 90         # still holding it past this, she cuts in at once as priority
+                                  # speaker. 0: never cut in. Below the soft one: always cut in
   topicOverrunFactor: 1.2         # announce the move at budget × this
   silenceSeconds: 15              # dead air inside a topic before the chair invites someone
   minSecondsBetweenInterventions: 45
@@ -15,8 +18,6 @@ defaults:
   muteSeconds: 15
   requireStart: true              # wait for "Karen, let's start the meeting"; false: she opens it herself
   timed: true                     # topic budgets and agenda order; false: any order, no time limits
-  handover: soft                  # floor handovers: soft waits for a pause, never talking over the
-                                  # talker; hard cuts in at once as priority speaker
 
 engine:
   tickMs: 250

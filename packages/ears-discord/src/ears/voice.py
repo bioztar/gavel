@@ -151,9 +151,12 @@ class _StenoSink(Sink):
         self.finished = True
 
 
-def _humans(channel: VocalGuildChannel) -> list[Participant]:
+def _humans(channel: VocalGuildChannel, names: dict[str, str] | None = None) -> list[Participant]:
+    names = names or {}
     return [
-        Participant(discord_id=str(m.id), name=m.display_name) for m in channel.members if not m.bot
+        Participant(discord_id=str(m.id), name=names.get(str(m.id), m.display_name))
+        for m in channel.members
+        if not m.bot
     ]
 
 
@@ -184,6 +187,10 @@ class Voice:
         self._channel: VocalGuildChannel | None = None
         self._guild_id: int | None = None
         self._joining = False
+        # Current server profile names, read over REST. Discord only pushes nickname changes
+        # with the privileged members intent, which this bot does not ask for, so a cached
+        # Member keeps whatever name it had when it first appeared in the voice channel.
+        self._names: dict[str, str] = {}
         self._selected_channels = dict(selected_channels or {})
         # Keep the old env pair as a one-time seed while deployments move to the console.
         if settings.discord_guild_id is not None and settings.discord_voice_channel_id is not None:
@@ -221,7 +228,47 @@ class Voice:
         return str(self._channel.id) if self._channel else None
 
     def participants(self) -> list[Participant]:
-        return _humans(self._channel) if self._channel else []
+        return _humans(self._channel, self._names) if self._channel else []
+
+    async def refresh_names(self) -> list[Participant]:
+        """Drop the cached names and re-read everyone's server profile over REST.
+
+        The gateway never tells this bot about a nickname change (that needs the privileged
+        members intent), so a name that changed mid-call stays stale until it is fetched.
+        Called when the bot joins, when a session starts, and from the console button.
+        """
+        self._names = {}
+        channel = self._channel
+        if channel is None:
+            return []
+        guild = channel.guild
+        for member in channel.members:
+            if member.bot:
+                continue
+            try:
+                fresh = await guild.fetch_member(member.id)
+            except discord.HTTPException as exc:
+                logger.warning("voice.name_fetch_failed", discord_id=str(member.id), error=str(exc))
+                continue
+            if fresh.display_name != member.display_name:
+                logger.info(
+                    "voice.name_changed",
+                    discord_id=str(member.id),
+                    was=member.display_name,
+                    now=fresh.display_name,
+                )
+            self._names[str(member.id)] = fresh.display_name
+        return _humans(channel, self._names)
+
+    async def _refresh_one(self, member: discord.Member) -> None:
+        """Re-read one member's server profile — they just walked into the channel."""
+        self._names.pop(str(member.id), None)
+        try:
+            fresh = await member.guild.fetch_member(member.id)
+        except discord.HTTPException as exc:
+            logger.warning("voice.name_fetch_failed", discord_id=str(member.id), error=str(exc))
+            return
+        self._names[str(member.id)] = fresh.display_name
 
     def discord_servers(self) -> dict[str, Any]:
         """Console-safe view of every server and voice channel visible to the bot."""
@@ -394,7 +441,7 @@ class Voice:
             ):
                 # Someone dragged the bot to another channel: follow it.
                 self._channel = after.channel
-                people = _humans(after.channel)
+                people = await self.refresh_names()
                 self._events.on_joined(str(after.channel.guild.id), str(after.channel.id), people)
                 if people:
                     self._cancel_leave()
@@ -412,7 +459,9 @@ class Voice:
         if (before.channel and before.channel.id == ours) or (
             after.channel and after.channel.id == ours
         ):
-            people = _humans(self._channel)
+            if after.channel is not None and after.channel.id == ours:
+                await self._refresh_one(member)
+            people = _humans(self._channel, self._names)
             self._events.on_participants(people)
             if people:
                 self._cancel_leave()
@@ -439,7 +488,7 @@ class Voice:
             self._vc, self._channel = vc, channel
             self._guild_id = channel.guild.id
             self._start_listening()
-            people = _humans(channel)
+            people = await self.refresh_names()
             self._events.on_joined(str(channel.guild.id), str(channel.id), people)
             if not people:
                 self._schedule_leave()

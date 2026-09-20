@@ -60,8 +60,9 @@ services:
       SLNG_BASE_URL: ${SLNG_BASE_URL:-https://eu-west.api.slng.ai}
       SLNG_STT_MODEL: ${SLNG_STT_MODEL:-deepgram/nova:3}
       SLNG_STT_LANGUAGE: ${SLNG_STT_LANGUAGE:-en}
-      SLNG_TTS_MODEL: ${SLNG_TTS_MODEL:-slng/fish/tts:s2.1-pro}
-      SLNG_TTS_VOICE: ${SLNG_TTS_VOICE:-16cabdb7f8d240569aff36c9e480d783}
+      # Karen's voice — keep in step with the brain's config/models.yaml tts block.
+      SLNG_TTS_MODEL: ${SLNG_TTS_MODEL:-deepgram/aura:2}
+      SLNG_TTS_VOICE: ${SLNG_TTS_VOICE:-aura-2-thalia-en}
       STT_MODE: ${STT_MODE:-stream}
       WIRE_HOST: 0.0.0.0
       WIRE_PORT: 8787

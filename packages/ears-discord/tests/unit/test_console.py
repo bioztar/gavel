@@ -211,3 +211,39 @@ def test_brain_state_is_proxied_for_the_console(httpx_mock: HTTPXMock) -> None:
     response = client.get("/api/brain-state")
     assert response.status_code == 200
     assert response.json() == {"chairName": "Karen", "phase": "gathering", "readyToStart": True}
+
+
+class RenamingVoice(FakeDiscordVoice):
+    """Discord never tells the bot about a profile rename; a refresh re-reads it."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.name = "Old Name"
+
+    async def refresh_names(self) -> list[Participant]:
+        return [Participant(discord_id="1", name=self.name)]
+
+
+def test_refresh_names_re_announces_the_roster_and_a_new_session_uses_it() -> None:
+    ears, client, sent = make()
+    voice = RenamingVoice()
+    ears.voice = voice  # type: ignore[assignment]
+    ears.on_joined("10", "20", [Participant(discord_id="1", name="Old Name")])
+
+    voice.name = "New Name"
+    body = client.post("/api/discord/refresh-names")
+    assert body.status_code == 200, body.text
+    assert body.json() == {"participants": [{"discordId": "1", "name": "New Name"}]}
+    assert ears.participants["1"].name == "New Name"
+    assert [f for f in sent if f["type"] == "participants"][-1]["participants"] == [
+        {"discordId": "1", "name": "New Name"}
+    ]
+
+    # Restarting the meeting hands the brain the name the person actually has now.
+    meeting = client.post("/api/meetings", json={"title": "Sync", "agenda": AGENDA}).json()
+    voice.name = "Newer Name"
+    client.post("/api/sessions", json={"meetingId": meeting["id"]})
+    started = [f for f in sent if f["type"] == "session.started"][-1]
+    assert started["agenda"]["attendees"] == [
+        {"discordId": "1", "name": "Newer Name", "role": "host"}
+    ]

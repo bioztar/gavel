@@ -45,7 +45,10 @@ export const ModelsConfig = z.object({
 export const Policy = z.object({
   floorShareThreshold: z.number(),
   floorWindowSeconds: z.number(),
-  floorMinSpeakingSeconds: z.number(),
+  // Speaking time in the floor window that earns a handover: soft at the talker's next
+  // pause, hard (0: never) cutting in as priority speaker.
+  softHandoverSeconds: z.number(),
+  hardHandoverSeconds: z.number(),
   topicOverrunFactor: z.number(),
   silenceSeconds: z.number(),
   minSecondsBetweenInterventions: z.number(),
@@ -55,9 +58,6 @@ export const Policy = z.object({
   muteSeconds: z.number(),
   requireStart: z.boolean().default(true),
   timed: z.boolean().default(true),
-  // How Karen hands the floor from someone hogging it. soft: she waits for a pause and never
-  // talks over them. hard: she cuts in at once, as priority speaker.
-  handover: z.enum(["soft", "hard"]).default("soft"),
 });
 export type Policy = z.infer<typeof Policy>;
 

@@ -61,11 +61,13 @@ class Settings(BaseSettings):
     slng_stt_model: str = "deepgram/nova:3"
     slng_stt_language: str = "en"
     slng_timeout_seconds: float = 10.0
-    # TTS for the console's say-box. Fish on eu-west was the fastest route measured
-    # from Barcelona (~1.2s to first byte). Aura: model `deepgram/aura:2`, voice
-    # `aura-2-thalia-en`.
-    slng_tts_model: str = "slng/fish/tts:s2.1-pro"
-    slng_tts_voice: str = "16cabdb7f8d240569aff36c9e480d783"
+    # TTS for the console's say-box. This is Karen speaking, so it must be Karen's voice:
+    # keep it the same as the chair's in the brain's config/models.yaml (`tts.model` /
+    # `tts.voice`) — the brain streams, the say-box takes a whole clip over HTTP, and the
+    # voice is the same either way. The old Fish voice: model `slng/fish/tts:s2.1-pro`,
+    # voice `16cabdb7f8d240569aff36c9e480d783`.
+    slng_tts_model: str = "deepgram/aura:2"
+    slng_tts_voice: str = "aura-2-thalia-en"
 
     # --- signal shaping ----------------------------------------------------
     # Silence that closes a turn — one person holding the floor.

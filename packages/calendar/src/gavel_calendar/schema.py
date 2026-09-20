@@ -29,7 +29,8 @@ class Contract(BaseModel):
 EARS_DEFAULT_POLICY: dict[str, float | bool | str] = {
     "floorShareThreshold": 0.6,
     "floorWindowSeconds": 120,
-    "floorMinSpeakingSeconds": 45,
+    "softHandoverSeconds": 45,
+    "hardHandoverSeconds": 90,
     "topicOverrunFactor": 1.2,
     "silenceSeconds": 15,
     "minSecondsBetweenInterventions": 45,
@@ -43,9 +44,6 @@ EARS_DEFAULT_POLICY: dict[str, float | bool | str] = {
     # False: no time budgets and no set order — topics are taken as the room gets to them,
     # and neither a topic nor the meeting runs over.
     "timed": True,
-    # "soft": the chair hands the floor on at the talker's next pause, never over them;
-    # "hard": she cuts in at once as priority speaker.
-    "handover": "soft",
 }
 
 

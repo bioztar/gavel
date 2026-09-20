@@ -189,15 +189,17 @@ function floorHog(s: Snapshot): Intervention | null {
     (p) =>
       p.holding &&
       !drifting.has(p.id) &&
-      p.windowMs >= Math.min(s.policy.floorMinSpeakingSeconds * S, windowMs) &&
+      p.windowMs >= Math.min(s.policy.softHandoverSeconds * S, windowMs) &&
       p.windowMs / total >= s.policy.floorShareThreshold,
   );
   if (!hog) return null;
   const pick = pickSpeaker(s, [hog.id]);
   if (!pick) return null;
   const question = nextQuestion(s, s.topic);
-  // soft: the line waits for the talker to breathe; hard: Karen cuts in as priority speaker.
-  const hard = s.policy.handover === "hard";
+  // Past the soft threshold the line waits for the talker to breathe; once they are past the
+  // hard one too, Karen stops waiting and cuts in as priority speaker. 0: she never cuts in.
+  const hardSeconds = s.policy.hardHandoverSeconds;
+  const hard = hardSeconds > 0 && hog.windowMs >= Math.min(hardSeconds * S, windowMs);
   return {
     trigger: "floorHog",
     kind: "floorHog",

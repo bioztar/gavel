@@ -30,6 +30,7 @@
     "topicOverrunFactor": 1.2,
     "floorShareThreshold": 0.6,
     "floorWindowSeconds": 90,
-    "floorMinSpeakingSeconds": 40
+    "softHandoverSeconds": 40,
+    "hardHandoverSeconds": 75
   }
 }

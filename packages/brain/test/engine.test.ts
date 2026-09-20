@@ -748,15 +748,16 @@ describe("keeping up with the room, as in the 2026-09-19 cats-vs-dogs session", 
       if (iv) spoken(t + 2_000);
       if (iv?.kind === "floorHog") again.push(t);
     }
-    // Only once they have held most of the floor for floorMinSpeakingSeconds more.
+    // Only once they have held most of the floor for softHandoverSeconds more.
     expect(again[0]! - first!).toBeGreaterThanOrEqual(45_000);
   });
 
   it.each([
-    ["soft", { priority: false, quietMs: 700, maxWaitMs: 15_000 }],
-    ["hard", { priority: true, quietMs: 700, maxWaitMs: 0 }],
-  ])("a %s floor handover waits for a pause, or cuts in", async (handover, gate) => {
-    const { tick, talking, spoken, start, sent } = room(undefined, { handover });
+    ["soft", { priority: false, quietMs: 700, maxWaitMs: 15_000 }, { softHandoverSeconds: 45, hardHandoverSeconds: 90 }],
+    // Hard at the same threshold as soft: the first handover already cuts in.
+    ["hard", { priority: true, quietMs: 700, maxWaitMs: 0 }, { softHandoverSeconds: 45, hardHandoverSeconds: 45 }],
+  ])("a %s floor handover waits for a pause, or cuts in", async (_name, gate, policy) => {
+    const { tick, talking, spoken, start, sent } = room(undefined, policy);
     await start();
     spoken(2_000);
     talking(VIT, 3_000);

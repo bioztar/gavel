@@ -42,11 +42,19 @@ export function loadAgendaFile(path: string): Agenda {
 /** YAML defaults, overridden key by key by the agenda's own policy block. */
 export function mergePolicy(defaults: Policy, agenda: Agenda | null): Policy {
   const out: Policy = { ...defaults };
-  for (const [key, value] of Object.entries(agenda?.policy ?? {})) {
+  const own = agenda?.policy ?? {};
+  for (const [key, value] of Object.entries(own)) {
     if (!(key in defaults)) continue;
     const want = typeof defaults[key as keyof Policy];
     if (typeof value === want) (out as Record<string, unknown>)[key] = value;
   }
-  if (out.handover !== "soft" && out.handover !== "hard") out.handover = defaults.handover;
+  // Agendas written before the two thresholds: one gate, and `handover` fixing the style
+  // of every handover. "hard" then meant cutting in as soon as the gate was passed.
+  if (typeof own.floorMinSpeakingSeconds === "number" && typeof own.softHandoverSeconds !== "number") {
+    out.softHandoverSeconds = own.floorMinSpeakingSeconds;
+  }
+  if (own.handover === "hard" && typeof own.hardHandoverSeconds !== "number") {
+    out.hardHandoverSeconds = out.softHandoverSeconds;
+  }
   return out;
 }

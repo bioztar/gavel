@@ -227,6 +227,21 @@ class Ears:
         self.debug("status.configured", guildId=guild_id, **config.view())
         return self.discord_servers()
 
+    async def refresh_names(self) -> list[dict[str, Any]]:
+        """Re-read everyone's Discord server profile and re-announce the roster.
+
+        Someone renaming themselves mid-call never reaches this bot over the gateway, so
+        the names it holds — the ones Karen says out loud — go stale until this runs.
+        """
+        if self.voice is None:
+            raise RuntimeError("Discord bot is not running")
+        people = await self.voice.refresh_names()
+        if self.channel_id is None:
+            return []
+        self._set_participants(people)
+        self.emit(Participants(participants=people))
+        return [p.model_dump(by_alias=True) for p in people]
+
     async def configure_discord_channel(
         self, guild_id: str, channel_id: str | None
     ) -> dict[str, Any]:

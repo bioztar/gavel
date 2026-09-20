@@ -40,7 +40,8 @@ Times are in **seconds**, so a demo agenda can be three minutes long without fra
   "policy": {
     "floorShareThreshold": 0.6,
     "floorWindowSeconds": 120,
-    "floorMinSpeakingSeconds": 45,
+    "softHandoverSeconds": 45,
+    "hardHandoverSeconds": 90,
     "topicOverrunFactor": 1.2,
     "silenceSeconds": 15,
     "minSecondsBetweenInterventions": 45
@@ -182,9 +183,12 @@ chair opens the meeting herself once everyone is in the call, no "Karen, let's s
 meeting") and `timed` (true — false: topics have no budgets and no order; the chair
 follows the room to whichever agenda item it takes up, never calls time on a topic or the
 meeting, and the brain's `/state` reports `timed: false` and each topic's `discussed`) and
-`handover` (`"soft"` — the chair hands the floor from someone hogging it at their next pause,
-never talking over them; `"hard"`: she cuts in at once as priority speaker).
-Absent means the default.
+the two floor-handover thresholds, both counting one person's speaking time inside
+`floorWindowSeconds`: `softHandoverSeconds` (45 — past it the chair hands the floor on at
+that talker's next pause, never talking over them) and `hardHandoverSeconds` (90 — still
+holding the floor past it, she cuts in at once as priority speaker; `0`: never cut in;
+below the soft one: always cut in). Absent means the default. The older `handover`
+(`"soft"` / `"hard"`) and `floorMinSpeakingSeconds` are still read from saved agendas.
 
 `session.started.agenda` is optional for the brain to use: it is whatever the host typed
 into the ears console (`http://localhost:8787/console`). A brain that loads its agenda

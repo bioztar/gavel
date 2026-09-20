@@ -159,4 +159,6 @@ fallback behind the same `VoiceEvents` interface.
 
 `TURN_GAP_MS` (1500), `TURN_TICK_MS` (10000), `UTTERANCE_GAP_MS` (800),
 `CHUNK_MAX_MS` (15000), `CHUNK_MIN_MS` (400), `SILENCE_RMS` (60), `SLNG_STT_LANGUAGE` (en),
-`SLNG_TTS_MODEL` (`slng/fish/tts:s2.1-pro`, ~1.2 s from Barcelona) and `SLNG_TTS_VOICE`.
+`SLNG_TTS_MODEL` (`deepgram/aura:2`) and `SLNG_TTS_VOICE` (`aura-2-thalia-en`) — the
+say-box is Karen talking, so these stay in step with the chair's voice in the brain's
+`config/models.yaml`.

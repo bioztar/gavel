@@ -130,13 +130,21 @@ describe("floorHog", () => {
     expect(iv).toMatchObject({ kind: "floorHog", targetId: "vit", addresseeId: "marc" });
   });
 
-  it("soft (the default) waits for the talker to breathe; hard cuts in", () => {
-    const people = [person("vit", { holding: true, windowMs: 70_000 }), person("ana", { windowMs: 10_000 }), person("marc")];
-    const s = snap({ people });
-    expect(s.policy.handover).toBe("soft");
+  it("waits for the talker to breathe past the soft threshold, and cuts in past the hard one", () => {
+    const soft = [person("vit", { holding: true, windowMs: 70_000 }), person("ana", { windowMs: 10_000 }), person("marc")];
+    const s = snap({ people: soft });
+    expect(s.policy).toMatchObject({ softHandoverSeconds: 45, hardHandoverSeconds: 90 });
     expect(evaluate(s)).toMatchObject({ kind: "floorHog", priority: false, waitForRoom: true });
-    s.policy.handover = "hard";
-    expect(evaluate(s)).toMatchObject({ kind: "floorHog", priority: true, waitForRoom: false });
+
+    const hard = [person("vit", { holding: true, windowMs: 95_000 }), person("ana", { windowMs: 10_000 }), person("marc")];
+    expect(evaluate(snap({ people: hard }))).toMatchObject({ kind: "floorHog", priority: true, waitForRoom: false });
+  });
+
+  it("hardHandoverSeconds 0 means she never talks over anyone", () => {
+    const people = [person("vit", { holding: true, windowMs: 115_000 }), person("ana", { windowMs: 5_000 }), person("marc")];
+    const s = snap({ people });
+    s.policy.hardHandoverSeconds = 0;
+    expect(evaluate(s)).toMatchObject({ kind: "floorHog", priority: false, waitForRoom: true });
   });
 
   it("never hands the floor on during a presentation", () => {

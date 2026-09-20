@@ -9,6 +9,7 @@
     GET  /api/discord/servers       servers/channels visible to the bot + selections
     PUT  /api/discord/servers/{id}  {"channelId": ...|null} → select its meeting channel
     PUT  /api/discord/servers/{id}/status  {"enabled", "channelId"|null} → its status message
+    POST /api/discord/refresh-names re-read everyone's server profile name from Discord
     GET  /api/meetings              ...and POST, PUT /{id}, DELETE /{id}
     POST /api/sessions              {"meetingId": ...|null} → end the current session, start a new one
     POST /api/sessions/end
@@ -235,6 +236,15 @@ def create_api(ears: Ears) -> FastAPI:
         except RuntimeError as exc:
             raise HTTPException(503, str(exc)) from exc
 
+    @api.post("/api/discord/refresh-names")
+    async def refresh_names() -> dict[str, Any]:
+        """Names are cached per connection: Discord never pushes a profile rename to this
+        bot. This drops the cache, re-reads it, and re-announces the roster to the brain."""
+        try:
+            return {"participants": await ears.refresh_names()}
+        except RuntimeError as exc:
+            raise HTTPException(503, str(exc)) from exc
+
     @api.get("/api/brain-state")
     async def brain_state() -> dict[str, Any]:
         """Same-origin bridge for the console; brain itself remains call-SDK agnostic."""
@@ -285,6 +295,9 @@ def create_api(ears: Ears) -> FastAPI:
             meeting = await ears.store.get_meeting(body.meeting_id)
             if meeting is None:
                 raise HTTPException(404, "no such meeting")
+        # A meeting restarted because someone fixed their name in Discord must see it.
+        with contextlib.suppress(RuntimeError):  # no bot running: start the session anyway
+            await ears.refresh_names()
         return {"sessionId": ears.start_session(meeting)}
 
     @api.post("/api/sessions/end")
