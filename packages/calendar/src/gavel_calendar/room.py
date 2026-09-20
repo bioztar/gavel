@@ -48,7 +48,7 @@ POLL_SECONDS = 2
 # Nobody in the meeting knows what `floorHog` is; everybody knows what happened.
 KIND_LABELS: dict[str, str] = {
     "startMeeting": "Opened the meeting",
-    "waitingForPeople": "Waiting for people",
+    "lobbyGreeting": "Welcomed someone in",
     "addressed": "Answered the room",
     "nextTopic": "Moved to the next topic",
     "topicOverrun": "Topic was over its budget",

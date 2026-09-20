@@ -3,8 +3,10 @@ form -> a real meeting in `InviteStore`, a join link, and a best-effort
 Resend email.
 
 Ordering, per the mission: the meeting is built in the store *before* the
-`.ics` or the email is even attempted, so the join URL always works even if
-everything after it fails. Nothing here imports `app.py` — the three routes
+`.ics`, the ears session or the email is even attempted, so the join URL always
+works even if everything after it fails. Handing it to ears comes next, because
+a meeting that exists but is not the one the chair is holding is the friction
+this front door was built to remove. Nothing here imports `app.py` — the three routes
 live there instead (see its module docstring) so they share its one `store`
 instance without a circular import; this module only takes the store, an
 already-built `Settings`, and form data as plain arguments.
@@ -21,7 +23,9 @@ from email.utils import getaddresses
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
+from . import service
 from .agenda import attendee_name, build_agenda
+from .ears_client import EarsClient
 from .ics_parser import InviteAttendee, ParsedInvite, TopicDraft
 from .ics_writer import build_ics
 from .invite_email import render_invite_html, render_invite_text
@@ -514,7 +518,12 @@ def _host(attendee_pairs: list[tuple[str, str]], from_email: str) -> tuple[str, 
     return attendee_pairs[0]
 
 
-async def handle_send(form: FormData, store: InviteStore, settings: Settings) -> str:
+async def handle_send(
+    form: FormData,
+    store: InviteStore,
+    settings: Settings,
+    ears: EarsClient | None = None,
+) -> str:
     title = _form_str(form, "title").strip() or "Untitled meeting"
     brief = _form_str(form, "brief")
     attendees_raw = _form_str(form, "attendees")
@@ -579,6 +588,14 @@ async def handle_send(form: FormData, store: InviteStore, settings: Settings) ->
     await store.save(record)
     join_url = f"{settings.calendar_public_url}/m/{session_id}"
 
+    # ...and it is the meeting ears is holding, from this point on too. Creating it is the
+    # moment the host has the agenda in front of them and knows it is right, so this is
+    # where the chair is handed it — not at the event's start time, by which point people
+    # are already in the voice channel wondering why Karen has nothing to say. The session
+    # opens a lobby, nothing more: the agenda clock only starts once the room is full or
+    # somebody asks her to begin (docs/CONTRACT.md §2).
+    started = await _safe_start(store, ears, session_id)
+
     mail_result = await _safe_mail(
         session_id=session_id,
         title=title,
@@ -592,7 +609,25 @@ async def handle_send(form: FormData, store: InviteStore, settings: Settings) ->
         settings=settings,
     )
 
-    return _render_success_page(record, join_url, settings.discord_meeting_url, mail_result)
+    return _render_success_page(
+        record, join_url, settings.discord_meeting_url, mail_result, started
+    )
+
+
+async def _safe_start(
+    store: InviteStore, ears: EarsClient | None, session_id: str
+) -> bool:
+    """Make this the meeting ears is running. Best-effort, like the mail: an ears that is
+    down or busy costs the head start, never the invite — the scheduler starts it at the
+    event's own time, and the room page's own Join button starts it on a click."""
+    if ears is None:
+        return False
+    try:
+        await service.start(store, ears, session_id)
+    except Exception:  # ears unreachable, rejecting, restarting...
+        logger.exception("compose.start_failed session_id=%s", session_id)
+        return False
+    return True
 
 
 async def _safe_mail(
@@ -658,7 +693,11 @@ async def _safe_mail(
 
 
 def _render_success_page(
-    record: InviteRecord, join_url: str, discord_url: str, mail_result: MailResult
+    record: InviteRecord,
+    join_url: str,
+    discord_url: str,
+    mail_result: MailResult,
+    started: bool = False,
 ) -> str:
     e = html.escape
     rows = "".join(
@@ -672,6 +711,13 @@ def _render_success_page(
         else '<p><span class="notice bad">Invite email not sent: '
         f"{e(mail_result.reason or 'unknown reason')}</span></p>"
     )
+    # Two different promises: the invite went out, and Karen is already holding the room.
+    chair = (
+        '<p><span class="notice ok">Karen is holding the room</span></p>'
+        if started
+        else '<p><span class="notice bad">Karen has not been handed this one yet — '
+        "the join link starts her</span></p>"
+    )
     when = record.start.strftime("%a %d %b, %H:%M")
     mins = int((record.end - record.start).total_seconds()) // 60
     return f"""<!doctype html>
@@ -684,7 +730,8 @@ def _render_success_page(
 <h1>{e(record.title)}</h1>
 <p class="meta">{e(when)} &nbsp;·&nbsp; {mins} min</p>
 {notice}
-<p><a class="button" href="{e(join_url)}">Open the join link</a></p>
+{chair}
+<p><a class="button" href="{e(join_url)}">Open the meeting room</a></p>
 <p class="quiet">Discord: <a href="{e(discord_url)}">{e(discord_url)}</a></p>
 <h2>Agenda</h2>
 <table><thead><tr><th>Topic</th><th>Budget</th><th>Owner</th></tr></thead>

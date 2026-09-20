@@ -3,7 +3,8 @@
     GET  /                  redirects to /board (Traefik routes the whole host here)
     GET  /compose            the brief textarea — see compose.py
     POST /compose/parse      brief → LLM → editable confirm form
-    POST /compose/send       confirm → meeting created, .ics + email sent best-effort
+    POST /compose/send       confirm → meeting created, handed to ears as the session it
+                             is now holding, .ics + email sent best-effort
     POST /invite            upload or paste an .ics → {sessionId, joinUrl}
     GET  /m/{session_id}    the meeting room: the agenda before, Karen's face and
                              her running commentary during, the report after —
@@ -162,7 +163,7 @@ async def compose_parse(
 @app.post("/compose/send", response_class=HTMLResponse)
 async def compose_send(request: Request) -> str:
     form = await request.form()
-    return await compose.handle_send(form, store, settings)
+    return await compose.handle_send(form, store, settings, ears)
 
 
 @app.get("/board", response_class=HTMLResponse)

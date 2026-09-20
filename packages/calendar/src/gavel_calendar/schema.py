@@ -38,9 +38,10 @@ EARS_DEFAULT_POLICY: dict[str, float | bool | str] = {
     "allowMute": False,
     "escalateAfterSeconds": 10,
     "muteSeconds": 15,
-    # False: the chair opens the meeting herself once everyone is in the call,
-    # instead of waiting for "Karen, let's start the meeting".
-    "requireStart": True,
+    # False (the default): the chair opens the meeting herself once every expected
+    # attendee is in the call. Either way "Karen, let's start the meeting" opens it at
+    # once, however few people are there. True: only that instruction ever opens it.
+    "requireStart": False,
     # False: no time budgets and no set order — topics are taken as the room gets to them,
     # and neither a topic nor the meeting runs over.
     "timed": True,

@@ -104,8 +104,11 @@ def test_meeting_crud_and_session_carries_agenda() -> None:
     assert started["sessionId"] == sid
     assert started["title"] == "Sync 2" and started["context"] == "ctx"
     assert started["agenda"]["sessionId"] == sid
+    # The saved roster is the invitation: Vitaly is expected and simply not here yet, and
+    # whoever else is in the channel joins him. Nobody's `mustHear` is quietly dropped.
     assert started["agenda"]["attendees"] == [
-        {"discordId": "2", "name": "Ana", "role": "host"},
+        {"discordId": "1", "name": "Vitaly", "role": "host"},
+        {"discordId": "2", "name": "Ana", "role": "attendee"},
         {"discordId": "3", "name": "Marc", "role": "attendee"},
     ]
     assert started["agenda"]["topics"][0]["mustHear"] == ["1"]
@@ -121,6 +124,87 @@ def test_meeting_crud_and_session_carries_agenda() -> None:
     ]
     client.post("/api/sessions/end")
     assert ears.session_id is None
+
+
+# --- the roster an invitation carries -------------------------------------------------
+# A calendar invite has names and emails, never snowflakes; `packages/calendar` falls back
+# to the email as the `discordId`. Binding the two by name is what makes the person who
+# joins the call the person who was invited, rather than a fourth stranger.
+
+INVITED = {
+    "purpose": "Pick a date",
+    "attendees": [
+        {"discordId": "vitaly@x.dev", "name": "Vitaly", "role": "host"},
+        {"discordId": "artem@x.dev", "name": "Artem", "role": "attendee"},
+    ],
+    "topics": [
+        {
+            "id": "t1",
+            "title": "Status",
+            "budgetSeconds": 90,
+            "owner": "artem@x.dev",
+            "mustHear": ["artem@x.dev"],
+        }
+    ],
+}
+
+
+def test_an_invited_attendee_is_bound_to_the_speaker_with_their_name() -> None:
+    ears, client, sent = make()
+    meeting = client.post("/api/meetings", json={"title": "Sync", "agenda": INVITED}).json()
+    ears.participants = {
+        "777": Participant(discord_id="777", name="artemshambalev"),
+        "888": Participant(discord_id="888", name="Priya"),
+    }
+    client.post("/api/sessions", json={"meetingId": meeting["id"]})
+    agenda = [f for f in sent if f["type"] == "session.started"][-1]["agenda"]
+    assert agenda["attendees"] == [
+        # Expected, not here yet — the chair waits for him and the room page says so.
+        {"discordId": "vitaly@x.dev", "name": "Vitaly", "role": "host"},
+        {"discordId": "777", "name": "artemshambalev", "role": "attendee"},
+        # In the channel, on nobody's invitation: still in the meeting.
+        {"discordId": "888", "name": "Priya", "role": "attendee"},
+    ]
+    # The topic follows him to his Discord id, or the brain chases an owner it cannot see.
+    assert agenda["topics"][0]["owner"] == "777"
+    assert agenda["topics"][0]["mustHear"] == ["777"]
+
+
+def test_one_speaker_answers_for_one_attendee() -> None:
+    """"Vitaly" and "Vitaly P" cannot both be the one Vitaly who actually joined."""
+    ears, client, sent = make()
+    agenda = {
+        **INVITED,
+        "attendees": [
+            {"discordId": "vp@x.dev", "name": "Vitaly P", "role": "attendee"},
+            {"discordId": "v@x.dev", "name": "Vitaly", "role": "host"},
+        ],
+        "topics": [],
+    }
+    meeting = client.post("/api/meetings", json={"title": "Sync", "agenda": agenda}).json()
+    ears.participants = {"777": Participant(discord_id="777", name="Vitaly")}
+    client.post("/api/sessions", json={"meetingId": meeting["id"]})
+    started = [f for f in sent if f["type"] == "session.started"][-1]
+    assert started["agenda"]["attendees"] == [
+        {"discordId": "vp@x.dev", "name": "Vitaly P", "role": "attendee"},
+        {"discordId": "777", "name": "Vitaly", "role": "host"},
+    ]
+
+
+def test_a_meeting_with_no_saved_roster_is_still_whoever_is_in_the_channel() -> None:
+    ears, client, sent = make()
+    agenda = {**INVITED, "attendees": [], "topics": []}
+    meeting = client.post("/api/meetings", json={"title": "Sync", "agenda": agenda}).json()
+    ears.participants = {
+        "2": Participant(discord_id="2", name="Ana"),
+        "3": Participant(discord_id="3", name="Marc"),
+    }
+    client.post("/api/sessions", json={"meetingId": meeting["id"]})
+    started = [f for f in sent if f["type"] == "session.started"][-1]
+    assert started["agenda"]["attendees"] == [
+        {"discordId": "2", "name": "Ana", "role": "host"},
+        {"discordId": "3", "name": "Marc", "role": "attendee"},
+    ]
 
 
 def test_unknown_meeting_is_404_and_bad_id_422() -> None:

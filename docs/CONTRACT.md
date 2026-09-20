@@ -141,15 +141,34 @@ someone clicking a dropdown mid-meeting means it now and a YAML hot-reload must 
 silently undo them. Ignoring the frame is legal, as with every additive frame — a brain
 that does simply keeps using its configured voice.
 
-`session.started` opens a **gathering lobby**, not the agenda clock. Brain waits for all
-`agenda.attendees` to appear in the latest participant set and for a final transcript
-addressed to Karen with an explicit start instruction (for example, “Karen, let's start
-the meeting”). It then speaks the agenda, names the first speaker, and enters the active
-phase. Joining voice or reaching a wall-clock time never starts moderation by itself.
+`session.started` opens a **gathering lobby**, not the agenda clock. Two things open the
+meeting out of it, and nothing else does — not joining voice, not a wall-clock time:
 
-For sessions started from the ears console, ears replaces a meeting template's attendee
-list with the human users currently in its voice channel. The roster is snapshotted when
-the session starts and is re-sent unchanged if a brain reconnects.
+- every `agenda.attendees` entry is in the latest participant set, and has been for
+  `autoStartDelayMs` (3 s). A roster is required: a session with no expected attendees at
+  all has no "everyone" to wait for, so it waits to be asked. `policy.requireStart: true`
+  turns this half off;
+- a final transcript addressed to Karen with an explicit start instruction (“Karen, let's
+  start the meeting”). This one always works, however few people are in the call — being
+  told to start and answering "no, I'll wait" is the one thing a chair cannot do. Whoever
+  never turned up is named in the opening instead.
+
+Either way she then speaks the agenda, names the first speaker, and enters the active
+phase. While the lobby is open, somebody walking into the channel gets a short spoken
+hello naming who is still expected — unless their arrival is the one that completes the
+roster, since the opening is then seconds away and welcomes them itself.
+
+The roster is snapshotted when the session starts and is re-sent unchanged if a brain
+reconnects. It is the meeting's **saved** attendee list where there is one — an invitation
+from `packages/calendar` — with each saved attendee bound to the speaker in the channel
+whose **name** is theirs, because an invitation carries an email and a voice channel
+carries a snowflake (§4). Whoever is present and matches no attendee is appended; whoever
+is expected and absent is kept, and is who the chair is waiting for. With no saved roster
+— every meeting the ears console creates — the people in the voice channel *are* the
+roster, and the first of them is the host. The brain re-runs the same name binding on
+every `participants` frame, which is what recognizes the people who arrive after the
+session started; a binding rewrites that attendee's `discordId` and every `owner` /
+`mustHear` that named them.
 
 ### Additive — moderation (brain → ears, and back)
 
@@ -190,9 +209,9 @@ an additional command channel.
 ### Additive — policy
 
 `policy` also takes `offAgendaGraceSeconds` (20), `allowMute` (false),
-`escalateAfterSeconds` (10), `muteSeconds` (15) and `requireStart` (true — false: the
-chair opens the meeting herself once everyone is in the call, no "Karen, let's start the
-meeting") and `timed` (true — false: topics have no budgets and no order; the chair
+`escalateAfterSeconds` (10), `muteSeconds` (15) and `requireStart` (false — the chair
+opens the meeting herself once every expected attendee is in the call; true: only "Karen,
+let's start the meeting" ever opens it, however full the room is) and `timed` (true — false: topics have no budgets and no order; the chair
 follows the room to whichever agenda item it takes up, never calls time on a topic or the
 meeting, and the brain's `/state` reports `timed: false` and each topic's `discussed`) and
 the two floor-handover thresholds, both counting one person's speaking time inside
@@ -233,6 +252,12 @@ if the real ears emit something the fixture does not, add it to the fixture.
 `calendar` turns a real `.ics` invite into the §1 agenda shape and starts a session by
 calling `ears-discord`'s existing HTTP API (`POST /api/meetings` then `POST /api/sessions`)
 — it invents no second session concept and never touches `packages/ears-discord/`.
+
+Creating a meeting starts it: `POST /compose/send` hands it to ears there and then, so the
+chair is already holding this meeting (and this agenda) by the time anyone reaches the
+voice channel. That is a lobby, not a running meeting — see §2 for what opens it. ears
+being unreachable costs the head start and never the invite: the scheduler and the room
+page's Join button still start it, and both are idempotent.
 
 | Method & path | Body | Response |
 |---|---|---|

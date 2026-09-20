@@ -72,6 +72,13 @@ kinds:
       - "{{name}}, you're due a turn on {{notHeardOn}}. {{question?}}"
       - "{{name}}, the floor is open. {{question?}}"
 
+  lobbyGreeting:
+    templates:
+      - "Welcome, {{names}}. We are still waiting for {{missingNames}}."
+      - "Good to have you, {{names}}. {{missingNames}} are yet to join."
+      - "Welcome, {{names}}. Tell me when you would like to begin."
+      - "{{names}}, welcome. I will start on your word."
+
   newcomer:
     templates:
       - "Welcome, {{names}}! We're on {{topicTitle}}. {{name}}, what's your take? {{question?}}"

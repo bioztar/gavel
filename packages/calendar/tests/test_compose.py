@@ -7,6 +7,7 @@ from pytest_httpx import HTTPXMock
 from starlette.datastructures import FormData
 
 from gavel_calendar import compose
+from gavel_calendar.ears_client import EarsError
 from gavel_calendar.settings import Settings
 from gavel_calendar.store import InviteStore
 
@@ -133,6 +134,34 @@ async def test_handle_send_creates_meeting_even_when_mail_is_dry_run() -> None:
     assert record.agenda["topics"][0]["budgetSeconds"] == 1800
     assert "not sent" in html_out
     assert record.session_id in html_out
+
+
+async def test_handle_send_survives_ears_being_down() -> None:
+    """The same promise as the mailer's: the meeting is saved before ears is called, so an
+    ears that is unreachable costs the head start and nothing else. The scheduler and the
+    room page's own Join button both still start it."""
+
+    class DeadEars:
+        async def create_meeting(self, *_a: object, **_kw: object) -> str:
+            raise EarsError("connection refused")
+
+        async def start_session(self, *_a: object, **_kw: object) -> str:  # pragma: no cover
+            raise AssertionError("never reached")
+
+    store = InviteStore()
+    form = _form(
+        {
+            "title": "Standup",
+            "attendees": "Vitaly <vitaly@test.dev>",
+            "duration_minutes": "15",
+            "topics_count": "0",
+        }
+    )
+    html_out = await compose.handle_send(form, store, _settings(), DeadEars())  # type: ignore[arg-type]
+
+    record = next(iter(store._records.values()))
+    assert record.title == "Standup" and not record.started
+    assert "has not been handed this one yet" in html_out
 
 
 async def test_handle_send_survives_mailer_raising(monkeypatch: pytest.MonkeyPatch) -> None:

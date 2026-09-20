@@ -134,7 +134,9 @@ describe("a meeting with a purpose but no topics", () => {
 });
 
 describe("Karen and the meeting lobby", () => {
-  it("waits for expected people, then starts only on an explicit instruction", async () => {
+  const VIT = "100000000000000001";
+
+  function lobby(present: Array<{ discordId: string; name: string }>, over: Record<string, unknown> = {}) {
     const config = loadConfig();
     let now = 0;
     const engine = new Engine({
@@ -147,20 +149,111 @@ describe("Karen and the meeting lobby", () => {
       fallbackAgenda: null,
     });
     const agenda = loadAgendaFile(resolve(FIXTURES, "agenda.demo.json"));
-    engine.handle({ type: "ready", channelId: "c", participants: [{ discordId: "100000000000000001", name: "Vitaly" }], atMs: 0 });
+    agenda.policy = { ...agenda.policy, ...over };
+    engine.handle({ type: "ready", channelId: "c", participants: present, atMs: 0 });
     engine.handle({ type: "session.started", sessionId: "s", title: "Sync", agenda, atMs: 0 });
-    now = 60_000;
-    expect(engine.tick()).toBeNull(); // no timer-based opening or silence prompt in the lobby
-    engine.handle({ type: "transcript", discordId: "100000000000000001", text: "Karen, let's start the meeting", final: true, utteranceId: "early", atMs: now });
-    expect(engine.tick()?.kind).toBe("waitingForPeople");
-    await engine.idle();
-    expect(engine.phase).toBe("gathering");
+    const tick = async (at: number) => {
+      now = at;
+      const iv = engine.tick();
+      await engine.idle();
+      return iv;
+    };
+    const arrive = (people: Array<{ discordId: string; name: string }>, at: number) =>
+      engine.handle({ type: "participants", participants: people, atMs: at });
+    const say = (text: string, at: number, who = VIT) =>
+      engine.handle({ type: "transcript", discordId: who, text, final: true, utteranceId: `u${at}`, atMs: at });
+    return { engine, agenda, tick, arrive, say };
+  }
 
-    engine.handle({ type: "participants", participants: agenda.attendees.map(({ discordId, name }) => ({ discordId, name })), atMs: now });
-    engine.handle({ type: "transcript", discordId: "100000000000000001", text: "Karen, please begin the meeting", final: true, utteranceId: "ready", atMs: now });
-    expect(engine.tick()?.kind).toBe("startMeeting");
-    await engine.idle();
-    expect(engine.view()).toMatchObject({ chairName: "Karen", phase: "active", readyToStart: false });
+  it("waits while anyone expected is missing, and opens itself once nobody is", async () => {
+    const { engine, agenda, tick, arrive } = lobby([{ discordId: VIT, name: "Vitaly" }]);
+    expect(await tick(60_000)).toBeNull(); // one of three: no opening, and no silence prompt
+    expect(engine.view()).toMatchObject({ phase: "gathering", readyToStart: false });
+
+    arrive(agenda.attendees.map(({ discordId, name }) => ({ discordId, name })), 60_000);
+    expect(await tick(61_000)).toBeNull(); // the room only just filled: give it a moment
+    expect((await tick(64_000))?.kind).toBe("startMeeting");
+    expect(engine.view()).toMatchObject({ phase: "active", readyToStart: false });
+  });
+
+  it("asked to start, she starts — and says who never turned up", async () => {
+    const { engine, tick, say } = lobby([{ discordId: VIT, name: "Vitaly" }]);
+    say("Karen, let's start the meeting", 1_000);
+    const iv = await tick(1_000);
+    expect(iv?.kind).toBe("startMeeting");
+    expect(iv?.vars.missingNote).toMatch(/Ana and Marc/);
+    expect(engine.phase).toBe("active");
+  });
+
+  it("requireStart keeps her waiting however full the room is", async () => {
+    const { engine, agenda, tick, arrive, say } = lobby([], { requireStart: true });
+    arrive(agenda.attendees.map(({ discordId, name }) => ({ discordId, name })), 0);
+    expect((await tick(10_000))?.kind).toBe("lobbyGreeting"); // hello, not the agenda
+    expect(await tick(60_000)).toBeNull();
+    expect(engine.phase).toBe("gathering");
+    say("Karen, let's start the meeting", 60_000);
+    expect((await tick(60_000))?.kind).toBe("startMeeting");
+  });
+
+  it("a meeting nobody was invited to waits to be asked, however many turn up", async () => {
+    const { engine, tick, arrive } = lobby([]);
+    engine.agenda!.attendees = []; // an ad-hoc session from the ears console: no roster
+    arrive([{ discordId: "9", name: "Jo" }], 0);
+    const iv = await tick(10_000);
+    expect(iv?.kind).toBe("lobbyGreeting");
+    expect(iv?.vars.missingNames).toBe(""); // nobody to wait for: tell them to say the word
+    expect(await tick(60_000)).toBeNull();
+    expect(engine.phase).toBe("gathering");
+  });
+
+  it("greets whoever walks into the lobby, and says who is still missing", async () => {
+    const { engine, tick, arrive } = lobby([{ discordId: VIT, name: "Vitaly" }]);
+    arrive([{ discordId: VIT, name: "Vitaly" }, { discordId: "100000000000000002", name: "Ana" }], 10_000);
+    expect(await tick(10_500)).toBeNull(); // a moment for their audio to connect
+    const iv = await tick(12_000);
+    expect(iv?.kind).toBe("lobbyGreeting");
+    expect(iv?.vars.names).toBe("Ana");
+    expect(iv?.vars.missingNames).toBe("Marc");
+    expect(engine.phase).toBe("gathering");
+    // Discord re-lists the channel on any voice change; nobody is greeted twice.
+    arrive([{ discordId: VIT, name: "Vitaly" }, { discordId: "100000000000000002", name: "Ana" }], 20_000);
+    expect(await tick(30_000)).toBeNull();
+  });
+
+  it("the last arrival is not greeted: the opening welcomes them, seconds later", async () => {
+    const { engine, agenda, tick, arrive } = lobby([{ discordId: VIT, name: "Vitaly" }]);
+    arrive(agenda.attendees.map(({ discordId, name }) => ({ discordId, name })), 10_000);
+    expect(await tick(12_000)).toBeNull();
+    expect((await tick(15_500))?.kind).toBe("startMeeting");
+  });
+
+  it("binds an expected attendee to the speaker whose name is theirs", async () => {
+    const { engine, tick, arrive } = lobby([]);
+    // What a calendar invite carries when no operator mapped the emails to snowflakes.
+    engine.agenda!.attendees = [
+      { discordId: "vitaly@x.dev", name: "Vitaly", role: "host" },
+      { discordId: "artem@x.dev", name: "Artem", role: "attendee" },
+    ];
+    engine.agenda!.topics[0]!.owner = "artem@x.dev";
+    engine.agenda!.topics[0]!.mustHear = ["artem@x.dev"];
+    arrive([{ discordId: "777", name: "Vitaly" }, { discordId: "888", name: "artemshambalev" }], 1_000);
+    expect(engine.agenda!.attendees.map((a) => a.discordId)).toEqual(["777", "888"]);
+    expect(engine.agenda!.attendees[1]!.name).toBe("artemshambalev");
+    // The topic's owner follows them, or the chair would chase someone not in the call.
+    expect(engine.agenda!.topics[0]!.owner).toBe("888");
+    expect(engine.agenda!.topics[0]!.mustHear).toEqual(["888"]);
+    expect(engine.view().missingAttendees).toEqual([]);
+    // Nobody is missing any more, so the meeting opens by itself.
+    expect(await tick(2_000)).toBeNull();
+    expect((await tick(6_000))?.kind).toBe("startMeeting");
+  });
+
+  it("leaves a stranger a stranger: an unmatched name is never bound", async () => {
+    const { engine, arrive } = lobby([]);
+    engine.agenda!.attendees = [{ discordId: "vitaly@x.dev", name: "Vitaly", role: "host" }];
+    arrive([{ discordId: "777", name: "Priya" }], 1_000);
+    expect(engine.agenda!.attendees[0]!.discordId).toBe("vitaly@x.dev");
+    expect(engine.view().missingAttendees).toEqual(["Vitaly"]);
   });
 });
 
@@ -185,6 +278,9 @@ describe("talking to Karen, as in the 2026-09-19 demo transcript", () => {
       fallbackAgenda: null,
     });
     const agenda = loadAgendaFile(resolve(FIXTURES, "agenda.demo.json"));
+    // These are the lobby's *answers*, not its opening: everyone expected is in the call,
+    // so with the default policy Karen would open the meeting three seconds in.
+    agenda.policy = { ...agenda.policy, requireStart: true };
     engine.handle({ type: "ready", channelId: "c", participants: agenda.attendees.map(({ discordId, name }) => ({ discordId, name })), atMs: 0 });
     engine.handle({ type: "session.started", sessionId: "s", title: "Sync", agenda, atMs: 0 });
     const artem = agenda.attendees[0]!.discordId;
@@ -421,11 +517,12 @@ describe("requireStart: false (the cats-and-dogs demo)", () => {
     expect(engine.history.filter((h) => h.kind === "startMeeting")).toHaveLength(1);
   });
 
-  it("by default she still waits to be asked", async () => {
+  it("is the default now: an agenda that says nothing about it still opens itself", async () => {
     const { engine, tick } = lobbyOf("agenda.demo.json");
-    expect(engine.view().requireStart).toBe(true);
-    expect(await tick(60_000)).toBeNull();
-    expect(engine.phase).toBe("gathering");
+    expect(engine.view().requireStart).toBe(false);
+    expect(await tick(1_000)).toBeNull();
+    expect((await tick(4_500))?.kind).toBe("startMeeting");
+    expect(engine.phase).toBe("active");
   });
 });
 

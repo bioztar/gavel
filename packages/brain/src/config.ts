@@ -56,7 +56,9 @@ export const Policy = z.object({
   allowMute: z.boolean(),
   escalateAfterSeconds: z.number(),
   muteSeconds: z.number(),
-  requireStart: z.boolean().default(true),
+  // false (the default): the chair opens the meeting herself once the whole expected
+  // roster is in the call. "Karen, let's start the meeting" opens it either way.
+  requireStart: z.boolean().default(false),
   timed: z.boolean().default(true),
 });
 export type Policy = z.infer<typeof Policy>;
@@ -75,6 +77,7 @@ export const PolicyConfig = z.object({
     neverMuteRoles: z.array(z.string()),
     spokenTimeoutSeconds: z.number(),
     autoStartDelayMs: z.number().int().nonnegative().default(3000),
+    lobbyGreetingDelayMs: z.number().int().nonnegative().default(1500),
   }),
   relevance: z.object({
     minNewWords: z.number().int().positive(),
@@ -125,7 +128,7 @@ export type PolicyConfig = z.infer<typeof PolicyConfig>;
 
 export const INTERVENTION_KINDS = [
   "startMeeting",
-  "waitingForPeople",
+  "lobbyGreeting",
   "addressed",
   "offAgenda",
   "groupOffAgenda",
@@ -160,6 +163,9 @@ export const ChairPrompts = z.object({
   // Added to the user message when the line ran past policy compose.maxWords.
   // Placeholders: words (its length), maxWords, line.
   tooLong: z.string(),
+  // Added to startMeeting's instruction when the room asked to start without everyone.
+  // Placeholder: missingNames.
+  missingNote: z.string().default(""),
   fallbackQuestion: z.string(),
   implicitTopic: z.object({ title: z.string(), goal: z.string(), questions: z.array(z.string()) }),
   kinds: z.object(Object.fromEntries(INTERVENTION_KINDS.map((k) => [k, Kind])) as Record<

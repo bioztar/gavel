@@ -97,8 +97,9 @@ someone enters it and leaves after the room empties. Setup and the operator cons
 
 Start ears with `just run`, start brain with `pnpm start`, open
 `http://127.0.0.1:8787/console`, and create a meeting. Starting a session creates a
-gathering lobby; Karen does not start agenda timers until everyone expected is present
-and somebody explicitly asks her to begin.
+gathering lobby; Karen greets whoever walks in and starts the agenda clock once everyone
+expected is in the call — or the moment somebody asks her to begin, whichever comes
+first. Nothing on a wall clock ever starts it.
 
 ## Run everything with Docker Compose
 

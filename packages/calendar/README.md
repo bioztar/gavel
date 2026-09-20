@@ -144,16 +144,24 @@ An `.ics` gives a name and an email. The contract agenda needs a Discord snowfla
 `discordId` (attendees, `topics[].owner`, `topics[].mustHear`). There is no directory
 mapping one to the other, so:
 
-- An attendee's `discordId` defaults to their **email** — stable and unique, but it will
-  not match a real speaker's `speaking.start` frames until someone maps it.
-- Set `CALENDAR_ATTENDEE_MAP` in `.env` to override known people:
+- An attendee's `discordId` defaults to their **email** — stable and unique, but it is not
+  a snowflake and matches no speaker by itself.
+- Set `CALENDAR_ATTENDEE_MAP` in `.env` to name the people you already know:
   ```
   CALENDAR_ATTENDEE_MAP="vitaly@example.com=100000000000000001,ana@example.com=100000000000000002"
   ```
-  Applied once, at parse time (`settings.py:attendee_map`, used by `agenda.py`).
+  Applied once, at parse time (`settings.py:attendee_map`, used by `agenda.py`). This is
+  the exact route, and the only one that cannot be wrong.
+- Unmapped, the gap is closed **by name** on the other side of the contract: ears binds
+  each expected attendee to the speaker in the channel whose display name reads as theirs
+  when the session starts (`meetings.py:bind_attendees`), and brain does the same on every
+  `participants` frame for everyone who joins later (`engine.ts:bindAttendees`). "Artem"
+  matches `artemshambalev`; one speaker answers for one attendee; an unrecognizable name
+  is left unbound rather than guessed at, and shows on the room page as still to arrive.
 
 This is the one real seam in this package — worth checking before the demo run, not
-after.
+after. The names on the invite are what it runs on, so write them as people are called in
+Discord.
 
 ## Compose — "set up a meeting" front door
 
@@ -173,17 +181,25 @@ nothing put an invite on Vitaly's calendar in the first place. Flow:
    1. Builds the contract agenda (`agenda.py:build_agenda`, same code `.ics` ingestion uses)
       and saves the `InviteRecord` to the in-memory `InviteStore`. The join URL
       (`/m/{sessionId}`) works from this point on, regardless of what happens next.
-   2. Builds a `.ics` file (`ics_writer.py:build_ics`) — the same topic-line format
+   2. Hands the meeting to ears and starts its session (`service.start`, the same call the
+      Join button and the scheduler make, and idempotent with both). From here the chair is
+      holding *this* meeting with *this* agenda, before anyone reaches the voice channel —
+      what it opens is a lobby, not a running meeting (docs/CONTRACT.md §2). ears down or
+      refusing costs the head start and nothing else: the record is already saved, the
+      success page says Karen has not been handed it, and the scheduler starts it at the
+      event's own time. `tests/test_compose.py::test_handle_send_survives_ears_being_down`.
+   3. Builds a `.ics` file (`ics_writer.py:build_ics`) — the same topic-line format
       `ics_parser.py` reads, so a compose-created invite round-trips exactly like a
       hand-written one (see `tests/test_ics_writer.py`).
-   3. Best-effort emails that `.ics` via Resend (`mailer.py:send_invite`) to the parsed
+   4. Best-effort emails that `.ics` via Resend (`mailer.py:send_invite`) to the parsed
       attendees. **A mailer failure — missing key, bad request, network error, even an
       unexpected exception — is caught and never fails the meeting.** No `RESEND_API_KEY` or
       no `COMPOSE_FROM_EMAIL`: the mailer dry-runs (logs what it would have sent, returns
       `sent=False`) instead of calling out. See `tests/test_compose.py`'s
       `test_handle_send_survives_mailer_raising` for the worst case this guards.
-   4. Renders a success page: join URL, the Discord link (`DISCORD_MEETING_URL`), the parsed
-      agenda, and whether the email actually sent.
+   5. Renders a success page: the meeting room URL, the Discord link
+      (`DISCORD_MEETING_URL`), the parsed agenda, whether the email actually sent, and
+      whether Karen is holding the room.
 
 Resend setup: create an API key at resend.com, verify a sending domain there, and set
 `COMPOSE_FROM_EMAIL` to an address on that domain — Resend rejects sends from an unverified

@@ -151,6 +151,10 @@ export class Engine {
   private arrivals = new Map<string, { at: number; words: number }>();
   /** Welcomed, or already joined the discussion by themselves: never welcomed (again) this session. */
   private welcomed = new Set<string>();
+  /** Came into the lobby before the meeting opened, and when — greeted at the next tick but one. */
+  private lobbyArrivals = new Map<string, number>();
+  /** Said hello to in the lobby: nobody is greeted twice, however often Discord re-lists them. */
+  private greeted = new Set<string>();
   /** A startMeeting is queued or under way: one opening per meeting, however it was asked for. */
   private startQueued = false;
   /** The last floor handover (floorHog): the floor window starts here at the earliest. */
@@ -185,6 +189,7 @@ export class Engine {
       case "participants":
         if (frame.type === "participants") this.noteArrivals(frame.participants.map((p) => p.discordId), at);
         this.people = new Map(frame.participants.map((p) => [p.discordId, p]));
+        this.bindAttendees(frame.participants);
         if (frame.type === "ready" && !this.agenda) this.startSession(null, null, this.deps.fallbackAgenda, at);
         break;
       case "session.started":
@@ -269,11 +274,16 @@ export class Engine {
     this.floorSince = 0;
     this.arrivals.clear();
     this.welcomed.clear();
+    this.lobbyArrivals.clear();
+    this.greeted.clear();
     this.notesVersion = 0;
     this.digest = null;
     this.digestAt = 0;
     this.ledger.reset();
     this.relevance.resetAll();
+    // Whoever is already in the channel: ears binds them into the agenda it sends, but an
+    // agenda from a file (replay, BRAIN_AGENDA) has never been near a voice channel.
+    this.bindAttendees([...this.people.values()]);
     log.info("session.started", {
       sessionId,
       title,
@@ -352,6 +362,7 @@ export class Engine {
     }
     this.ledger.prune(now, this.policy().floorWindowSeconds * 2000);
     this.maybeAutoStart(now);
+    this.maybeGreetLobby(now);
 
     this.prepareDirect();
     if (this.directQueue.length && !this.pending && !this.composing) {
@@ -696,7 +707,8 @@ export class Engine {
       examples: kind.examples.map((e) => `- ${e}`).join("\n"),
       // Every fact is listed, empty ones as "(none)": a missing fact invites the model to invent it.
       facts: Object.entries(enrichedVars)
-        .filter(([k]) => k !== "quote")
+        // quote is quoted in the instruction; missingNote *is* an instruction.
+        .filter(([k]) => k !== "quote" && k !== "missingNote")
         .map(([k, v]) => `${k}: ${v?.trim() || "(none)"}`)
         .join("\n"),
       parked: this.parkedNote(iv),
@@ -1028,6 +1040,8 @@ export class Engine {
     stageStart(this.cfg.persona.id);
     const topic = this.topic();
     if (topic) this.discussed.add(topic.id);
+    // Nobody is "waiting in the lobby" any more; anyone who arrives now is a newcomer.
+    this.lobbyArrivals.clear();
     this.topicStartedAt = now;
     this.sessionStartedAt = now;
     // Lobby chatter must not count toward meeting talk time or relevance.
@@ -1075,6 +1089,7 @@ export class Engine {
       topicTitle: topic?.title ?? "the first topic",
       topicGoal: topic?.goal ?? "",
     });
+    const missing = this.missingAttendees();
     this.directQueue.push({
       trigger: "meetingStart",
       kind: "startMeeting",
@@ -1088,6 +1103,10 @@ export class Engine {
         addresseeName: starter.name,
         question,
         purpose: this.agenda?.purpose ?? "",
+        // Only when someone is actually missing: an empty note is no note at all.
+        missingNote: missing.length
+          ? render(this.cfg.chair.missingNote, { missingNames: joinNames(missing) })
+          : "",
       },
       actions: ["speak", "start"],
       priority: false,
@@ -1103,6 +1122,12 @@ export class Engine {
   private noteArrivals(ids: string[], at: number): void {
     const present = new Set(ids);
     for (const id of this.arrivals.keys()) if (!present.has(id)) this.arrivals.delete(id);
+    for (const id of this.lobbyArrivals.keys()) if (!present.has(id)) this.lobbyArrivals.delete(id);
+    // Before the meeting opens, someone walking in gets a hello instead — maybeGreetLobby.
+    if (this.phase === "gathering") {
+      for (const id of ids) if (!this.people.has(id) && !this.greeted.has(id)) this.lobbyArrivals.set(id, at);
+      return;
+    }
     if (this.phase !== "active") return;
     for (const id of ids) if (!this.people.has(id) && !this.welcomed.has(id)) this.arrivals.set(id, { at, words: 0 });
   }
@@ -1118,12 +1143,18 @@ export class Engine {
   }
 
   /**
-   * A meeting with `requireStart: false` needs no "Karen, let's start": she opens it herself
-   * once everyone expected is in the call and has been for engine.autoStartDelayMs.
+   * A meeting with `requireStart: false` (the default) needs no "Karen, let's start": once
+   * everyone on the agenda is in the call, and has been for engine.autoStartDelayMs, she
+   * opens it herself. The wait is what makes it feel like the room filling up rather than a
+   * bot pouncing on the first person through the door.
+   *
+   * It takes a roster to be complete. A meeting nobody was invited to — an ad-hoc session
+   * from the ears console — has no "everyone" to wait for, so it waits to be asked instead
+   * of opening the moment one person connects.
    */
   private maybeAutoStart(now: number): void {
     if (this.phase !== "gathering" || this.policy().requireStart) return;
-    if (!this.people.size || this.missingAttendees().length) {
+    if (!this.rosterComplete()) {
       this.lobbyFullSince = null;
       return;
     }
@@ -1132,6 +1163,47 @@ export class Engine {
     if (now - this.lobbyFullSince < this.cfg.policy.engine.autoStartDelayMs) return;
     log.info("meeting.auto_start", { sessionId: this.sessionId });
     this.queueStart(this.people.keys().next().value!);
+  }
+
+  /** Everyone the agenda expects is in the call — and somebody was expected at all. */
+  private rosterComplete(): boolean {
+    const expected = this.agenda?.attendees ?? [];
+    return expected.length > 0 && this.people.size > 0 && this.missingAttendees().length === 0;
+  }
+
+  /**
+   * Someone came into the lobby and the meeting is not about to open by itself: Karen says
+   * hello, by name, and says who she is still waiting for — or, when nobody else is expected,
+   * that they can tell her to start. Once per person, and never while she is mid-line.
+   *
+   * Arrivals are greeted as a group: two people coming in together are one hello, not two.
+   */
+  private maybeGreetLobby(now: number): void {
+    if (this.phase !== "gathering" || this.startQueued || !this.lobbyArrivals.size) return;
+    // The roster just filled: the opening is seconds away and welcomes them properly.
+    if (!this.policy().requireStart && this.rosterComplete()) return;
+    const newest = Math.max(...this.lobbyArrivals.values());
+    if (now - newest < this.cfg.policy.engine.lobbyGreetingDelayMs) return;
+    const ids = [...this.lobbyArrivals.keys()];
+    this.lobbyArrivals.clear();
+    for (const id of ids) this.greeted.add(id);
+    const missing = this.missingAttendees();
+    log.info("lobby.greeting", { who: ids.map((id) => this.nameOf(id)), missing });
+    this.directQueue.push({
+      trigger: "meetingStart",
+      kind: "lobbyGreeting",
+      topicId: null,
+      targetId: ids[0],
+      vars: {
+        names: joinNames(ids.map((id) => firstName(this.nameOf(id)) ?? this.nameOf(id))),
+        name: this.nameOf(ids[0]!),
+        // Empty, not "everyone" (joinNames' own default): with nobody missing the
+        // templates that name them drop out and she says "tell me when to start".
+        missingNames: missing.length ? joinNames(missing) : "",
+      },
+      actions: ["speak"],
+      priority: false,
+    });
   }
 
   private remember(id: string, text: string, at: number): void {
@@ -1154,21 +1226,11 @@ export class Engine {
     // "Let's start the meeting, please." … "Karen." — the name alone points at what came before.
     const wantsStart = START.test(request) || (!request && START.test(this.earlierWords(id, at)));
 
+    // Asked for, it opens — however few people are in the room. Waiting for the last
+    // person is what the chair does on her own (maybeAutoStart); being told to start is
+    // the room overriding that, and answering it with "no, I'll hold" is the one thing
+    // that cannot happen on a stage. Who is not there yet goes into the opening instead.
     if (wantsStart && this.phase === "gathering") {
-      const missing = this.missingAttendees();
-      if (missing.length) {
-        this.directQueue.push({
-          trigger: "meetingStart",
-          kind: "waitingForPeople",
-          topicId: this.topic()?.id ?? null,
-          targetId: id,
-          vars: { name: who, missingNames: joinNames(missing), topicTitle: this.topic()?.title ?? "" },
-          actions: ["speak"],
-          priority: false,
-        });
-        return;
-      }
-
       this.queueStart(id);
       return;
     }
@@ -1249,6 +1311,64 @@ export class Engine {
         return "The agenda is finished.";
       default:
         return "No meeting is set up yet.";
+    }
+  }
+
+  /**
+   * Who in the call is who on the agenda, matched by name.
+   *
+   * An invitation carries names and email addresses; a voice channel carries snowflakes.
+   * When nobody mapped the two (`CALENDAR_ATTENDEE_MAP`), `packages/calendar` falls back to
+   * the email as the `discordId`, so the person who actually joins matches no attendee: the
+   * chair sees a stranger in the room and waits forever for someone who is already talking.
+   *
+   * So an attendee nobody in the call answers for is bound to the unclaimed speaker whose
+   * name reads as theirs (`matchScore`), strongest match first and one speaker each. The
+   * binding rewrites the agenda — the attendee's id and name, and every `owner` / `mustHear`
+   * that named them — because from here on that *is* who they are: talk-time, "we haven't
+   * heard from you", the missing list and the room page all key off the same id.
+   *
+   * ears does the same for whoever is already in the channel when the session starts
+   * (`Meeting.agenda_for`); this covers everyone who walks in afterwards, which for an
+   * invited meeting is normally all of them.
+   */
+  private bindAttendees(participants: Participant[]): void {
+    const agenda = this.agenda;
+    if (!agenda?.attendees.length || !participants.length) return;
+    const expected = new Set(agenda.attendees.map((a) => a.discordId));
+    const present = new Set(participants.map((p) => p.discordId));
+    const unbound = agenda.attendees.filter((a) => !present.has(a.discordId));
+    const free = participants.filter((p) => !expected.has(p.discordId));
+    if (!unbound.length || !free.length) return;
+
+    const pairs: Array<{ score: number; i: number; j: number }> = [];
+    unbound.forEach((a, i) =>
+      free.forEach((p, j) => {
+        const score = matchScore(a.name, p.name);
+        if (score) pairs.push({ score, i, j });
+      }),
+    );
+    // Strongest first, then agenda order: "Vitaly" and "Vitaly P" cannot both be bound to
+    // the one Vitaly who joined, and the better match of the two gets him.
+    pairs.sort((x, y) => y.score - x.score || x.i - y.i || x.j - y.j);
+    const takenAttendee = new Set<number>();
+    const takenPerson = new Set<number>();
+    const rebound = new Map<string, string>();
+    for (const { i, j } of pairs) {
+      if (takenAttendee.has(i) || takenPerson.has(j)) continue;
+      takenAttendee.add(i);
+      takenPerson.add(j);
+      const attendee = unbound[i]!;
+      const person = free[j]!;
+      log.info("attendee.bound", { expected: attendee.name, as: person.name, discordId: person.discordId });
+      rebound.set(attendee.discordId, person.discordId);
+      attendee.discordId = person.discordId;
+      attendee.name = person.name;
+    }
+    if (!rebound.size) return;
+    for (const topic of agenda.topics) {
+      if (topic.owner) topic.owner = rebound.get(topic.owner) ?? topic.owner;
+      topic.mustHear = topic.mustHear.map((id) => rebound.get(id) ?? id);
     }
   }
 
@@ -1442,6 +1562,32 @@ function wordCount(text: string): number {
 
 function firstName(name: string | undefined): string | undefined {
   return name?.trim().split(/\s+/)[0];
+}
+
+/**
+ * How strongly a name on the agenda and a Discord display name read as one person.
+ * 3: the same name. 2: one inside the other ("Vitaly" / "Vitaly P"). 1: the same first
+ * name, or a run-together handle that starts with it ("Artem" / "artemshambalev"). 0: no
+ * reason to think they are the same person — never guess past this.
+ *
+ * The same rules as ears' `_match_score` (packages/ears-discord/src/ears/meetings.py); the
+ * two halves of the seam must agree on who somebody is.
+ */
+export function matchScore(expected: string, present: string): number {
+  const tokens = (name: string) => name.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+  const a = tokens(expected);
+  const b = tokens(present);
+  if (!a.length || !b.length) return 0;
+  if (a.join(" ") === b.join(" ")) return 3;
+  const inside = (x: string[], y: string[]) => x.every((t) => y.includes(t));
+  if (inside(a, b) || inside(b, a)) return 2;
+  if (a[0] === b[0]) return 1;
+  if (a.length === 1 || b.length === 1) {
+    const [short, long] = [a[0]!, b[0]!].sort((x, y) => x.length - y.length) as [string, string];
+    // Three characters: "Jo" must not claim "Joanna" and "Jonas" both.
+    if (short.length >= 3 && long.startsWith(short)) return 1;
+  }
+  return 0;
 }
 
 function joinNames(names: string[]): string {

@@ -74,6 +74,13 @@ kinds:
       - "{{name}}, the floor is yours, no pressure, some pressure. {{question?}}"
       - "{{name}}, your turn — the silence was getting loud. {{question?}}"
 
+  lobbyGreeting:
+    templates:
+      - "Hey {{names}}! Waiting on {{missingNames}}, then we're off."
+      - "{{names}}, you're early — {{missingNames}} still owe us an entrance."
+      - "Hi {{names}}. Say the word and I'll get us going."
+      - "{{names}}! I'm warmed up whenever you are."
+
   newcomer:
     templates:
       - "{{names}}, perfect timing! We're on {{topicTitle}}. {{name}}, your take? {{question?}}"

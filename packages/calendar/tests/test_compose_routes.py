@@ -63,6 +63,13 @@ def test_compose_parse_falls_back_without_llm_configured() -> None:
 def test_compose_send_creates_meeting_with_working_join_link(httpx_mock: HTTPXMock) -> None:
     # `httpx_mock` with no registered response makes any unmocked network call
     # fail the test instead of silently escaping — the mailer must dry-run.
+    # Creating the meeting hands it straight to ears, so those two calls are real.
+    httpx_mock.add_response(
+        url="http://localhost:8787/api/meetings", json={"id": "m-1"}
+    )
+    httpx_mock.add_response(
+        url="http://localhost:8787/api/sessions", json={"sessionId": "s-1"}
+    )
     with TestClient(app) as client:
         resp = client.post(
             "/compose/send",
@@ -82,8 +89,14 @@ def test_compose_send_creates_meeting_with_working_join_link(httpx_mock: HTTPXMo
         assert resp.status_code == 200
         assert "not sent" in resp.text  # dry-run mailer, no RESEND_API_KEY
 
+        assert "Karen is holding the room" in resp.text
+
         assert len(store._records) == 1
-        session_id = next(iter(store._records.keys()))
+        session_id, record = next(iter(store._records.items()))
+        # Handed to ears there and then: the chair is already on this meeting, and the
+        # scheduler will not start a second session for it at the event's own time.
+        assert record.started
+        assert (record.ears_meeting_id, record.ears_session_id) == ("m-1", "s-1")
 
         join_resp = client.get(f"/m/{session_id}")
         assert join_resp.status_code == 200

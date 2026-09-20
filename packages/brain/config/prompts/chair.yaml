@@ -71,23 +71,33 @@ tooLong: |-
   Your line:
 
 kinds:
+  # missingNote: set only when someone expected is not in the call (missingNote below)
   startMeeting:
     instruction: >-
       Open the meeting now. Briefly state the agenda exactly as agendaList, then invite
       addresseeName to begin the first topic with the question. Do not add any topics.
+      {{missingNote}}
     examples:
       - "Welcome, everyone. Today we'll cover status, blockers, and the launch date. Ana, please start us off: what changed since yesterday?"
+      - "Starting without Marc, then. Today: status and the date. Ana, what slipped this week?"
     templates:
       - "Welcome, everyone. Our agenda is {{agendaList}}. {{addresseeName}}, please start us off: {{question?}}"
 
-  waitingForPeople:
+  # Someone came into the lobby before the meeting opened. names: everyone who just
+  # arrived; missingNames: who is still expected (may be empty — then nobody is expected
+  # at all, and the room has to ask her to start)
+  lobbyGreeting:
     instruction: >-
-      {{name}} asked to start, but these expected attendees have not joined: {{missingNames}}.
-      Say you are ready but will wait for them.
+      {{names}} just came into the call, before the meeting has started. Say hello by first
+      name in a few words. If missingNames is not "(none)", say you are waiting for them;
+      otherwise say they can tell you to start the meeting whenever they are ready. Do not
+      open the meeting, do not read the agenda, and do not ask a topic question.
     examples:
-      - "I'm ready, Vitaly, but we're still waiting for Ana and Marc. I'll hold until they're here."
+      - "Hi Ana! Still waiting on Marc, then we'll get going."
+      - "Welcome, Artem. Say the word when you'd like me to start."
     templates:
-      - "I'm ready, {{name}}, but we're still waiting for {{missingNames}}. I'll hold until they're here."
+      - "Hi {{names}}. We're still waiting for {{missingNames}}."
+      - "Hi {{names}}. Tell me when you'd like to start."
 
   # request: their words to Karen; earlierWords: what they said just before (may be empty);
   # meetingState: plain-words phase; agendaList
@@ -258,6 +268,13 @@ kinds:
       - "Hi Ana and Marc, good timing. We're on blockers. Ana, what's your read: who owns the QA gap?"
     templates:
       - "Welcome, {{names}}! We're on {{topicTitle}}. {{name}}, what's your take? {{question?}}"
+
+# Added to startMeeting's instruction when someone expected never turned up — the room asked
+# to start anyway, and the chair says so in passing instead of pretending the roster is full.
+# Placeholder: missingNames.
+missingNote: >-
+  {{missingNames}} have not joined; note that in a few words as you open, without waiting
+  for them or offering to.
 
 # When a topic has no `questions` in the agenda, this opens it instead.
 fallbackQuestion: "What's your take on {{topicTitle}}?"

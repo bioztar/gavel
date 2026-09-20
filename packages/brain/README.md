@@ -31,10 +31,20 @@ can decide, but it cannot speak.
 
 ## What the chair does
 
-A voice connection opens a **gathering lobby**, not the meeting clock. Karen waits until
-every expected attendee is present and someone says an addressed instruction such as
-“Karen, let's start the meeting.” She then states the agenda, invites a named person to
-open the first topic, and starts moderation. Once it is under way, “Karen, next topic” (or
+A voice connection opens a **gathering lobby**, not the meeting clock. Karen says hello to
+whoever comes in, by name, and tells them who she is still waiting for. She opens the
+meeting herself once every expected attendee has been in the call a few seconds
+(`engine.autoStartDelayMs`) — or at once when someone says an addressed instruction such
+as “Karen, let's start the meeting”, which works however few people are there and names
+whoever never turned up. She then states the agenda, invites a named person to open the
+first topic, and starts moderation.
+
+Who is "expected" is the agenda's `attendees`, and the people in a Discord call rarely
+carry the ids an invitation was written with — so an attendee nobody in the room answers
+for is bound to the speaker whose **name** is theirs, and from then on that is their id
+everywhere: talk-time, `mustHear`, the missing list, the meeting room page. A meeting with
+no attendees at all (an ad-hoc session from the ears console) has no roster to complete,
+so it waits to be asked. Once it is under way, “Karen, next topic” (or
 “let's move on”, “skip this”) moves the meeting on at once: timed, to the next topic in
 order; untimed, to the next one not yet discussed; past the last, she wraps up. Asking
 *about* it (“what's the next topic?”) only gets an answer. Other requests addressed to
