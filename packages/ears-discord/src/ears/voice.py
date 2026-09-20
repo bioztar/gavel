@@ -498,8 +498,7 @@ class Voice:
             self._joining = False
 
     def _schedule_leave(self) -> None:
-        if self._leave_task is None:
-            assert self._loop is not None
+        if self._leave_task is None and self._loop is not None:
             self._leave_task = self._loop.create_task(self._leave_when_empty())
 
     def _cancel_leave(self) -> None:

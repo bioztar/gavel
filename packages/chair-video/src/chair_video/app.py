@@ -35,6 +35,11 @@ STATIC_DIR = Path(__file__).resolve().parent.parent.parent / "static"
 # arbitrary headers would let it smuggle things fal's CORS wouldn't otherwise
 # see. Both are refused outright, not sanitized.
 PROXY_REQUEST_HEADER_ALLOWLIST = {"content-type", "accept"}
+# fal renders and lip-syncs on the blocking client, so it gets the long budget;
+# the async client only fronts the proxy, and healthz just wants reachability.
+FAL_TIMEOUT_SECONDS = 30.0
+PROXY_TIMEOUT_SECONDS = 15.0
+HEALTHZ_PROBE_TIMEOUT_SECONDS = 5.0
 PROXY_TARGET_HEADER = "x-fal-target-url"
 PROXY_TOKEN_HEADER = "x-director-token"
 
@@ -114,8 +119,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="chair-video", lifespan=_lifespan)
     app.state.settings = settings
     app.state.cache = SpeakVideoCache()
-    app.state.http_client = httpx.Client(timeout=30.0)
-    app.state.async_http_client = httpx.AsyncClient(timeout=15.0)
+    app.state.http_client = httpx.Client(timeout=FAL_TIMEOUT_SECONDS)
+    app.state.async_http_client = httpx.AsyncClient(timeout=PROXY_TIMEOUT_SECONDS)
     app.state.director = DirectorManager(settings)
 
     if STATIC_DIR.exists():
@@ -140,19 +145,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         http_client: httpx.Client = app.state.http_client
         persona = settings.normalize_persona(req.persona)
 
-        if not req.audio_url and not req.audio_base64:
-            raise HTTPException(422, "one of audioUrl or audioBase64 is required")
-
         if req.audio_base64:
             audio_bytes = decode_base64_audio(req.audio_base64)
-            key = audio_key(audio_bytes, persona)
-        else:
-            assert req.audio_url is not None
+        elif req.audio_url:
             try:
                 audio_bytes = fetch_audio(req.audio_url, http_client)
             except httpx.HTTPError as exc:
                 raise HTTPException(502, f"could not fetch audioUrl: {exc}") from exc
-            key = audio_key(audio_bytes, persona)
+        else:
+            raise HTTPException(422, "one of audioUrl or audioBase64 is required")
+        key = audio_key(audio_bytes, persona)
 
         cached = cache.get(key)
         if cached is not None:
@@ -210,7 +212,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         fal_reachable = False
         if settings.fal_configured:
             try:
-                http_client.head(settings.fal_base_url, timeout=5.0)
+                http_client.head(settings.fal_base_url, timeout=HEALTHZ_PROBE_TIMEOUT_SECONDS)
                 fal_reachable = True
             except httpx.HTTPError:
                 fal_reachable = False
@@ -328,8 +330,9 @@ def _persona_idle_url(app: FastAPI, fal: FalClient, settings: Settings, persona:
     per process per persona and reuse fal's CDN URL rather than re-uploading
     every call."""
     cache: dict[str, str] = getattr(app.state, "idle_urls", None) or {}
-    if persona in cache:
-        return cache[persona]
+    cached_url = cache.get(persona)
+    if cached_url is not None:
+        return cached_url
     path = PACKAGE_ROOT / settings.idle_video_path(persona)
     if not path.exists():
         raise HTTPException(500, f"idle video not found at {path}")

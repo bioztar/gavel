@@ -71,7 +71,8 @@ class Bus:
             self._queue.put_nowait(frame)
 
     async def _publish_loop(self) -> None:
-        assert self._redis is not None
+        if self._redis is None:
+            return
         while True:
             frame = await self._queue.get()
             body = json.dumps(frame, separators=(",", ":"))
@@ -90,7 +91,8 @@ class Bus:
                 self._set_healthy(False, str(exc))
 
     async def _command_loop(self, on_command: Callable[[str], None]) -> None:
-        assert self._redis is not None
+        if self._redis is None:
+            return
         while True:
             try:
                 async with self._redis.pubsub() as pubsub:

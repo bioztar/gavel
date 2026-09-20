@@ -57,6 +57,8 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 CLIENT_QUEUE_LIMIT = 2_000
+# The console polls brain state; a slow answer is worse than no answer.
+BRAIN_STATE_TIMEOUT_SECONDS = 1.5
 CONSOLE_HTML = Path(__file__).with_name("console.html")
 
 
@@ -255,7 +257,7 @@ def create_api(ears: Ears) -> FastAPI:
     async def brain_state() -> dict[str, Any]:
         """Same-origin bridge for the console; brain itself remains call-SDK agnostic."""
         try:
-            async with httpx.AsyncClient(timeout=1.5) as client:
+            async with httpx.AsyncClient(timeout=BRAIN_STATE_TIMEOUT_SECONDS) as client:
                 response = await client.get(ears.settings.brain_state_url)
             response.raise_for_status()
             data = response.json()
@@ -274,7 +276,8 @@ def create_api(ears: Ears) -> FastAPI:
     @api.post("/api/meetings")
     async def create_meeting(body: MeetingIn) -> dict[str, Any]:
         meeting = await ears.store.save_meeting(body)
-        assert meeting is not None
+        if meeting is None:
+            raise HTTPException(503, "meeting store unavailable")
         return meeting.model_dump(by_alias=True)
 
     @api.put("/api/meetings/{meeting_id}")

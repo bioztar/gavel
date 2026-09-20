@@ -15,8 +15,8 @@ async def start(store: InviteStore, ears: EarsClient, session_id: str) -> dict[s
 
     async with store.lock_for(session_id):
         if record.started:
-            assert record.ears_meeting_id is not None
-            assert record.ears_session_id is not None
+            if record.ears_meeting_id is None or record.ears_session_id is None:
+                raise RuntimeError(f"invite {session_id} is marked started without ears ids")
             return {"meetingId": record.ears_meeting_id, "sessionId": record.ears_session_id}
 
         agenda_for_ears = {k: v for k, v in record.agenda.items() if k != "sessionId"}

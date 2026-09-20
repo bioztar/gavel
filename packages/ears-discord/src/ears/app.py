@@ -72,6 +72,8 @@ CLOCK_SECONDS = 0.1
 RECEIVE_STATS_EVERY = 5.0
 # What a console that connects late gets replayed.
 RECENT_LIMIT = 1_000
+# Shutdown waits this long for in-flight tasks before leaving them to cancellation.
+SHUTDOWN_TIMEOUT_SECONDS = 5
 
 
 @dataclass(frozen=True)
@@ -428,7 +430,8 @@ class Ears:
         self._spawn(self._transcribe_chunk(chunk, turn_id))
 
     async def _transcribe_chunk(self, chunk: Chunk, turn_id: str | None) -> None:
-        assert self.stt is not None
+        if self.stt is None:
+            return
         pcm = to_mono_16k(chunk.pcm)
         level = rms(pcm)
         who = {"discordId": chunk.discord_id, "utteranceId": chunk.utterance_id, "seq": chunk.seq}
@@ -849,5 +852,5 @@ class Ears:
         if self.stream is not None:
             await self.stream.close()
         if self._tasks:
-            await asyncio.wait(self._tasks, timeout=5)
+            await asyncio.wait(self._tasks, timeout=SHUTDOWN_TIMEOUT_SECONDS)
         self.end_session()

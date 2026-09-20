@@ -47,6 +47,8 @@ logger = get_logger(__name__)
 
 Write = Callable[[AsyncSession], Awaitable[None]]
 QUEUE_LIMIT = 10_000
+# Shutdown waits this long for queued writes to land before giving up on them.
+DRAIN_TIMEOUT_SECONDS = 5
 
 
 def parse_iso(value: str) -> datetime:
@@ -518,7 +520,7 @@ class Store:
             return
         self.end_session()
         with contextlib.suppress(TimeoutError):
-            await asyncio.wait_for(self._queue.join(), timeout=5)
+            await asyncio.wait_for(self._queue.join(), timeout=DRAIN_TIMEOUT_SECONDS)
         if self._writer:
             self._writer.cancel()
         await self._engine.dispose()
@@ -534,7 +536,8 @@ class Store:
                 logger.warning("store.queue_full", dropped=self._dropped)
 
     async def _drain(self) -> None:
-        assert self._factory is not None
+        if self._factory is None:
+            return
         while True:
             write = await self._queue.get()
             try:

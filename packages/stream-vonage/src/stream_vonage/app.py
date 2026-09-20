@@ -195,11 +195,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.post("/stream/stop")
     def stream_stop() -> StreamStopResponse:
         stream: StreamState = app.state.stream
-        if not stream.active:
+        if (
+            not stream.active
+            or stream.broadcast_id is None
+            or stream.archive_id is None
+            or stream.hls_url is None
+        ):
             raise HTTPException(409, "no active stream")
-        assert stream.broadcast_id is not None
-        assert stream.archive_id is not None
-        assert stream.hls_url is not None
 
         stop_event: threading.Event | None = app.state.signal_stop_event
         if stop_event is not None:
