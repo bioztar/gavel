@@ -1,25 +1,32 @@
 """Build the submission video from synthesized audio, live screenshots and Karen clips.
 
-Each segment becomes its own 1920x1080 clip and they are concatenated. Three things here
-were learned the hard way and should not be undone:
+The audio is built as **one continuous PCM track** and muxed against the video at the end.
+It is not 23 separately-encoded AAC clips stitched together: every clip carries its own
+encoder delay, each segment's video ran ~0.25s past its own audio, and concat had to patch
+a hole at all 23 joins — 5.8s of accumulated gap, audible as the sound cutting in and out
+worse and worse as the video went on.
 
-* Every clip is **stereo**. Mixing mono segments with a stereo card makes `concat -c copy`
-  pin the whole track to the first stream's layout, and players go silent.
-* Speed comes from the TTS, never from `atempo`. Time-stretching the cloned voice by 1.5
-  made it break up.
-* Levels are a fixed per-file gain, not `loudnorm`. Single-pass loudnorm pumped.
+Two other things here were learned the hard way:
+
+* Speed comes from the TTS, never from `atempo`. Time-stretching the cloned voice broke it up.
+* Levels are two-pass `loudnorm` in linear mode. Single-pass pumped; a static peak gain left
+  the three engines several dB apart.
 """
 from __future__ import annotations
 import json, pathlib, subprocess
 
 ROOT = pathlib.Path("/Users/alex/DEV/_assets/gavel-video")
 SHOTS, AUDIO, KAREN, OUT = ROOT / "shots", ROOT / "audio", ROOT / "karen", ROOT / "out"
-OUT.mkdir(parents=True, exist_ok=True)
+WAVS = ROOT / "wav"
+for d in (OUT, WAVS):
+    d.mkdir(parents=True, exist_ok=True)
 SCRIPT = json.loads(pathlib.Path(__file__).with_name("script.json").read_text())
+MEASURED = ROOT / "loudness.json"
 LABEL = {"vitaly": "VITALY", "artem": "ARTEM", "karen": "KAREN  ·  the chair"}
 PAGE_CROP = "crop=1290:726:315:40"
+TAIL = 0.30      # breathing room after each line — silence, but real silence
+END_CARD = 3.6
 
-# logical shot -> (file, full-bleed?, what it stands in for)
 SHOTS_BY_NAME = {
     "card": ("card-title", True, None),
     "arch1": ("arch1", True, None),
@@ -34,48 +41,53 @@ SHOTS_BY_NAME = {
 }
 
 
-def probe(path: pathlib.Path, entries: str) -> str:
-    return subprocess.run(["ffprobe", "-v", "error", "-show_entries", entries,
-                           "-of", "csv=p=0", str(path)],
-                          capture_output=True, text=True, check=True).stdout.strip()
+def probe(path: pathlib.Path, entries: str, stream: str | None = None) -> str:
+    cmd = ["ffprobe", "-v", "error"]
+    if stream:
+        cmd += ["-select_streams", stream]
+    cmd += ["-show_entries", entries, "-of", "csv=p=0", str(path)]
+    return subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip()
 
 
 def dur(path: pathlib.Path) -> float:
     return float(probe(path, "format=duration"))
 
 
-MEASURED = ROOT / "loudness.json"
-
-
 def loudness_filter(audio: pathlib.Path) -> str:
-    """Two-pass EBU R128 to a common -16 LUFS, in linear mode.
-
-    One-pass loudnorm pumps, and a plain peak gain leaves the three engines several
-    dB apart, because they differ in how much of the clip is near the peak. Measuring
-    first lets the second pass apply one static gain per file.
-    """
+    """Two-pass EBU R128 to -16 LUFS: measure once, then one static gain."""
     cache = json.loads(MEASURED.read_text()) if MEASURED.exists() else {}
-    key = audio.name
-    if key not in cache:
-        probe_filter = "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json"
-        err = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(audio),
-                              "-af", probe_filter, "-f", "null", "-"],
-                             capture_output=True, text=True).stderr
-        blob = err[err.rindex("{"):err.rindex("}") + 1]
-        cache[key] = json.loads(blob)
+    if audio.name not in cache:
+        err = subprocess.run(
+            ["ffmpeg", "-hide_banner", "-nostats", "-i", str(audio),
+             "-af", "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"],
+            capture_output=True, text=True).stderr
+        cache[audio.name] = json.loads(err[err.rindex("{"):err.rindex("}") + 1])
         MEASURED.write_text(json.dumps(cache, indent=2))
-    m = cache[key]
-    return (f"loudnorm=I=-16:TP=-1.5:LRA=11:linear=true"
-            f":measured_I={m['input_i']}:measured_TP={m['input_tp']}"
-            f":measured_LRA={m['input_lra']}:measured_thresh={m['input_thresh']}"
-            f":offset={m['target_offset']}")
+    m = cache[audio.name]
+    return (f"loudnorm=I=-16:TP=-1.5:LRA=11:linear=true:measured_I={m['input_i']}"
+            f":measured_TP={m['input_tp']}:measured_LRA={m['input_lra']}"
+            f":measured_thresh={m['input_thresh']}:offset={m['target_offset']}")
 
 
-def build(seg: dict) -> pathlib.Path:
+def make_wav(seg: dict) -> pathlib.Path:
+    """One normalised 48k stereo PCM clip per line, with its own tail of real silence."""
+    dest = WAVS / f"{seg['id']}.wav"
+    src = AUDIO / f"{seg['id']}.mp3"
+    body = dur(src)
+    af = (f"{loudness_filter(src)},aresample=48000,afade=t=in:st=0:d=0.05,"
+          f"afade=t=out:st={max(body - 0.22, 0.05):.3f}:d=0.2,"
+          f"apad=pad_dur={TAIL}")
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(src), "-af", af,
+                    "-ac", "2", "-ar", "48000", "-c:a", "pcm_s16le",
+                    "-t", f"{body + TAIL:.3f}", str(dest)], check=True)
+    return dest
+
+
+def build_video(seg: dict, seconds: float) -> pathlib.Path:
+    """Silent video for one line, exactly as long as that line's audio."""
     sid = seg["id"]
-    shot, full, placeholder = SHOTS_BY_NAME[seg["shot"]]
-    audio, dest = AUDIO / f"{sid}.mp3", OUT / f"{sid}.mp4"
-    seconds = dur(audio) + 0.30
+    shot, full, _ = SHOTS_BY_NAME[seg["shot"]]
+    dest = OUT / f"{sid}.mp4"
     face = KAREN / f"{sid}.mp4"
     use_face = seg.get("face") and face.exists()
 
@@ -87,57 +99,69 @@ def build(seg: dict) -> pathlib.Path:
     chain += ",fps=30,setsar=1"
 
     cmd = ["ffmpeg", "-y", "-v", "error", "-loop", "1", "-i", str(SHOTS / f"{shot}.png"),
-           "-i", str(audio), "-loop", "1", "-i", str(ROOT / "overlays" / f"{sid}.png")]
-
+           "-loop", "1", "-i", str(ROOT / "overlays" / f"{sid}.png")]
     if use_face:
-        cmd += ["-i", str(face)]
-        if shot == "room-live":  # into the room's own video panel
+        cmd += ["-stream_loop", "-1", "-i", str(face)]
+        if shot == "room-live":
             r = json.loads((SHOTS / "room-stage.json").read_text())
-            box = (r["x"], r["y"], r["width"], r["height"])
-        else:                    # a large card-side portrait
-            box = (1150, 168, 660, 660)
-        x, y, w, h = box
-        # cover, then centre-crop: scaling a square clip into a 16:9 panel squashes her face
-        fit = (f"[3:v]scale={w}:{h}:force_original_aspect_ratio=increase,"
-               f"crop={w}:{h},setsar=1[pip]")
-        fc = f"{chain}[bg];{fit};[bg][pip]overlay={x}:{y}[withface];[withface][2:v]overlay=0:0[v]"
+            x, y, w, h = r["x"], r["y"], r["width"], r["height"]
+        else:
+            x, y, w, h = 1180, 250, 580, 580
+        # cover then centre-crop: a square clip stretched into a 16:9 panel squashes her face
+        fc = (f"{chain}[bg];"
+              f"[2:v]scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h},setsar=1[pip];"
+              f"[bg][pip]overlay={x}:{y}[withface];[withface][1:v]overlay=0:0[v]")
     else:
-        fc = f"{chain}[bg];[bg][2:v]overlay=0:0[v]"
+        fc = f"{chain}[bg];[bg][1:v]overlay=0:0[v]"
 
-    # gain to a common level, then short fades so the cuts between clips do not click
-    fc += (f";[1:a]{loudness_filter(audio)},aresample=48000,afade=t=in:st=0:d=0.05,"
-           f"afade=t=out:st={max(seconds - 0.30, 0.1):.2f}:d=0.25[a]")
-
-    cmd += ["-filter_complex", fc, "-map", "[v]", "-map", "[a]", "-t", f"{seconds:.2f}",
+    cmd += ["-filter_complex", fc, "-map", "[v]", "-an", "-t", f"{seconds:.3f}",
             "-r", "30", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-            "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2",
-            str(dest)]
+            "-pix_fmt", "yuv420p", str(dest)]
     subprocess.run(cmd, check=True)
     return dest
 
 
-def card(name: str, seconds: float) -> pathlib.Path:
-    dest = OUT / f"{name}.mp4"
-    subprocess.run(["ffmpeg", "-y", "-v", "error", "-loop", "1", "-i", str(SHOTS / f"{name}.png"),
-                    "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", str(seconds),
+def end_card() -> tuple[pathlib.Path, pathlib.Path]:
+    vid = OUT / "card-end.mp4"
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-loop", "1",
+                    "-i", str(SHOTS / "card-end.png"), "-t", str(END_CARD),
                     "-vf", "scale=1920:1080,setsar=1,fps=30", "-c:v", "libx264",
                     "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-                    "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2", str(dest)],
-                   check=True)
-    return dest
+                    "-an", str(vid)], check=True)
+    wav = WAVS / "card-end.wav"
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi",
+                    "-i", "anullsrc=r=48000:cl=stereo", "-t", str(END_CARD),
+                    "-c:a", "pcm_s16le", str(wav)], check=True)
+    return vid, wav
+
+
+def concat(parts: list[pathlib.Path], listing: pathlib.Path, dest: pathlib.Path) -> None:
+    listing.write_text("".join(f"file '{p}'\n" for p in parts))
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0",
+                    "-i", str(listing), "-c", "copy", str(dest)], check=True)
 
 
 if __name__ == "__main__":
-    parts = []
+    vids, wavs = [], []
     for seg in SCRIPT["segments"]:
-        parts.append(build(seg))
-        print("built", seg["id"], flush=True)
-    parts.append(card("card-end", 3.6))
+        wav = make_wav(seg)
+        length = dur(wav)                       # the video is cut to the audio, never the reverse
+        vids.append(build_video(seg, length))
+        wavs.append(wav)
+        print(f"built {seg['id']:18s} {length:6.2f}s", flush=True)
+    v, w = end_card()
+    vids.append(v); wavs.append(w)
 
-    listing = OUT / "concat.txt"
-    listing.write_text("".join(f"file '{p}'\n" for p in parts))
+    concat(vids, OUT / "concat-v.txt", OUT / "track.mp4")
+    concat(wavs, OUT / "concat-a.txt", OUT / "track.wav")
+
     final = ROOT / "gavel-v1.mp4"
-    subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0",
-                    "-i", str(listing), "-c:v", "copy", "-c:a", "aac", "-b:a", "160k",
-                    "-ar", "48000", "-ac", "2", str(final)], check=True)
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(OUT / "track.mp4"),
+                    "-i", str(OUT / "track.wav"), "-map", "0:v:0", "-map", "1:a:0",
+                    "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+                    "-ac", "2", "-movflags", "+faststart", str(final)], check=True)
+
+    vd = float(probe(final, "stream=duration", "v:0"))
+    ad = float(probe(final, "stream=duration", "a:0"))
     print(f"\nFINAL {final}  {dur(final)/60:.2f} min")
+    print(f"video {vd:.3f}s  audio {ad:.3f}s  drift {ad - vd:+.3f}s")
