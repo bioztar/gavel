@@ -1,0 +1,9 @@
+# Two-minute code defense
+
+We used Norma's findings as engineering input, not as a scorecard to satisfy blindly. For each finding, we asked two questions: is the risk real in the way Gavel is deployed, and can we remove it without weakening the live demo?
+
+One finding we fixed was sensitive error information leaking through the calendar API. When starting a meeting failed, the `/join` endpoint returned the raw upstream exception to the caller. That could reveal internal URLs, service names, or transport details. We changed the endpoint so the detailed exception is logged only on the server, while the user receives a stable `502` response saying only `could not start the session`. We also added a regression test that injects a private upstream error and proves that none of its text reaches the response. This was a small change with a clear security benefit and no loss of useful information for the user.
+
+One finding we consciously accepted was that the internal service APIs do not all have their own application-level authentication. That would be a serious issue if those ports were exposed directly to the internet, but that is not our deployment model for this hackathon. Compose publishes the Ears and Brain ports on `127.0.0.1` only, and service-to-service traffic stays inside the Docker network. The Ears operator console is private by default; if it is deliberately published through Traefik, the route is enabled only with Basic Auth configured.
+
+Adding and rotating credentials across every internal request would have increased integration complexity across the voice, brain, and calendar services during a time-limited build. We therefore accepted the residual risk for this controlled deployment and documented the boundary instead of pretending the finding did not matter. Before a multi-host or production deployment, we would add service identities, authenticated internal requests, authorization by endpoint, and automated credential rotation.
