@@ -17,7 +17,6 @@ SHOTS, AUDIO, KAREN, OUT = ROOT / "shots", ROOT / "audio", ROOT / "karen", ROOT 
 OUT.mkdir(parents=True, exist_ok=True)
 SCRIPT = json.loads(pathlib.Path(__file__).with_name("script.json").read_text())
 LABEL = {"vitaly": "VITALY", "artem": "ARTEM", "karen": "KAREN  ·  the chair"}
-TARGET_MEAN_DB, PEAK_CEILING_DB = -20.0, -1.5
 PAGE_CROP = "crop=1290:726:315:40"
 
 # logical shot -> (file, full-bleed?, what it stands in for)
@@ -45,24 +44,31 @@ def dur(path: pathlib.Path) -> float:
     return float(probe(path, "format=duration"))
 
 
-def gain_db(audio: pathlib.Path) -> float:
-    """Fixed gain to a common speaking level, clamped so nothing clips.
+MEASURED = ROOT / "loudness.json"
 
-    The cloned voice comes back ~20 dB under the other two engines, because it
-    inherited the level of the quiet sample it was cloned from.
+
+def loudness_filter(audio: pathlib.Path) -> str:
+    """Two-pass EBU R128 to a common -16 LUFS, in linear mode.
+
+    One-pass loudnorm pumps, and a plain peak gain leaves the three engines several
+    dB apart, because they differ in how much of the clip is near the peak. Measuring
+    first lets the second pass apply one static gain per file.
     """
-    out = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(audio),
-                          "-af", "volumedetect", "-f", "null", "-"],
-                         capture_output=True, text=True).stderr
-    mean = peak = None
-    for line in out.splitlines():
-        if "mean_volume:" in line:
-            mean = float(line.split("mean_volume:")[1].split("dB")[0])
-        elif "max_volume:" in line:
-            peak = float(line.split("max_volume:")[1].split("dB")[0])
-    if mean is None or peak is None:
-        return 0.0
-    return round(min(TARGET_MEAN_DB - mean, PEAK_CEILING_DB - peak), 2)
+    cache = json.loads(MEASURED.read_text()) if MEASURED.exists() else {}
+    key = audio.name
+    if key not in cache:
+        probe_filter = "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json"
+        err = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(audio),
+                              "-af", probe_filter, "-f", "null", "-"],
+                             capture_output=True, text=True).stderr
+        blob = err[err.rindex("{"):err.rindex("}") + 1]
+        cache[key] = json.loads(blob)
+        MEASURED.write_text(json.dumps(cache, indent=2))
+    m = cache[key]
+    return (f"loudnorm=I=-16:TP=-1.5:LRA=11:linear=true"
+            f":measured_I={m['input_i']}:measured_TP={m['input_tp']}"
+            f":measured_LRA={m['input_lra']}:measured_thresh={m['input_thresh']}"
+            f":offset={m['target_offset']}")
 
 
 def build(seg: dict) -> pathlib.Path:
@@ -99,7 +105,7 @@ def build(seg: dict) -> pathlib.Path:
         fc = f"{chain}[bg];[bg][2:v]overlay=0:0[v]"
 
     # gain to a common level, then short fades so the cuts between clips do not click
-    fc += (f";[1:a]volume={gain_db(audio)}dB,afade=t=in:st=0:d=0.05,"
+    fc += (f";[1:a]{loudness_filter(audio)},aresample=48000,afade=t=in:st=0:d=0.05,"
            f"afade=t=out:st={max(seconds - 0.30, 0.1):.2f}:d=0.25[a]")
 
     cmd += ["-filter_complex", fc, "-map", "[v]", "-map", "[a]", "-t", f"{seconds:.2f}",
