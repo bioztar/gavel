@@ -10,7 +10,7 @@ import { type Agenda, type Attendee, mergePolicy } from "./contract/agenda";
 import type { EarsFrame, Participant, PauseGate } from "./contract/frames";
 import { ContextBlock } from "./chair/context";
 import type { Llm, Usage } from "./chair/llm";
-import { STREAM_RATE, type Tts } from "./chair/tts";
+import { pcmS16leToWav, STREAM_RATE, type Tts } from "./chair/tts";
 import type { Memory, Store } from "./ears/store";
 import type { Wire } from "./ears/wire";
 import { log } from "./log";
@@ -57,8 +57,8 @@ function pushToStage(audio: Buffer, format: string, personaId: string): void {
  * Before this, nothing ever called stop: `/director/speak` lazily opened a fal
  * session and the only thing that could end one was the next utterance noticing
  * the session was too old. A meeting that simply finished left a live WebRTC
- * session billing per second until someone spotted it. chair-video now also
- * sweeps idle sessions on a timer; these two hooks are the fast path.
+ * session billing per second until someone spotted it. These hooks now own
+ * the lifetime: silence during an active meeting must not hide Karen.
  */
 function stageStart(personaId: string): void {
   stageCall("/director/session/start", { persona: personaId });
@@ -913,6 +913,7 @@ export class Engine {
     gate: PauseGate,
   ): Promise<{ ttsMs?: number; utteranceId?: string }> {
     const wire = this.deps.wire;
+    const stageChunks: Buffer[] = [];
     const started = wire.send({
       type: "speak.start",
       utteranceId,
@@ -931,9 +932,13 @@ export class Engine {
     this.pending = { utteranceId, at: this.now() };
     try {
       const done = await this.deps.tts.stream!(text, (pcm) => {
+        stageChunks.push(pcm);
         wire.send({ type: "speak.chunk", utteranceId, audio: pcm.toString("base64") });
       });
       wire.send({ type: "speak.end", utteranceId });
+      if (stageChunks.length) {
+        pushToStage(pcmS16leToWav(Buffer.concat(stageChunks)), "wav", this.cfg.persona.id);
+      }
       return { ttsMs: done.firstAudioMs, utteranceId };
     } catch (err) {
       log.warn("chair.tts_failed", { error: String(err) });

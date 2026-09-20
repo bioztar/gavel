@@ -24,6 +24,27 @@ export interface Streamed {
   cached: boolean;
 }
 
+/** Wrap Discord-rate PCM in a standard WAV container for APIs that fetch audio by URL. */
+export function pcmS16leToWav(pcm: Buffer, sampleRate = STREAM_RATE, channels = 1): Buffer {
+  const bitsPerSample = 16;
+  const bytesPerSample = bitsPerSample / 8;
+  const header = Buffer.alloc(44);
+  header.write("RIFF", 0, "ascii");
+  header.writeUInt32LE(36 + pcm.length, 4);
+  header.write("WAVE", 8, "ascii");
+  header.write("fmt ", 12, "ascii");
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20); // PCM
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(sampleRate * channels * bytesPerSample, 28);
+  header.writeUInt16LE(channels * bytesPerSample, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write("data", 36, "ascii");
+  header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+}
+
 export interface Tts {
   synthesize(text: string): Promise<Speech>;
   /** 48 kHz mono s16le PCM, handed to `onChunk` as it is synthesized. Resolves when the line is complete. */

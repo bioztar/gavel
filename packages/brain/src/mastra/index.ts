@@ -19,10 +19,11 @@ import { operatorAgent } from "./agents/operator";
 import { relevanceAgent } from "./agents/relevance";
 import { interveneWorkflow } from "./workflows/intervene";
 
-const DEFAULT_DSN = "postgresql://gavel:gavel@localhost:5432/gavel";
-
 /** ears' DSN is SQLAlchemy-flavoured (`postgresql+asyncpg://`); node-postgres wants plain. */
-export function pgDsn(dsn = process.env.POSTGRES_DSN ?? DEFAULT_DSN): string {
+export function pgDsn(dsn = process.env.POSTGRES_DSN): string {
+  if (!dsn) {
+    throw new Error("POSTGRES_DSN is required when Mastra storage is enabled");
+  }
   return dsn.replace(/^postgres(ql)?\+\w+:/, "postgresql:");
 }
 

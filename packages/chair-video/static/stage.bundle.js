@@ -3770,6 +3770,7 @@ var require_ice = __commonJS({
           try {
             onProgress === null || onProgress === void 0 ? void 0 : onProgress(done);
           } catch (_b) {
+            console.warn("fal client recovered from an internal error", _b);
           }
           return done;
         }
@@ -3795,6 +3796,7 @@ var require_ice = __commonJS({
             try {
               onProgress === null || onProgress === void 0 ? void 0 : onProgress(done);
             } catch (_a2) {
+              console.warn("fal client recovered from an internal error", _a2);
             }
             resolve(done);
           };
@@ -4233,6 +4235,7 @@ var require_realtime = __commonJS({
                   try {
                     onError(authError);
                   } catch (_a2) {
+                    console.warn("fal client recovered from an internal error", _a2);
                   }
                 });
               });
@@ -4283,6 +4286,8 @@ var require_realtime = __commonJS({
                 onError(new response_1.ApiError({ message: "Unknown error", status: 500 }));
               };
               ws.onmessage = (event) => {
+                if (event.origin && new URL(event.origin).host !== new URL(ws.url).host)
+                  return;
                 const callbacks2 = getCallbacks();
                 if (!callbacks2 || stateMachine.disposed)
                   return;
@@ -4374,6 +4379,7 @@ var require_realtime = __commonJS({
               try {
                 yield release();
               } catch (_a2) {
+                console.warn("fal client recovered from an internal error", _a2);
               }
             }
           });
@@ -4401,6 +4407,7 @@ var require_realtime = __commonJS({
           try {
             onState === null || onState === void 0 ? void 0 : onState(next);
           } catch (_a2) {
+            console.warn("fal client recovered from an internal error", _a2);
           }
         };
         const closeSession2 = () => {
@@ -4430,11 +4437,13 @@ var require_realtime = __commonJS({
             try {
               yield closeSession2();
             } catch (_a3) {
+              console.warn("fal client recovered from an internal error", _a3);
             } finally {
               for (const release of cleanups.splice(0).reverse()) {
                 try {
                   yield release();
                 } catch (_b2) {
+                  console.warn("fal client recovered from an internal error", _b2);
                 }
               }
               teardownCompleted = true;
@@ -4469,6 +4478,7 @@ var require_realtime = __commonJS({
           try {
             onDiagnostic === null || onDiagnostic === void 0 ? void 0 : onDiagnostic(event);
           } catch (_a2) {
+            console.warn("fal client recovered from an internal error", _a2);
           }
         };
         const onMedia = options === null || options === void 0 ? void 0 : options.onMedia;
@@ -4478,6 +4488,7 @@ var require_realtime = __commonJS({
           try {
             onMedia === null || onMedia === void 0 ? void 0 : onMedia(stream);
           } catch (_a2) {
+            console.warn("fal client recovered from an internal error", _a2);
           }
         };
         const onData = options === null || options === void 0 ? void 0 : options.onData;
@@ -4487,6 +4498,7 @@ var require_realtime = __commonJS({
           try {
             onData === null || onData === void 0 ? void 0 : onData(raw);
           } catch (_a2) {
+            console.warn("fal client recovered from an internal error", _a2);
           }
         };
         if (externalSignal === null || externalSignal === void 0 ? void 0 : externalSignal.aborted) {
@@ -4503,6 +4515,7 @@ var require_realtime = __commonJS({
           try {
             onError === null || onError === void 0 ? void 0 : onError(error);
           } catch (_a2) {
+            console.warn("fal client recovered from an internal error", _a2);
           }
         };
         let resolveReady;
@@ -4886,6 +4899,7 @@ var require_realtime = __commonJS({
               try {
                 yield closeSession2();
               } catch (_d) {
+                console.warn("fal client recovered from an internal error", _d);
               }
               yield cleanup();
               yield drainLateCleanups();
@@ -5428,6 +5442,7 @@ var require_wma = __commonJS({
             }
           }
         } catch (_b) {
+          console.warn("fal client recovered from an internal error", _b);
         }
         return fallback;
       });
@@ -5714,10 +5729,15 @@ var require_wma = __commonJS({
                   return;
                 }
               } catch (_a2) {
+                console.warn("fal client recovered from an internal error", _a2);
               }
               context.data(raw);
             };
             channel.onmessage = (event) => {
+              if (event.origin && event.origin !== window.location.origin) {
+                context.diagnostic({ kind: "warning", message: "A control-channel frame from an unexpected origin was dropped." });
+                return;
+              }
               const payload = event.data;
               if (typeof payload === "string") {
                 deliverControlFrame(payload);
@@ -6040,8 +6060,10 @@ var statusEl = document.getElementById("stage-status");
 var overlay = document.getElementById("start-overlay");
 var currentToken = null;
 var conn = null;
+var openConnections = /* @__PURE__ */ new Set();
 var heartbeatTimer = null;
 var stageState = "idle";
+var sceneGeneration = 0;
 import_client.fal.config({
   proxyUrl: `${window.location.origin}/director/fal-proxy`,
   requestMiddleware: (config) => Promise.resolve({
@@ -6066,44 +6088,66 @@ function startHeartbeat(token) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ token, state: stageState })
-    }).catch(() => {
-    });
+    }).catch((err) => console.debug("director heartbeat failed", err));
   }, 5e3);
 }
 function closeSession() {
+  sceneGeneration += 1;
   stopHeartbeat();
-  if (conn) {
+  for (const connection of openConnections) {
     try {
-      conn.close();
-    } catch {
+      connection.close();
+    } catch (err) {
+      console.debug("director connection was already closed", err);
     }
-    conn = null;
   }
+  openConnections.clear();
+  conn = null;
   currentToken = null;
   video.srcObject = null;
 }
 function joinSession(evt) {
-  closeSession();
+  const generation = ++sceneGeneration;
   currentToken = evt.token;
-  setStatus("connecting");
-  conn = import_client.fal.realtime.open((0, import_wma.wma)(evt.endpointId), {
+  setStatus(openConnections.size ? "changing scene" : "connecting");
+  const nextConn = import_client.fal.realtime.open((0, import_wma.wma)(evt.endpointId), {
     receive: ["video", "audio"],
     onState: (state) => {
-      if (state === "live") setStatus("live");
+      if (generation === sceneGeneration && state === "live") setStatus("live");
     },
     onError: (err) => {
-      setStatus("error");
+      if (generation === sceneGeneration) setStatus("error");
       console.error("director session error", err);
     },
     onMedia: (stream) => {
+      if (generation !== sceneGeneration) {
+        try {
+          nextConn.close();
+        } catch (err) {
+          console.debug("superseded director connection was already closed", err);
+        }
+        openConnections.delete(nextConn);
+        return;
+      }
       video.srcObject = stream;
       video.muted = true;
       video.play().catch(() => {
         if (overlay) overlay.hidden = false;
       });
+      for (const connection of openConnections) {
+        if (connection === nextConn) continue;
+        try {
+          connection.close();
+        } catch (err) {
+          console.debug("previous director connection was already closed", err);
+        }
+        openConnections.delete(connection);
+      }
     }
   });
-  conn.send({
+  conn = nextConn;
+  openConnections.add(nextConn);
+  nextConn.send({
     type: "configure",
     protocol_version: 1,
     prompt_version: evt.promptVersion,
@@ -6130,6 +6174,10 @@ function handleEvent(evt) {
 function connectEvents() {
   const source = new EventSource("/director/events");
   source.onmessage = (msg) => {
+    if (msg.origin !== window.location.origin) {
+      console.warn("ignored director event from unexpected origin", msg.origin);
+      return;
+    }
     try {
       handleEvent(JSON.parse(msg.data));
     } catch (err) {
@@ -6145,8 +6193,7 @@ window.addEventListener("beforeunload", closeSession);
 if (overlay) {
   overlay.addEventListener("click", () => {
     overlay.hidden = true;
-    video.play().catch(() => {
-    });
+    video.play().catch((err) => console.debug("video still could not start after interaction", err));
   });
 }
 connectEvents();

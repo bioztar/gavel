@@ -100,6 +100,7 @@ def test_live_state_is_human_readable() -> None:
     assert state["notes"]["decisions"] == ["Ship Tuesday"]
     assert state["notes"]["parked"] == [{"name": "Vitaly", "summary": "the hiring plan"}]
     assert state["topic"]["elapsedSeconds"] == 150
+    assert "chairSpeaking" not in state
 
 
 def test_another_meetings_session_is_never_shown_under_this_link() -> None:
@@ -156,3 +157,4 @@ def test_room_page_carries_the_chair_video_stage_and_the_agenda() -> None:
     assert settings.chair_video_stage_url in page.text
     assert "Where we actually are" in page.text
     assert "Join the call" in page.text
+    assert "s.chairSpeaking" not in page.text

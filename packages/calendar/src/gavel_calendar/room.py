@@ -208,8 +208,6 @@ def room_state(
         "startsAt": record.start.isoformat(),
         "endsAt": record.end.isoformat(),
         "started": record.started,
-        "chairName": state.get("chairName") or "Karen",
-        "chairSpeaking": bool(state.get("chairBusy")),
         "missingAttendees": [str(x) for x in (state.get("missingAttendees") or [])],
         "agendaFinished": bool(state.get("agendaFinished")),
         "topic": topic
@@ -592,7 +590,7 @@ function render(s) {
   $("join-form").hidden = s.phase !== "before";
   $("dot").className = "dot" + (live ? " on" : s.phase === "after" ? " done" : "");
   $("phase").textContent = live
-    ? (s.chairSpeaking ? `${s.chairName} is speaking` : `Live · ${s.chairPhaseLabel}`)
+    ? `Live · ${s.chairPhaseLabel}`
     : s.phase === "after"
       ? "Finished — this is the report"
       : "Not started yet";
@@ -638,9 +636,7 @@ function render(s) {
   const holder = s.people.find((p) => p.speaking);
   const speaking = $("speaking");
   speaking.replaceChildren();
-  if (live && s.chairSpeaking) {
-    speaking.textContent = `${s.chairName} is speaking`;
-  } else if (live && holder) {
+  if (live && holder) {
     speaking.textContent = `${holder.name} is speaking · ${Math.round(holder.share * 100)}% of the floor`;
     if (holder.offAgenda) {
       const drift = document.createElement("span");

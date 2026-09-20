@@ -74,9 +74,37 @@ def test_hello_then_speaking_and_turn_frames() -> None:
         assert ws.receive_json()["participants"] == [{"discordId": "2", "name": "Ana"}]
         assert ws.receive_json()["type"] == "session.started"  # joining voice opened one
         ears.on_speaking("2", True, 100.0)
+        ears.on_pcm("2", b"\x00\x10" * 1920, 100.0)
         assert ws.receive_json()["type"] == "speaking.start"
         turn = ws.receive_json()
         assert turn["type"] == "turn.start" and turn["discordId"] == "2"
+
+
+def test_floor_time_ignores_an_active_mic_with_only_room_noise() -> None:
+    ears = make_ears()
+    sent: list[dict[str, Any]] = []
+    ears.hub.broadcast = sent.append  # type: ignore[method-assign]
+
+    ears.on_speaking("2", True, 100.0)
+    for second in range(10):
+        ears.on_pcm("2", b"\x01\x00" * 1920, 100.0 + second)
+
+    assert not [f for f in sent if f["type"].startswith(("speaking.", "turn."))]
+    assert ears.turns.active() == []
+
+
+def test_floor_time_ends_after_audio_falls_below_the_noise_gate() -> None:
+    ears = make_ears()
+    sent: list[dict[str, Any]] = []
+    ears.hub.broadcast = sent.append  # type: ignore[method-assign]
+
+    ears.on_speaking("2", True, 100.0)
+    ears.on_pcm("2", b"\x00\x10" * 1920, 100.0)
+    ears.on_pcm("2", b"\x01\x00" * 1920, 100.4)
+
+    speaking = [f for f in sent if f["type"].startswith("speaking.")]
+    assert [f["type"] for f in speaking] == ["speaking.start", "speaking.end"]
+    assert speaking[1]["atMs"] - speaking[0]["atMs"] == 300
 
 
 async def test_transcript_frame_carries_name_turn_and_keyterms() -> None:
@@ -85,7 +113,6 @@ async def test_transcript_frame_carries_name_turn_and_keyterms() -> None:
     ears.on_joined("g", "c1", [ANA])
     sent: list[dict[str, Any]] = []
     ears.hub.broadcast = sent.append  # type: ignore[method-assign]
-    ears.on_speaking("2", True, 100.0)
     loud = (b"\x00\x10" * 2) * 960  # 20 ms, well above the silence floor
     for i in range(50):  # 1 s
         ears.on_pcm("2", loud, 100.0 + i * 0.02)

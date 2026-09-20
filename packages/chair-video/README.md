@@ -91,16 +91,18 @@ this short).
 
 - **Python (`chair_video/director.py` + `app.py`) is the coordinator and proxy, not the peer.**
   `DirectorManager` is pure logic (no network calls, injectable clock — unit-testable with zero
-  mocking): lazily opens a session on the first `speak()` of a meeting, tracks
-  `prompt_version`, self-restarts past `director_max_session_s` (14min, under fal's own ~15min
-  cap so the manager controls the cut), and reports heartbeat-derived state for `/healthz`.
+  mocking): opens on the explicit meeting-start hook (with first-speech fallback), tracks
+  `prompt_version`, rotates to a fresh scene every `director_scene_duration_s` (5min by
+  default), and reports heartbeat-derived state for `/healthz`. Silence does not stop the
+  scene; only the explicit meeting-end hook does.
 - **The browser (`stage/` → committed `static/stage.bundle.js`) owns the actual
   `RTCPeerConnection`.** Python cannot open or close a browser's peer connection — it can only
   ask the stage page to, via Server-Sent Events (`GET /director/events`: `start`/`speak`/`stop`
   commands), and listen for `POST /director/heartbeat` (every 5s) to know the stage is still
-  alive. **A lost heartbeat only degrades what `/healthz` reports — it cannot billing-stop
-  anything**, since Python can't reach into the browser tab. fal's own server-side idle
-  reaping, plus the 14-minute self-stop above, are the real leak backstops.
+  alive. Scene rotation is make-before-break: the old MediaStream remains visible until the
+  replacement produces media, avoiding a black/idle gap. **A lost heartbeat only degrades
+  what `/healthz` reports — it cannot billing-stop anything**, since Python can't reach into
+  the browser tab. Explicit meeting-end remains the billing stop.
 - **`FAL_KEY` never reaches the browser.** `POST/GET /director/fal-proxy` is exact-host
   allowlisted (`wma.fal.run` only — checked via `urlsplit().hostname`, not a suffix match, so
   `wma.fal.run.evil.com` or a userinfo trick fails closed), strips any inbound `Authorization`,
@@ -124,12 +126,12 @@ this short).
 `POST /director/heartbeat`, `GET /director/events` (SSE), `GET/POST /director/fal-proxy`.
 `GET /healthz` now includes `"director": {...}` alongside the existing fal fields.
 
-**Brain integration:** `packages/brain/src/engine.ts`'s `speak()` fires a
-fire-and-forget `POST {CHAIR_VIDEO_URL}/director/speak` right after TTS synthesis (2s
-abort timeout, logs and continues on failure) — never awaited, so a down or slow
-chair-video cannot delay or break the existing Discord voice path. No-ops entirely if
-`CHAIR_VIDEO_URL` is unset, so the idle-loop/lip-sync fallback above keeps working
-unchanged when Director isn't configured.
+**Brain integration:** `packages/brain/src/engine.ts`'s `speak()` fires a fire-and-forget
+`POST {CHAIR_VIDEO_URL}/director/speak` after each line (streaming PCM is wrapped as WAV
+after Discord has received it; HTTP TTS already returns a complete clip). The request has a
+2s abort timeout and is never awaited, so a down or slow chair-video cannot delay or break
+the Discord voice path. Meeting activation/end explicitly start/stop the scene. Everything
+no-ops if `CHAIR_VIDEO_URL` is unset.
 
 ## Config
 
@@ -144,8 +146,9 @@ Env vars (loaded from the repo-root `.env`, see `settings.py`):
 - `DIRECTOR_RESOLUTION` / `DIRECTOR_ASPECT_RATIO` — default `480p` / `16:9`.
 - `DIRECTOR_HEARTBEAT_TIMEOUT_S` — stage heartbeat staleness before `/healthz` reports
   `degraded`, default 15s.
-- `DIRECTOR_MAX_SESSION_S` — self-imposed session lifetime before an auto-restart, default
-  14min (under fal's own ~15min cap).
+- `DIRECTOR_SCENE_DURATION_S` — time before make-before-break rotation to a newly generated
+  scene, default 300s (5min, below fal's own ~15min cap). Shorter values change the scene
+  more often but incur more session minimum charges.
 
 ## Scripts
 

@@ -20,8 +20,10 @@ const overlay = document.getElementById("start-overlay");
 
 let currentToken = null;
 let conn = null;
+const openConnections = new Set();
 let heartbeatTimer = null;
 let stageState = "idle";
+let sceneGeneration = 0;
 
 fal.config({
   proxyUrl: `${window.location.origin}/director/fal-proxy`,
@@ -51,28 +53,37 @@ function startHeartbeat(token) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ token, state: stageState }),
-    }).catch(() => {});
+    }).catch((err) => console.debug("director heartbeat failed", err));
   }, 5000);
 }
 
 function closeSession() {
+  sceneGeneration += 1;
   stopHeartbeat();
-  if (conn) {
+  for (const connection of openConnections) {
     try {
-      conn.close();
-    } catch {
-      // already gone
+      connection.close();
+    } catch (err) {
+      // A connection can already be gone during teardown; retain a breadcrumb
+      // without turning an idempotent close into a user-visible failure.
+      console.debug("director connection was already closed", err);
     }
-    conn = null;
   }
+  openConnections.clear();
+  conn = null;
   currentToken = null;
   video.srcObject = null;
 }
 
 function joinSession(evt) {
-  closeSession();
+  // Scene rotations are make-before-break. Keep the current MediaStream on
+  // screen while the replacement performs its ~5s WebRTC startup, then close
+  // every superseded connection after the first new media frame arrives.
+  // Clearing the old video here would turn a healthy rotation into a black or
+  // idle gap for viewers.
+  const generation = ++sceneGeneration;
   currentToken = evt.token;
-  setStatus("connecting");
+  setStatus(openConnections.size ? "changing scene" : "connecting");
 
   // Subscribe to both tracks, then mute the element. The endpoint streams
   // audio+video and rejects an offer that asks for video alone -- asking for
@@ -85,16 +96,25 @@ function joinSession(evt) {
   // that is what made her land as creepy rather than present. Muting the
   // element is what silences the second one. The stream is the picture of her
   // speaking; the Discord TTS is the speech.
-  conn = fal.realtime.open(wma(evt.endpointId), {
+  const nextConn = fal.realtime.open(wma(evt.endpointId), {
     receive: ["video", "audio"],
     onState: (state) => {
-      if (state === "live") setStatus("live");
+      if (generation === sceneGeneration && state === "live") setStatus("live");
     },
     onError: (err) => {
-      setStatus("error");
+      if (generation === sceneGeneration) setStatus("error");
       console.error("director session error", err);
     },
     onMedia: (stream) => {
+      if (generation !== sceneGeneration) {
+        try {
+          nextConn.close();
+        } catch (err) {
+          console.debug("superseded director connection was already closed", err);
+        }
+        openConnections.delete(nextConn);
+        return;
+      }
       video.srcObject = stream;
       // This is the mute that matters -- the audio track is always present, so
       // this is the only thing standing between the room and a second Karen.
@@ -105,10 +125,21 @@ function joinSession(evt) {
         // path; leave it visible until the user interacts.
         if (overlay) overlay.hidden = false;
       });
+      for (const connection of openConnections) {
+        if (connection === nextConn) continue;
+        try {
+          connection.close();
+        } catch (err) {
+          console.debug("previous director connection was already closed", err);
+        }
+        openConnections.delete(connection);
+      }
     },
   });
+  conn = nextConn;
+  openConnections.add(nextConn);
 
-  conn.send({
+  nextConn.send({
     type: "configure",
     protocol_version: 1,
     prompt_version: evt.promptVersion,
@@ -138,6 +169,10 @@ function handleEvent(evt) {
 function connectEvents() {
   const source = new EventSource("/director/events");
   source.onmessage = (msg) => {
+    if (msg.origin !== window.location.origin) {
+      console.warn("ignored director event from unexpected origin", msg.origin);
+      return;
+    }
     try {
       handleEvent(JSON.parse(msg.data));
     } catch (err) {
@@ -159,7 +194,7 @@ window.addEventListener("beforeunload", closeSession);
 if (overlay) {
   overlay.addEventListener("click", () => {
     overlay.hidden = true;
-    video.play().catch(() => {});
+    video.play().catch((err) => console.debug("video still could not start after interaction", err));
   });
 }
 

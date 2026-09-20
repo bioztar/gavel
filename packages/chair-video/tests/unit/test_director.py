@@ -68,25 +68,13 @@ def test_snapshot_before_first_heartbeat_is_starting_then_degraded() -> None:
     assert manager.snapshot()["state"] == "degraded"
 
 
-def test_speak_past_max_session_restarts_with_a_fresh_session() -> None:
-    clock = [0.0]
-    manager = DirectorManager(_settings(director_max_session_s=60.0), now=lambda: clock[0])
-    first = manager.speak("https://cdn/a.wav", "funky")
-
-    clock[0] += 61.0
-    second = manager.speak("https://cdn/b.wav", "funky")
-
-    assert second.session_id != first.session_id
-    assert second.prompt_version == 2
-
-
 def test_unknown_persona_falls_back_to_settings_default() -> None:
     manager = DirectorManager(_settings())
     session = manager.start("not-a-real-persona")
     assert session.persona == "funky"
 
 
-# --- the credit leak: nothing ever closed a session once speaking stopped -----
+# --- scene rotation keeps a long meeting visible without generative drift -----
 
 
 def _clocked(**overrides: object) -> tuple[DirectorManager, list[float]]:
@@ -94,41 +82,46 @@ def _clocked(**overrides: object) -> tuple[DirectorManager, list[float]]:
     return DirectorManager(_settings(**overrides), now=lambda: t[0]), t
 
 
-def test_sweep_stops_a_session_that_stopped_speaking() -> None:
-    manager, t = _clocked(director_idle_stop_s=120.0)
-    manager.start("formal")
-    manager.speak("https://example.com/a.wav", "formal")
+def test_silence_never_stops_an_active_meeting() -> None:
+    manager, t = _clocked(director_scene_duration_s=300.0)
+    session = manager.start("formal")
 
-    t[0] = 119.0
+    t[0] = 299.0
     assert manager.sweep() is None
     assert manager.snapshot()["active"] is True
-
-    t[0] = 121.0
-    assert manager.sweep() == "idle"
-    assert manager.snapshot() == {"active": False}
+    assert manager.snapshot()["sessionId"] == session.session_id
 
 
-def test_speaking_keeps_the_session_alive() -> None:
-    manager, t = _clocked(director_idle_stop_s=120.0)
-    manager.start("formal")
-    for at in (100.0, 200.0, 300.0):
-        t[0] = at
-        manager.speak("https://example.com/a.wav", "formal")
-        assert manager.sweep() is None
-    assert manager.snapshot()["active"] is True
+def test_sweep_rotates_scene_without_entering_idle() -> None:
+    manager, t = _clocked(director_scene_duration_s=60.0)
+    first = manager.start("formal")
+    queue = manager.subscribe()
+    queue.get_nowait()  # initial start event
 
-
-def test_sweep_stops_a_session_past_the_fal_cap_even_while_speaking() -> None:
-    manager, t = _clocked(director_idle_stop_s=120.0, director_max_session_s=60.0)
-    manager.start("formal")
     t[0] = 61.0
+    assert manager.sweep() == "scene_rotation"
+    snapshot = manager.snapshot()
+    assert snapshot["active"] is True
+    assert snapshot["sessionId"] != first.session_id
+    assert snapshot["sceneNumber"] == 2
+
+    # Rotation emits only a replacement start event. A stop would make the
+    # browser render idle between scenes.
+    event = queue.get_nowait()
+    assert '"type": "start"' in event
+    assert '"sceneNumber": 2' in event
+    assert queue.empty()
+
+
+def test_speaking_does_not_postpone_scene_rotation() -> None:
+    manager, t = _clocked(director_scene_duration_s=60.0)
+    first = manager.start("formal")
+    t[0] = 59.0
     manager.speak("https://example.com/a.wav", "formal")
-    # speak() already restarts past the cap, so the fresh session survives...
-    assert manager.sweep() is None
-    t[0] = 130.0
-    # ...and the sweeper ends it without needing another utterance.
-    assert manager.sweep() in {"idle", "max_session"}
-    assert manager.snapshot() == {"active": False}
+    t[0] = 61.0
+
+    assert manager.sweep() == "scene_rotation"
+    assert manager.snapshot()["sessionId"] != first.session_id
 
 
 def test_sweep_on_no_session_is_a_no_op() -> None:

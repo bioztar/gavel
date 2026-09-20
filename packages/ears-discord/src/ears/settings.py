@@ -93,8 +93,12 @@ class Settings(BaseSettings):
     stt_flush_silence_ms: int = 1200
     stt_idle_close_s: float = 45.0
     # Chunks quieter than this (16-bit RMS) are silence frames, not speech. Speech sits
-    # in the hundreds to thousands.
+    # in the hundreds to thousands. This also gates speaking events/floor time, so an
+    # open mic carrying room noise does not look like somebody holding the floor.
     silence_rms: float = 60.0
+    # Keep a speaker active this long after the last above-threshold PCM frame. This
+    # bridges tiny gaps between Discord packets without counting a noisy open mic.
+    voice_activity_hold_ms: int = 300
 
     @property
     def tts_voice_options(self) -> list[str]:

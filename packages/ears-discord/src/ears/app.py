@@ -133,6 +133,10 @@ class Ears:
         # Last time a human was audibly speaking. Packet arrival alone is not enough: an open
         # voice-activated mic keeps sending breath and room noise, and the room never pauses.
         self._last_voice_at = 0.0
+        # Discord's speaking events only mean that a mic is transmitting. Floor time starts
+        # on PCM above `silence_rms`, and ends shortly after the last audible frame, so room
+        # noise and a stuck-open mic never accrue talk time.
+        self._audible_at: dict[str, float] = {}
         self._holding_since: float | None = None
         # Streamed lines still receiving chunks, queued or playing.
         self._streams: dict[str, PcmStream] = {}
@@ -155,8 +159,8 @@ class Ears:
 
     # --- fan-out ---------------------------------------------------------------------
 
-    def emit(self, frame: EarsFrame) -> dict[str, Any]:
-        body = stamp(frame)
+    def emit(self, frame: EarsFrame, *, at: float | None = None) -> dict[str, Any]:
+        body = stamp(frame, at)
         self.hub.broadcast(body)
         self.console.broadcast(body)
         self.recent.append(body)
@@ -360,23 +364,47 @@ class Ears:
         self.emit(Participants(participants=participants))
 
     def on_speaking(self, discord_id: str, speaking: bool, at: float) -> None:
-        if speaking:
-            self.emit(SpeakingStart(discord_id=discord_id))
-            frames = self.turns.speaking_start(discord_id, at)
-        else:
-            self.emit(SpeakingEnd(discord_id=discord_id))
-            frames = self.turns.speaking_end(discord_id, at)
-        for frame in frames:
-            self.emit(frame)
+        # A gateway start means only "this mic is sending packets". Wait for audible PCM
+        # before announcing speech. A gateway stop is still a useful prompt close.
+        if not speaking:
+            self._stop_speaking(discord_id, at)
 
     def on_pcm(self, discord_id: str, pcm: bytes, at: float) -> None:
-        if rms(pcm) >= self.settings.silence_rms:
+        level = rms(pcm)
+        if level >= self.settings.silence_rms:
             self._last_voice_at = max(self._last_voice_at, at)
+            self._start_speaking(discord_id, at)
+        else:
+            self._expire_speech(at)
         if self.stream is not None:
             self.stream.feed(discord_id, pcm, at)
             return
         for chunk in self.segmenter.push(discord_id, pcm, at):
             self._transcribe(chunk)
+
+    def _start_speaking(self, discord_id: str, at: float) -> None:
+        started = discord_id not in self._audible_at
+        self._audible_at[discord_id] = at
+        if not started:
+            return
+        self.emit(SpeakingStart(discord_id=discord_id), at=at)
+        for frame in self.turns.speaking_start(discord_id, at):
+            self.emit(frame, at=at)
+
+    def _stop_speaking(self, discord_id: str, at: float) -> None:
+        last_audible = self._audible_at.pop(discord_id, None)
+        if last_audible is None:
+            return
+        at = max(at, last_audible)
+        self.emit(SpeakingEnd(discord_id=discord_id), at=at)
+        for frame in self.turns.speaking_end(discord_id, at):
+            self.emit(frame, at=at)
+
+    def _expire_speech(self, now: float) -> None:
+        hold = self.settings.voice_activity_hold_ms / 1000
+        for discord_id, last_audible in list(self._audible_at.items()):
+            if now - last_audible >= hold:
+                self._stop_speaking(discord_id, last_audible + hold)
 
     # --- the clock ------------------------------------------------------------------------
 
@@ -386,6 +414,7 @@ class Ears:
         while True:
             await asyncio.sleep(CLOCK_SECONDS)
             now = time.time()
+            self._expire_speech(now)
             for frame in self.turns.tick(now):
                 self._emit_turn(frame)
             if self._playing is None and self._playback:
@@ -415,7 +444,10 @@ class Ears:
             )
 
     def _close_open_speech(self) -> None:
-        for frame in self.turns.close_all(time.time()):
+        now = time.time()
+        for discord_id in list(self._audible_at):
+            self._stop_speaking(discord_id, now)
+        for frame in self.turns.close_all(now):
             self._emit_turn(frame)
         for chunk in self.segmenter.flush_all():
             self._transcribe(chunk)

@@ -15,19 +15,37 @@ import { parseArgs } from "node:util";
 
 process.env.GAVEL_MASTRA_STORAGE ??= "off";
 
-const { env } = await import("./env");
-const { loadConfig } = await import("./config");
-const { loadAgendaFile } = await import("./contract/agenda");
-const { parseEarsFrame } = await import("./contract/frames");
-const { StubLlm } = await import("./chair/llm");
-const { MastraLlm } = await import("./chair/mastraLlm");
-const { SilentTts, SlngTts } = await import("./chair/tts");
-const { EarsStore, MemoryStore } = await import("./ears/store");
-const { EarsWire } = await import("./ears/wire");
-const { Engine } = await import("./engine");
-const { log } = await import("./log");
-const { mastra } = await import("./mastra");
-const { setConfig, setEngine } = await import("./runtime");
+const [
+  { env },
+  { loadConfig },
+  { loadAgendaFile },
+  { parseEarsFrame },
+  { StubLlm },
+  { MastraLlm },
+  { SilentTts, SlngTts },
+  { EarsStore, MemoryStore },
+  { EarsWire },
+  { Engine },
+  { log },
+  { mastra },
+  { setConfig, setEngine },
+] = await Promise.all([
+  import("./env"),
+  import("./config"),
+  import("./contract/agenda"),
+  import("./contract/frames"),
+  import("./chair/llm"),
+  import("./chair/mastraLlm"),
+  import("./chair/tts"),
+  import("./ears/store"),
+  import("./ears/wire"),
+  import("./engine"),
+  import("./log"),
+  import("./mastra"),
+  import("./runtime"),
+]).catch((error) => {
+  throw new Error("could not load replay dependencies", { cause: error });
+});
 type EarsFrame = import("./contract/frames").EarsFrame;
 type BrainFrame = import("./contract/frames").BrainFrame;
 

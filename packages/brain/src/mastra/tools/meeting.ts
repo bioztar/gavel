@@ -43,7 +43,13 @@ export const resolveMemoryTool = createTool({
   description: "Mark a parked point as dealt with.",
   inputSchema: z.object({ id: z.string() }),
   outputSchema: z.object({ memory: MemoryOut.nullable() }),
-  execute: async ({ id }) => ({ memory: await getEngine().resolveMemory(id) }),
+  execute: async ({ id }) => {
+    try {
+      return { memory: await getEngine().resolveMemory(id) };
+    } catch (error) {
+      throw new Error(`could not resolve meeting memory ${id}`, { cause: error });
+    }
+  },
 });
 
 export const meetingStateTool = createTool({

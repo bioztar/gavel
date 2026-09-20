@@ -2,8 +2,8 @@
 
 The stage page (a browser) owns the actual `RTCPeerConnection` — Python cannot
 open one, and can't close one either. This module is the other half: it holds
-`FAL_KEY` (via `app.py`'s proxy, not here), decides when a session starts and
-stops, tracks the strictly-increasing `prompt_version` the fal bridge requires
+`FAL_KEY` (via `app.py`'s proxy, not here), decides when a session starts,
+rotates, and stops, tracks the strictly-increasing `prompt_version` the fal bridge requires
 (see README — a stale or repeated value is silently dropped), and pushes "do
 this" commands to the stage page over Server-Sent Events. The stage page
 reports back via `heartbeat()`; losing that heartbeat is the only signal this
@@ -35,8 +35,8 @@ class DirectorSession:
     token: str
     persona: str
     prompt_version: int
+    scene_number: int
     started_at: float
-    last_speak_at: float
     last_heartbeat_at: float | None = None
     stage_state: str = "starting"
 
@@ -59,17 +59,37 @@ class DirectorManager:
         if self._session is not None:
             return self._session
         persona = self._settings.normalize_persona(persona)
-        session = DirectorSession(
-            session_id=secrets.token_hex(8),
-            token=secrets.token_urlsafe(24),
-            persona=persona,
-            prompt_version=1,
-            started_at=self._now(),
-            last_speak_at=self._now(),
+        session = self._new_session(
+            persona,
+            scene_number=1,
         )
         self._session = session
         self._broadcast(self._start_event(session))
         return session
+
+    def _new_session(self, persona: str, scene_number: int) -> DirectorSession:
+        return DirectorSession(
+            session_id=secrets.token_hex(8),
+            token=secrets.token_urlsafe(24),
+            persona=persona,
+            prompt_version=1,
+            scene_number=scene_number,
+            started_at=self._now(),
+        )
+
+    def rotate_scene(self) -> DirectorSession | None:
+        """Replace the live generative session without publishing an idle event.
+
+        The stage performs a make-before-break handoff: it keeps the current
+        MediaStream visible until the replacement produces its first frame.
+        """
+        current = self._session
+        if current is None:
+            return None
+        replacement = self._new_session(current.persona, current.scene_number + 1)
+        self._session = replacement
+        self._broadcast(self._start_event(replacement))
+        return replacement
 
     def stop(self) -> None:
         if self._session is None:
@@ -79,15 +99,9 @@ class DirectorManager:
         self._broadcast({"type": "stop", "sessionId": session_id})
 
     def speak(self, audio_url: str, persona: str) -> DirectorSession:
-        """Lazily starts a session if none is active — there is no separate
-        "meeting start" hook (mission scope is one edit in engine.ts), so the
-        first utterance of a meeting is what opens the stream."""
+        """Send speech to the active scene, lazily starting only as a fallback."""
         session = self.start(persona)
-        if self._now() - session.started_at > self._settings.director_max_session_s:
-            self.stop()
-            session = self.start(persona)
         session.prompt_version += 1
-        session.last_speak_at = self._now()
         self._broadcast(
             {
                 "type": "speak",
@@ -145,6 +159,7 @@ class DirectorManager:
             "token": session.token,
             "endpointId": self._settings.director_endpoint_id,
             "promptVersion": session.prompt_version,
+            "sceneNumber": session.scene_number,
             "prompt": prompt_by_persona.get(
                 session.persona, prompt_by_persona[self._settings.default_persona]
             ),
@@ -155,26 +170,20 @@ class DirectorManager:
     # --- housekeeping ------------------------------------------------------
 
     def sweep(self) -> str | None:
-        """Close a session nobody is using. Returns why it stopped, or None.
+        """Rotate an ageing scene while keeping the meeting's stage active.
 
-        This is the half `speak()` could never cover: its `director_max_session_s`
-        check only ran when the *next* utterance arrived, so a meeting that simply
-        went quiet left a fal session open and billing per second forever. A
-        background task calls this on a timer instead, so silence is enough to
-        end it. Karen re-opens on her next line.
+        Meeting start/stop is explicit. Silence is normal during a meeting and
+        must never be interpreted as the meeting ending. Rotation bounds how
+        long the generative model can accumulate visual drift in one session.
         """
         session = self._session
         if session is None:
             return None
         now = self._now()
-        if now - session.last_speak_at > self._settings.director_idle_stop_s:
-            reason = "idle"
-        elif now - session.started_at > self._settings.director_max_session_s:
-            reason = "max_session"
-        else:
+        if now - session.started_at <= self._settings.director_scene_duration_s:
             return None
-        self.stop()
-        return reason
+        self.rotate_scene()
+        return "scene_rotation"
 
     def close_subscribers(self) -> None:
         """Unblock every SSE generator so uvicorn can actually shut down.
@@ -215,6 +224,7 @@ class DirectorManager:
             "sessionId": session.session_id,
             "persona": session.persona,
             "promptVersion": session.prompt_version,
+            "sceneNumber": session.scene_number,
             "ageSeconds": round(age_s, 1),
             "heartbeatAgeSeconds": round(heartbeat_age_s, 1)
             if heartbeat_age_s is not None

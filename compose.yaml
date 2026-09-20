@@ -83,6 +83,8 @@ services:
       # Empty: the console's picker offers ears' built-in list.
       SLNG_TTS_VOICES: ${SLNG_TTS_VOICES:-}
       STT_MODE: ${STT_MODE:-stream}
+      SILENCE_RMS: ${SILENCE_RMS:-60}
+      VOICE_ACTIVITY_HOLD_MS: ${VOICE_ACTIVITY_HOLD_MS:-300}
       WIRE_HOST: 0.0.0.0
       WIRE_PORT: 8787
       BRAIN_STATE_URL: http://brain:8788/state
@@ -284,6 +286,9 @@ services:
       AVATAR_MODEL: ${AVATAR_MODEL:-fal-ai/flux/schnell}
       FAL_POLL_TIMEOUT_S: ${FAL_POLL_TIMEOUT_S:-120}
       FAL_POLL_INTERVAL_S: ${FAL_POLL_INTERVAL_S:-1}
+      # Keep Karen visible for the whole meeting, but replace the underlying
+      # generative scene periodically before temporal drift cooks the image.
+      DIRECTOR_SCENE_DURATION_S: ${DIRECTOR_SCENE_DURATION_S:-300}
     ports:
       - "127.0.0.1:${CHAIR_VIDEO_PORT:-8791}:8791"
     networks:

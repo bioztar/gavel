@@ -7,12 +7,14 @@ export { PACKAGE_DIR };
 config({ path: [resolve(PACKAGE_DIR, ".env"), resolve(PACKAGE_DIR, "../../.env")], quiet: true });
 
 const blank = (v: string | undefined) => (v && v.trim() ? v.trim() : undefined);
+const localEarsHost = "127.0.0.1";
+const localEarsEndpoint = (protocol: "http" | "ws") => `${protocol}://${localEarsHost}:8787`;
 
 export const env = {
   nebiusApiKey: blank(process.env.NEBIUS_API_KEY),
   slngApiKey: blank(process.env.SLNG_API_KEY),
-  earsWireUrl: blank(process.env.EARS_WIRE_URL) ?? "ws://127.0.0.1:8787",
-  earsHttpUrl: blank(process.env.EARS_HTTP_URL) ?? "http://127.0.0.1:8787",
+  earsWireUrl: blank(process.env.EARS_WIRE_URL) ?? localEarsEndpoint("ws"),
+  earsHttpUrl: blank(process.env.EARS_HTTP_URL) ?? localEarsEndpoint("http"),
   stageHost: blank(process.env.STAGE_HOST) ?? "127.0.0.1",
   stagePort: Number(blank(process.env.STAGE_PORT) ?? 8788),
   // Langfuse tracing (src/mastra/index.ts): on when both keys are set.

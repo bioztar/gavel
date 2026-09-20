@@ -26,6 +26,7 @@ LABEL = {"vitaly": "VITALY", "artem": "ARTEM", "karen": "KAREN  ·  the chair"}
 PAGE_CROP = "crop=1290:726:315:40"
 TAIL = 0.30      # breathing room after each line — silence, but real silence
 END_CARD = 3.6
+COMMAND_TIMEOUT_SECONDS = 30 * 60
 
 SHOTS_BY_NAME = {
     "card": ("card-title", True, None),
@@ -46,7 +47,13 @@ def probe(path: pathlib.Path, entries: str, stream: str | None = None) -> str:
     if stream:
         cmd += ["-select_streams", stream]
     cmd += ["-show_entries", entries, "-of", "csv=p=0", str(path)]
-    return subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.strip()
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=COMMAND_TIMEOUT_SECONDS,
+    ).stdout.strip()
 
 
 def dur(path: pathlib.Path) -> float:
@@ -60,7 +67,7 @@ def loudness_filter(audio: pathlib.Path) -> str:
         err = subprocess.run(
             ["ffmpeg", "-hide_banner", "-nostats", "-i", str(audio),
              "-af", "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"],
-            capture_output=True, text=True).stderr
+            capture_output=True, text=True, timeout=COMMAND_TIMEOUT_SECONDS).stderr
         cache[audio.name] = json.loads(err[err.rindex("{"):err.rindex("}") + 1])
         MEASURED.write_text(json.dumps(cache, indent=2))
     m = cache[audio.name]
@@ -79,7 +86,8 @@ def make_wav(seg: dict) -> pathlib.Path:
           f"apad=pad_dur={TAIL}")
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(src), "-af", af,
                     "-ac", "2", "-ar", "48000", "-c:a", "pcm_s16le",
-                    "-t", f"{body + TAIL:.3f}", str(dest)], check=True)
+                    "-t", f"{body + TAIL:.3f}", str(dest)], check=True,
+                   timeout=COMMAND_TIMEOUT_SECONDS)
     return dest
 
 
@@ -117,7 +125,7 @@ def build_video(seg: dict, seconds: float) -> pathlib.Path:
     cmd += ["-filter_complex", fc, "-map", "[v]", "-an", "-t", f"{seconds:.3f}",
             "-r", "30", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
             "-pix_fmt", "yuv420p", str(dest)]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, timeout=COMMAND_TIMEOUT_SECONDS)
     return dest
 
 
@@ -127,18 +135,20 @@ def end_card() -> tuple[pathlib.Path, pathlib.Path]:
                     "-i", str(SHOTS / "card-end.png"), "-t", str(END_CARD),
                     "-vf", "scale=1920:1080,setsar=1,fps=30", "-c:v", "libx264",
                     "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
-                    "-an", str(vid)], check=True)
+                    "-an", str(vid)], check=True, timeout=COMMAND_TIMEOUT_SECONDS)
     wav = WAVS / "card-end.wav"
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi",
                     "-i", "anullsrc=r=48000:cl=stereo", "-t", str(END_CARD),
-                    "-c:a", "pcm_s16le", str(wav)], check=True)
+                    "-c:a", "pcm_s16le", str(wav)], check=True,
+                   timeout=COMMAND_TIMEOUT_SECONDS)
     return vid, wav
 
 
 def concat(parts: list[pathlib.Path], listing: pathlib.Path, dest: pathlib.Path) -> None:
     listing.write_text("".join(f"file '{p}'\n" for p in parts))
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "concat", "-safe", "0",
-                    "-i", str(listing), "-c", "copy", str(dest)], check=True)
+                    "-i", str(listing), "-c", "copy", str(dest)], check=True,
+                   timeout=COMMAND_TIMEOUT_SECONDS)
 
 
 if __name__ == "__main__":
@@ -159,7 +169,8 @@ if __name__ == "__main__":
     subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(OUT / "track.mp4"),
                     "-i", str(OUT / "track.wav"), "-map", "0:v:0", "-map", "1:a:0",
                     "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
-                    "-ac", "2", "-movflags", "+faststart", str(final)], check=True)
+                    "-ac", "2", "-movflags", "+faststart", str(final)], check=True,
+                   timeout=COMMAND_TIMEOUT_SECONDS)
 
     vd = float(probe(final, "stream=duration", "v:0"))
     ad = float(probe(final, "stream=duration", "a:0"))

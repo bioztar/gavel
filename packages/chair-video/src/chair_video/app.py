@@ -86,18 +86,18 @@ class DirectorHeartbeatRequest(BaseModel):
 
 
 async def _sweep_loop(app: FastAPI) -> None:
-    """Ends sessions nobody is using. See DirectorManager.sweep()."""
+    """Refreshes ageing generative scenes. See DirectorManager.sweep()."""
     settings: Settings = app.state.settings
     director: DirectorManager = app.state.director
     while True:
         await asyncio.sleep(settings.director_sweep_interval_s)
         try:
             reason = director.sweep()
-        except Exception:  # a sweeper that dies takes the leak-stop with it
+        except Exception:  # keep future rotations alive after one unexpected failure
             log.exception("director.sweep_failed")
             continue
         if reason:
-            log.info("director.session_stopped", reason=reason)
+            log.info("director.scene_rotated", **director.snapshot())
 
 
 @asynccontextmanager
@@ -236,11 +236,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not settings.fal_configured:
             raise HTTPException(500, "FAL_KEY is not set")
         session = director.start(settings.normalize_persona(req.persona))
+        log.info(
+            "director.session_started",
+            session_id=session.session_id,
+            persona=session.persona,
+            scene_number=session.scene_number,
+        )
         return {"sessionId": session.session_id, "persona": session.persona}
 
     @app.post("/director/session/stop")
     def director_session_stop() -> dict[str, Any]:
-        app.state.director.stop()
+        director: DirectorManager = app.state.director
+        snapshot = director.snapshot()
+        director.stop()
+        log.info("director.session_stopped", reason="meeting_end", **snapshot)
         return {"stopped": True}
 
     @app.post("/director/speak")
@@ -259,6 +268,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(502, f"fal upload failed: {exc}") from exc
 
         session = director.speak(audio_url, settings.normalize_persona(req.persona))
+        log.info(
+            "director.speech_queued",
+            session_id=session.session_id,
+            scene_number=session.scene_number,
+            prompt_version=session.prompt_version,
+            audio_bytes=len(audio_bytes),
+        )
         return {"sessionId": session.session_id, "promptVersion": session.prompt_version}
 
     @app.post("/director/heartbeat")

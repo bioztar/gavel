@@ -16,16 +16,31 @@ import { parseArgs } from "node:util";
 
 process.env.GAVEL_MASTRA_STORAGE ??= "off";
 
-const { env } = await import("../src/env");
-const { loadConfig } = await import("../src/config");
-const { StubLlm } = await import("../src/chair/llm");
-const { MastraLlm } = await import("../src/chair/mastraLlm");
-const { setConfig } = await import("../src/runtime");
-const { log } = await import("../src/log");
-const { CASES_DIR, EVALS_DIR, loadCases } = await import("./cases");
-const { generateLine } = await import("./harness");
-const { NebiusJudge } = await import("./judge");
-const { DIMENSIONS, scoreLine } = await import("./score");
+const [
+  { env },
+  { loadConfig },
+  { StubLlm },
+  { MastraLlm },
+  { setConfig },
+  { log },
+  { CASES_DIR, EVALS_DIR, loadCases },
+  { generateLine },
+  { NebiusJudge },
+  { DIMENSIONS, scoreLine },
+] = await Promise.all([
+  import("../src/env"),
+  import("../src/config"),
+  import("../src/chair/llm"),
+  import("../src/chair/mastraLlm"),
+  import("../src/runtime"),
+  import("../src/log"),
+  import("./cases"),
+  import("./harness"),
+  import("./judge"),
+  import("./score"),
+]).catch((error) => {
+  throw new Error("could not load evaluation dependencies", { cause: error });
+});
 type Judge = import("./judge").Judge;
 type Scores = import("./score").Scores;
 

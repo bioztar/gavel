@@ -161,7 +161,12 @@ fallback behind the same `VoiceEvents` interface.
 ## Tuning
 
 `TURN_GAP_MS` (1500), `TURN_TICK_MS` (10000), `UTTERANCE_GAP_MS` (800),
-`CHUNK_MAX_MS` (15000), `CHUNK_MIN_MS` (400), `SILENCE_RMS` (60), `SLNG_STT_LANGUAGE` (en),
+`CHUNK_MAX_MS` (15000), `CHUNK_MIN_MS` (400), `SILENCE_RMS` (60),
+`VOICE_ACTIVITY_HOLD_MS` (300), `SLNG_STT_LANGUAGE` (en),
 `SLNG_TTS_MODEL` (`deepgram/aura:2`) and `SLNG_TTS_VOICE` (`aura-2-thalia-en`) — the
 say-box is Karen talking, so these stay in step with the chair's voice in the brain's
 `config/models.yaml`.
+
+`SILENCE_RMS` is also the floor-time noise gate: Discord saying a mic is active is not
+enough on its own. Ears starts a speaking interval only after above-threshold PCM and
+ends it after `VOICE_ACTIVITY_HOLD_MS` without another audible frame.

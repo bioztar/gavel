@@ -104,18 +104,12 @@ class Settings(BaseSettings):
     # claiming the chair is visible — Python cannot close the browser's own
     # peer connection, so this only affects reporting, not billing.
     director_heartbeat_timeout_s: float = 15.0
-    # fal's own session cap is ~15 minutes; self-stop a bit earlier so the
-    # manager controls the cut rather than being cut off mid-utterance. A
-    # meeting running past this gets a ~1s hiccup and a fresh session, never
-    # a leaked one.
-    director_max_session_s: float = 14 * 60.0
-    # The credit leak this exists to stop: `speak()` lazily opens a session and
-    # nothing ever closed it, so a meeting that went quiet kept a fal session
-    # (and its per-second bill) alive until someone noticed. A session with no
-    # utterance for this long is a meeting that ended, so stop it. Karen
-    # re-opens on the next line — a ~1s hiccup is cheaper than an open stream.
-    director_idle_stop_s: float = 120.0
-    # How often the background sweeper checks the two rules above.
+    # A fresh generative session periodically replaces the current one before
+    # temporal drift can "cook" the image. The browser uses make-before-break,
+    # keeping the previous scene visible until the new one has media. Five
+    # minutes is also safely below fal's own ~15-minute session cap.
+    director_scene_duration_s: float = 5 * 60.0
+    # How often the background sweeper checks whether a scene needs rotating.
     director_sweep_interval_s: float = 5.0
 
     def avatar_image_path(self, persona: str) -> str:

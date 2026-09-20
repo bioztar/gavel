@@ -45,7 +45,9 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const BASE = process.env.CHAIR_VIDEO_URL || "http://127.0.0.1:8791";
+const LOCAL_CHAIR_VIDEO_HOST = "127.0.0.1";
+const LOCAL_CHAIR_VIDEO = `http://${LOCAL_CHAIR_VIDEO_HOST}:8791`;
+const BASE = process.env.CHAIR_VIDEO_URL || LOCAL_CHAIR_VIDEO;
 const OUT = process.env.SYNC_OUT_DIR || "/tmp/director-sync";
 const PERSONA = process.env.SYNC_PERSONA || "formal";
 // 20 Hz sampling. The buckets this feeds (300ms / 1-3s / 10s+) do not justify
@@ -65,7 +67,10 @@ async function post(path, body) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  const json = await res.json().catch(() => ({}));
+  const json = await res.json().catch((err) => {
+    console.warn(`POST ${path} returned a non-JSON response`, err);
+    return {};
+  });
   if (!res.ok) throw new Error(`POST ${path} -> ${res.status} ${JSON.stringify(json)}`);
   return { t0, t1: Date.now(), json };
 }
@@ -79,12 +84,21 @@ const PAGE_INIT = ({ sampleMs }) => {
   const Native = window.EventSource;
   window.EventSource = function (url, opts) {
     const es = new Native(url, opts);
+    const expectedOrigin = new URL(url, window.location.href).origin;
     es.addEventListener("open", () => { window.__sync.sseOpen = true; });
     es.addEventListener("message", (msg) => {
+      if (msg.origin !== expectedOrigin) {
+        console.warn("ignored measurement event from unexpected origin", msg.origin);
+        return;
+      }
       try {
         const evt = JSON.parse(msg.data);
         if (evt.type === "speak") window.__sync.speaks.push(Date.now());
-      } catch { /* the page's own handler reports bad events */ }
+      } catch (err) {
+        // The page's own handler reports bad events too, but this injected
+        // listener must still account for its own parse failure.
+        console.debug("measurement listener ignored a bad director event", err);
+      }
     });
     return es;
   };
@@ -163,7 +177,9 @@ const run = async () => {
   const { chromium } = createRequire(import.meta.url)(mod);
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-  await page.addInitScript(PAGE_INIT, { sampleMs: SAMPLE_MS });
+  await page.addInitScript(PAGE_INIT, { sampleMs: SAMPLE_MS }).catch((err) => {
+    throw new Error("could not install the measurement hooks", { cause: err });
+  });
   page.on("console", (m) => { if (m.type() === "error") console.error("  page error:", m.text()); });
 
   const results = [];
@@ -175,7 +191,9 @@ const run = async () => {
     await page.waitForFunction(() => window.__sync?.sseOpen === true, null, { timeout: 15000 });
     console.log("SSE open");
 
-    const started = await post("/director/session/start", { persona: PERSONA });
+    const started = await post("/director/session/start", { persona: PERSONA }).catch((err) => {
+      throw new Error("could not start the measured director session", { cause: err });
+    });
     console.log("session", started.json.sessionId, "persona", PERSONA);
 
     // Do not time anything until frames are genuinely arriving: "live" on the
@@ -224,7 +242,9 @@ const run = async () => {
       const tSse = await page.evaluate(() => window.__sync.speaks.at(-1));
       // Give the render every chance before declaring no onset: 20s is well
       // past the point where sync would be a question worth asking.
-      await sleep(20000);
+      await sleep(20000).catch((err) => {
+        throw new Error("render-observation delay failed", { cause: err });
+      });
       const samples = await page.evaluate(() => window.__sync.samples);
       const onset = onsetAfter(samples, tSse, quietFrom, before.t0);
       const frames = await page.evaluate(() => window.__sync.frames);
@@ -248,7 +268,9 @@ const run = async () => {
           `dispatch ${row.dispatchMs}ms  render ${row.renderMs ?? "—"}ms  ` +
           `total ${row.totalMs ?? "—"}ms${row.error ? `  [${row.error}]` : ""}`,
       );
-      await sleep(SETTLE_MS);
+      await sleep(SETTLE_MS).catch((err) => {
+        throw new Error("inter-utterance settling delay failed", { cause: err });
+      });
     }
 
     // The only thing that proves the threshold: she blinks and breathes the
@@ -266,7 +288,9 @@ const run = async () => {
     writeFileSync(join(OUT, "results.json"), JSON.stringify({ results, control }, null, 2));
   } finally {
     await post("/director/session/stop", {}).catch((e) => console.error("stop failed:", e.message));
-    await browser.close();
+    await browser.close().catch((err) => {
+      console.error("browser cleanup failed", err);
+    });
     const health = await fetch(`${BASE}/healthz`).then((r) => r.json()).catch(() => ({}));
     console.log("after stop, session active:", health.director?.active ?? health.active ?? "unknown");
   }

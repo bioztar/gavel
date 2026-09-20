@@ -118,6 +118,12 @@ export async function scoreLine(
     const verdict = await judge.judge({ dimension, line, facts: factsOf(iv) });
     return { pass: verdict.pass, detail: verdict.reason };
   };
-  const [polite, inventsNothing] = await Promise.all([ask("polite"), ask("grounded")]);
+  let polite: Score;
+  let inventsNothing: Score;
+  try {
+    [polite, inventsNothing] = await Promise.all([ask("polite"), ask("grounded")]);
+  } catch (error) {
+    throw new Error("evaluation judge failed", { cause: error });
+  }
   return { ...deterministic, polite, inventsNothing };
 }
