@@ -37,7 +37,10 @@ Creating the app and sharing invite links: [docs/DISCORD-SETUP.md](../../docs/DI
 
 ## The console — `http://127.0.0.1:8787/console`
 
-A no-auth operator page, served by ears itself:
+A no-auth operator page, served by ears itself. It follows the OS light/dark
+preference, and the **light / dark** button in the header overrides that and is
+remembered per browser — dark at a desk, light when the console is on a projector
+next to the meeting room page, which has no black to give.
 
 - **Meeting** — title, purpose, context for the chair, topics with budgets / owner /
   must-hear, policy thresholds, and JSON import/export of the contract agenda. Attendees

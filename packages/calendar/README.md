@@ -54,20 +54,39 @@ the `id`/`sessionId` `ears` handed back).
 ## The meeting room — `GET /m/{sessionId}`
 
 The link in the invite ("Agenda and live status") is the whole meeting's public face, and
-it has three states:
+**it is built to be screen-shared**: the organizer opens it and shares the tab, so the
+board is what the room looks at for the whole meeting. One URL, three states:
 
 | | |
 |---|---|
-| **before** | Title, purpose, agenda with budgets, who is expected. A **Join the call** link and a **Start the meeting now** button. |
-| **during** | Karen's face, the topic clock against its budget, the floor as a share per person, and every call she has made — her own words, newest first, labelled in English (`floorHog` → *Balanced the floor*). Plus what has been decided, what is still open, and the parking lot. |
-| **after** | The same page, frozen: the report. |
+| **before** | Karen's face, the agenda with budgets, and who is expected — with whoever has not arrived marked *not here yet*. |
+| **during** | The topic and its clock against its budget; one line for who has the floor (and, if they have drifted, what off); what the chair has understood on this topic so far; the agenda ticking down; and along the bottom what has been decided, what is still open and what is parked. |
+| **after** | The same board, frozen, with the picture dropped and the record given the screen: the report. |
 
-It is not the ears console. The console is an operator's instrument (raw frames, debug
-events, latencies); this is for the people in the meeting — full sentences, no ids.
+**What is deliberately not on it:**
+
+- *Anything Karen says.* The room can hear her; printing her lines next to a live meeting
+  is one more thing pulling eyes off whoever is talking. Her log — every call, in her own
+  words, labelled in English (`floorHog` → *Balanced the floor*) — is in the **Detail
+  view**, one click away in the ⋯ menu and remembered per browser.
+- *The talk-time meter.* It is what the chair acts on, not what the room needs to study
+  mid-sentence, so the board keeps one line ("Vitaly is speaking · 66% of the floor") and
+  the full per-person ledger lives in the detail view too.
+- *Parked points*, in the topic summary. They are by definition not this topic; they have
+  their own band.
+
+Everything clickable lives in that menu for the same reason: **Join the call** (straight to
+the Discord voice channel, never hidden — people arrive late), **Copy this link**, the
+view toggle, and, before the meeting, **Start the meeting now**.
+
+It is light on white, not dark. A projector has no black, only "no light", so dark-on-white
+is the only thing that survives a lit room, and a mostly-white screen is what a call's video
+compression keeps sharpest. Type is sized in `vh` throughout, so the board scales to
+whatever it is shared on rather than to a laptop.
 
 **Karen's face.** The page embeds chair-video's stage (`CHAIR_VIDEO_STAGE_URL`, `/stage/`
-on the deployed host). Discord does not let a bot publish video at all, so one participant
-opens this link and shares the tab: the room sees her while it reads what she is doing.
+on the deployed host). Discord does not let a bot publish video at all — the shared tab is
+how she gets a face in the call.
 
 **Where the state comes from.** The brain's `/state` (`BRAIN_STATE_URL`), fetched
 server-side — the browser never needs the brain's address, and the ears console's HTTP

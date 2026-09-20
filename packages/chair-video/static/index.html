@@ -48,7 +48,11 @@
          blocked, so the click overlay is now just a fallback. -->
     <video id="stage-video" autoplay playsinline muted></video>
     <div id="stage-status">idle</div>
-    <div id="start-overlay">Click to start the chair</div>
+    <!-- Starts hidden: muted autoplay is not blocked, so this is the recovery
+         path and entry.mjs reveals it if (and only if) play() is refused. Left
+         visible it covered Karen's face until somebody clicked it, which on the
+         meeting-room page (an iframe someone screen-shares) nobody would. -->
+    <div id="start-overlay" hidden>Click to start the chair</div>
     <script type="module" src="/stage/stage.bundle.js"></script>
   </body>
 </html>

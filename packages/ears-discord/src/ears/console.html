@@ -2,6 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- Before the first paint, or the console flashes the other theme on every
+     reload. Its own <script> block runs after the whole page. -->
+<script>
+  try {
+    const saved = localStorage.getItem("gavel.console.theme");
+    if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
+  } catch (err) { /* private window: the OS preference still applies */ }
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>gavel · ears console</title>
 <style>
@@ -14,11 +22,24 @@
   --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px -10px rgba(0, 0, 0, .5);
   --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
 }
+/* Light, three ways: the OS asks for it, or the header's Light/Dark button was
+   used (it wins over the OS either way, and is remembered per browser). The
+   console is run on a laptop at a desk *and* shown on a projector next to the
+   room page — a projector has no black, only "no light", so dark on white is
+   the only thing that survives a lit room. */
 @media (prefers-color-scheme: light) {
-  :root { --bg: #f6f7f9; --panel: #fff; --panel-2: #f2f3f6; --line: #e3e5ea; --text: #14161c;
-    --muted: #6b7280; --accent: #4f46e5; --ok: #0d9668; --warn: #b45309; --bad: #dc2626; --chair: #9333ea;
+  :root:not([data-theme="dark"]) { --bg: #f6f7f9; --panel: #fff; --panel-2: #f2f3f6;
+    --line: #e3e5ea; --text: #14161c;
+    --muted: #6b7280; --accent: #4f46e5; --ok: #0d9668; --warn: #b45309; --bad: #dc2626;
+    --chair: #9333ea; color-scheme: light;
     --shadow: 0 1px 2px rgba(20, 22, 28, .04), 0 8px 24px -12px rgba(20, 22, 28, .16); }
 }
+:root[data-theme="light"] { --bg: #f6f7f9; --panel: #fff; --panel-2: #f2f3f6; --line: #e3e5ea;
+  --text: #14161c;
+  --muted: #6b7280; --accent: #4f46e5; --ok: #0d9668; --warn: #b45309; --bad: #dc2626;
+  --chair: #9333ea; color-scheme: light;
+  --shadow: 0 1px 2px rgba(20, 22, 28, .04), 0 8px 24px -12px rgba(20, 22, 28, .16); }
+:root[data-theme="dark"] { color-scheme: dark; }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased;
@@ -160,6 +181,8 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; margi
   <span class="pill"><span class="dot" id="d-redis"></span>redis</span>
   <span class="pill"><span class="dot" id="d-stt"></span><span id="s-stt">stt</span></span>
   <span class="pill"><span class="dot" id="d-tts"></span><span id="s-tts">tts</span></span>
+  <span class="grow"></span>
+  <button class="small" id="b-theme" title="Switch between the light and dark console">theme</button>
 </header>
 
 <main>
@@ -268,6 +291,29 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const hhmmss = (ms) => new Date(ms).toLocaleTimeString([], { hour12: false });
 const secs = (ms) => (ms / 1000).toFixed(ms < 10000 ? 1 : 0) + "s";
 const clock = (ms) => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+
+// --- theme -----------------------------------------------------------------
+// Dark is still the default at a desk; light is for the times this console is
+// on a projector next to the room page. The choice is remembered per browser
+// and beats the OS preference; the <head> script applies it before first paint.
+const THEME_KEY = "gavel.console.theme";
+function currentTheme() {
+  return (
+    document.documentElement.dataset.theme ||
+    (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
+  );
+}
+function paintThemeButton() {
+  $("b-theme").textContent = currentTheme() === "light" ? "dark" : "light";
+}
+$("b-theme").addEventListener("click", () => {
+  const next = currentTheme() === "light" ? "dark" : "light";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem(THEME_KEY, next); } catch (err) { /* private window */ }
+  paintThemeButton();
+});
+matchMedia("(prefers-color-scheme: light)").addEventListener("change", paintThemeButton);
+paintThemeButton();
 
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(toast.t); toast.t = setTimeout(() => (t.style.display = "none"), 4000); }
 async function api(method, path, body) {
