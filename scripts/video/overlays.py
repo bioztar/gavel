@@ -19,7 +19,7 @@ TPL = """<div style="width:1920px;height:1080px;position:relative;font-family:-a
 <div style="position:absolute;left:72px;bottom:30px;color:#fff;font-size:30px;font-weight:700;letter-spacing:.09em">{label}</div>
 <div style="position:absolute;right:72px;bottom:34px;color:rgba(255,255,255,.58);font-size:22px">synthetic voice — first pass</div>
 </div>"""
-BADGE = ("""<div style="position:absolute;left:72px;top:60px;background:#c4531b;color:#fff;"""
+BADGE = ("""<div style="position:absolute;right:72px;top:56px;background:#c4531b;color:#fff;"""
          """padding:11px 20px;border-radius:7px;font-size:23px;font-weight:700;letter-spacing:.05em">"""
          """PLACEHOLDER SHOT — {what}</div>""")
 

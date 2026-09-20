@@ -34,9 +34,9 @@ SHOT_MAP = {
     "13-drift": ("arch1", True, None),
     "14-karen-catch": ("arch1", True, None),
     "15-catch-note": ("arch2", True, "ears console"),
-    "16-handoff-q": ("arch2", True, "Discord call"),
-    "17-artem": ("arch2", True, "Discord call"),
-    "18-karen-handover": ("arch2", True, None),
+    "16-handoff-q": ("arch1", True, "Discord call"),
+    "17-artem": ("arch1", True, "Discord call"),
+    "18-karen-handover": ("arch1", True, None),
     "19-handover-note": ("confirm-gauge", False, "ears console"),
     "20-roadmap": ("arch3", True, None),
     "21-close": ("arch3", True, None),
@@ -65,9 +65,10 @@ def build(seg: dict) -> pathlib.Path:
     use_face = seg.get("face") and face.exists()
 
     base = f"[0:v]{'' if full else PAGE_CROP + ','}scale=1920:-2,crop=1920:1080"
-    kb = (f",zoompan=z='min(zoom+0.00035,1.09)':d={frames}:x='iw/2-(iw/zoom/2)'"
-          f":y='ih/2-(ih/zoom/2)':s=1920x1080:fps=30,setsar=1")
-    chain = base + kb
+    kb = ("" if full else
+          f",zoompan=z='min(zoom+0.00035,1.09)':d={frames}:x='iw/2-(iw/zoom/2)'"
+          f":y='ih/2-(ih/zoom/2)':s=1920x1080:fps=30")
+    chain = base + kb + ",fps=30,setsar=1"
 
     overlay = ROOT / "overlays" / f"{sid}.png"
     cmd = ["ffmpeg", "-y", "-v", "error", "-loop", "1", "-i", str(SHOTS / f"{shot}.png"),
