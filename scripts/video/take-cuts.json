@@ -1,0 +1,14 @@
+[
+ {"id": "cold-open",      "start":   4.90, "end":  24.90, "why": "she took the floor off me + here's the whole thing"},
+ {"id": "book-meeting",   "start":  26.70, "end":  38.00, "why": "the thin brief, as anyone would ask"},
+ {"id": "refusal",        "start":  41.50, "end":  51.20, "why": "she will not book it - no topics"},
+ {"id": "agenda",         "start":  52.10, "end":  85.20, "why": "two topics, both of us must be heard on the second"},
+ {"id": "dial-hard",      "start":  93.80, "end": 116.10, "why": "how hard she chairs - set to hard, on me"},
+ {"id": "invite-links",   "start": 116.20, "end": 152.00, "why": "invite in the mailbox, two links, the live agenda page"},
+ {"id": "karen-greets",   "start": 247.80, "end": 269.00, "why": "Karen greets the room and opens both agenda items"},
+ {"id": "architecture",   "start": 387.30, "end": 455.60, "why": "Karen hands him topic one; hear/think/speak + sponsors"},
+ {"id": "to-artem",       "start": 456.20, "end": 475.60, "why": "next topic, Karen transitions, floor to Artem"},
+ {"id": "artem",          "start": 476.60, "end": 562.90, "why": "Artem runs long on roadmap; Karen cuts in at the end"},
+ {"id": "karen-mutes",    "start": 566.90, "end": 578.40, "why": "she mutes him for fifteen seconds - the money beat"},
+ {"id": "close",          "start": 580.90, "end": 591.40, "why": "that concludes the demo"}
+]
