@@ -69,6 +69,7 @@ def test_hello_then_speaking_and_turn_frames() -> None:
     ears = make_ears()
     ears.on_joined("g", "c1", [ANA])
     with TestClient(create_api(ears)).websocket_connect("/") as ws:
+        assert ws.receive_json()["type"] == "voice"  # the chair's voice, before anything else
         assert ws.receive_json()["type"] == "ready"
         assert ws.receive_json()["participants"] == [{"discordId": "2", "name": "Ana"}]
         assert ws.receive_json()["type"] == "session.started"  # joining voice opened one

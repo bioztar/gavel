@@ -29,6 +29,7 @@ from ..logging import get_logger
 from ..meetings import Agenda, Meeting, MeetingIn
 from ..status_board import StatusConfig
 from .models import (
+    AppSetting,
     CallSession,
     DiscordGuild,
     DiscordStatus,
@@ -66,6 +67,7 @@ class Store:
         self._memory_usage: dict[str, dict[str, float]] = {}
         self._memory_discord_channels: dict[str, str] = {}
         self._memory_discord_status: dict[str, StatusConfig] = {}
+        self._memory_settings: dict[str, str] = {}
 
     @classmethod
     async def connect(cls, dsn: str) -> Store:
@@ -239,6 +241,26 @@ class Store:
                 )
             else:
                 row.enabled, row.channel_id = config.enabled, config.channel_id
+                row.updated_at = datetime.now(UTC)
+
+    async def get_setting(self, key: str) -> str | None:
+        """One operator knob, or None if it has never been set."""
+        if self._factory is None:
+            return self._memory_settings.get(key)
+        async with self._factory() as s:
+            row = await s.get(AppSetting, key)
+            return row.value if row else None
+
+    async def set_setting(self, key: str, value: str) -> None:
+        if self._factory is None:
+            self._memory_settings[key] = value
+            return
+        async with self._factory() as s, s.begin():
+            row = await s.get(AppSetting, key)
+            if row is None:
+                s.add(AppSetting(key=key, value=value))
+            else:
+                row.value = value
                 row.updated_at = datetime.now(UTC)
 
     async def list_meetings(self) -> list[Meeting]:

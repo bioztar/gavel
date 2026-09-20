@@ -27,6 +27,7 @@ from .db.models import TranscriptChunk, Turn
 from .db.store import Store, parse_iso
 from .frames import (
     MAX_MUTE_SECONDS,
+    ChairVoice,
     EarsFrame,
     Moderation,
     Mute,
@@ -58,7 +59,7 @@ from .settings import Settings
 from .status_board import StatusConfig
 from .stt import SlngStt, SttError
 from .stt_stream import Segment, StreamingStt, make_provider
-from .tts import SlngTts, TtsError
+from .tts import DEFAULT_TTS_VOICES, SlngTts, TtsError
 from .turns import TurnTracker
 from .wire import Hub
 
@@ -110,6 +111,10 @@ class Ears:
         self.segmenter = Segmenter(
             settings.utterance_gap_ms, settings.chunk_max_ms, settings.chunk_min_ms
         )
+        # The chair's voice, for ears' say-box and the brain's chair alike. Set
+        # from the environment here and replaced by the stored one at startup
+        # (`__main__`), so a console choice survives a restart.
+        self.tts_voice: str = settings.slng_tts_voice
         self.guild_id: str | None = None
         self.channel_id: str | None = None
         self.participants: dict[str, Participant] = {}
@@ -166,6 +171,11 @@ class Ears:
     def hello(self) -> list[dict[str, Any]]:
         """Re-announced to every brain that connects, per the contract."""
         out: list[dict[str, Any]] = []
+        # First, and unconditional: a brain that reconnects mid-meeting would
+        # otherwise fall back to its own YAML and speak in the voice the
+        # operator already changed away from. Before the session frame on
+        # purpose — know how to speak, then what the meeting is.
+        out.append(stamp(ChairVoice(voice=self.tts_voice)))
         if self.channel_id is not None:
             people = list(self.participants.values())
             out += [
@@ -194,6 +204,7 @@ class Ears:
                 else ("http" if self.stt else None)
             ),
             "tts": self.tts.model if self.tts else None,
+            "ttsVoice": self.tts_voice,
             "playback": {"playing": self._playing is not None, "queued": len(self._playback)},
         }
 
@@ -204,6 +215,30 @@ class Ears:
         for server in view["servers"]:
             server["status"] = self.status_config(server["id"]).view()
         return view
+
+    def voices(self) -> dict[str, Any]:
+        """The picker's options, and what is selected. `known` is a starting
+        point, not a closed set — `set_tts_voice` accepts anything non-empty."""
+        known = list(self.settings.tts_voice_options or DEFAULT_TTS_VOICES)
+        if self.tts_voice not in known:
+            known.insert(0, self.tts_voice)
+        return {"voice": self.tts_voice, "known": known, "model": self.settings.slng_tts_model}
+
+    async def set_tts_voice(self, voice: str) -> dict[str, Any]:
+        """One setting for two synthesizers. ears' say-box reads it per line, and
+        the brain is told over the wire — both take effect on the next thing
+        said, not the next restart.
+        """
+        voice = voice.strip()
+        if not voice:
+            raise ValueError("voice must not be empty")
+        self.tts_voice = voice
+        # Persisted before it is announced: a restart between the two would
+        # otherwise leave the brain on a voice ears no longer knows about.
+        await self.store.set_setting("tts_voice", voice)
+        self.emit(ChairVoice(voice=voice))
+        self.debug("tts.voice_changed", voice=voice)
+        return self.voices()
 
     def status_config(self, guild_id: str) -> StatusConfig:
         return self.status_configs.get(guild_id, StatusConfig())

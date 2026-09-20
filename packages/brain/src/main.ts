@@ -32,7 +32,23 @@ if (!env.nebiusApiKey) log.warn("nebius.off", { reason: "NEBIUS_API_KEY unset �
 if (!env.slngApiKey) log.warn("tts.off", { reason: "SLNG_API_KEY unset — the chair cannot speak" });
 
 const wire = new EarsWire(env.earsWireUrl);
-const tts: Tts = env.slngApiKey ? new SlngTts(() => config.models.tts, env.slngApiKey) : new SilentTts();
+
+/**
+ * The voice ears' console has selected, if it has. It wins over models.yaml:
+ * someone clicking a dropdown mid-meeting means it now, and a YAML hot-reload
+ * must not silently undo them. Cleared only by a restart with nothing stored.
+ *
+ * Live by construction — `SlngTts` re-reads this getter for every line and
+ * reopens its streaming socket when the voice changes, so the switch lands on
+ * the chair's next sentence.
+ */
+let voiceOverride: string | null = null;
+const ttsConfig = () => {
+  const tts = config.models.tts;
+  return voiceOverride ? { ...tts, voice: voiceOverride } : tts;
+};
+
+const tts: Tts = env.slngApiKey ? new SlngTts(ttsConfig, env.slngApiKey) : new SilentTts();
 // Open the streaming TTS socket now, so the chair's first line doesn't pay for it.
 tts.warm?.();
 let engine: Engine;
@@ -56,7 +72,19 @@ engine = new Engine({
 });
 setEngine(engine);
 
-wire.on("frame", (frame) => engine.handle(frame));
+wire.on("frame", (frame) => {
+  // Not engine state: which voice the chair speaks in has no bearing on what
+  // she decides to say, so it never reaches the policy.
+  if (frame.type === "voice") {
+    if (frame.voice && frame.voice !== voiceOverride) {
+      voiceOverride = frame.voice;
+      log.info("tts.voice_changed", { voice: frame.voice });
+      tts.warm?.();
+    }
+    return;
+  }
+  engine.handle(frame);
+});
 wire.start();
 
 let timer = setInterval(() => engine.tick(), config.policy.engine.tickMs);

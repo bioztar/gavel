@@ -137,6 +137,19 @@ class Moderation(Frame):
     error: str | None = None
 
 
+# --- ears → brain: additive, the chair's voice ---------------------------------------
+# Sent when the console changes it, and in `hello()` so a brain that connects or
+# reconnects is never speaking in a voice the operator already changed away from.
+
+
+class ChairVoice(Frame):
+    """Named for what it carries, not its wire type: `Voice` in this codebase is
+    ears' Discord voice connection (`voice.py`), and app.py holds one."""
+
+    type: Literal["voice"] = "voice"
+    voice: str
+
+
 EarsFrame = (
     Ready
     | SessionStarted
@@ -150,6 +163,7 @@ EarsFrame = (
     | TurnTick
     | TurnEnd
     | Moderation
+    | ChairVoice
 )
 
 

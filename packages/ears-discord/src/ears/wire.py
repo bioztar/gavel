@@ -16,6 +16,8 @@
     GET  /api/sessions              recent sessions
     GET  /api/sessions/{id|current}/transcript
     POST /api/say                   {"text": ...} → SLNG TTS → played into the call
+    GET  /api/voices                the voice picker's options and what is selected
+    PUT  /api/voice                 {"voice": ...} → the say-box AND the chair, live
     POST /api/stop                  stop playback, drop the queue
 
     The brain's store — ears is the one database:
@@ -110,6 +112,10 @@ class StartSession(BaseModel):
 
 class Say(BaseModel):
     text: str = Field(min_length=1, max_length=1000)
+
+
+class VoiceSelection(BaseModel):
+    voice: str = Field(min_length=1, max_length=128)
 
 
 class DiscordChannelSelection(BaseModel):
@@ -337,6 +343,19 @@ def create_api(ears: Ears) -> FastAPI:
             return await ears.say(body.text)
         except TtsError as exc:
             raise HTTPException(502, str(exc)) from exc
+
+    @api.get("/api/voices")
+    async def voices() -> dict[str, Any]:
+        return ears.voices()
+
+    @api.put("/api/voice")
+    async def set_voice(body: VoiceSelection) -> dict[str, Any]:
+        """One voice for the say-box and the chair. Applies to the next line
+        either speaks — no restart, and no second setting to keep in step."""
+        try:
+            return await ears.set_tts_voice(body.voice)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     @api.post("/api/stop")
     async def stop() -> dict[str, bool]:

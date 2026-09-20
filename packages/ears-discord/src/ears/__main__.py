@@ -42,9 +42,25 @@ async def main() -> None:
         stt = SlngStt(settings, http) if settings.stt_enabled else None
         if stt is None:
             logger.warning("stt.disabled", reason="SLNG_API_KEY unset")
-        tts = SlngTts(settings, http) if settings.stt_enabled else None
+        # `ears` owns the selected voice; the say-box reads it per line through
+        # this getter, so a console change reaches the next line, not the next
+        # restart. The cycle is deliberate: `ears` is built with the TTS, and
+        # the TTS asks `ears` for the voice when it needs it.
+        ears_ref: list[Ears] = []
+        tts = (
+            SlngTts(settings, http, voice=lambda: ears_ref[0].tts_voice)
+            if settings.stt_enabled
+            else None
+        )
         ears = Ears(settings, store, bus, stt, tts)
+        ears_ref.append(ears)
         ears.status_configs = await store.discord_status()
+        # A voice picked in the console before the last restart is still the
+        # voice; the environment's is only the fallback.
+        stored_voice = await store.get_setting("tts_voice")
+        if stored_voice:
+            ears.tts_voice = stored_voice
+            logger.info("tts.voice_restored", voice=stored_voice)
         bus.start(ears.command)
 
         server = _Server(

@@ -42,6 +42,10 @@ export const EarsFrame = z.discriminatedUnion("type", [
     ...stamp,
   }),
   z.object({ type: z.literal("session.ended"), sessionId: z.string(), ...stamp }),
+  // The chair's voice, chosen in ears' console. Sent on change and in ears'
+  // `hello()`, so a brain that reconnects mid-meeting is never left speaking in
+  // a voice the operator already changed away from.
+  z.object({ type: z.literal("voice"), voice: z.string(), ...stamp }),
   z.object({
     type: z.literal("moderation"),
     action: z.enum(["muted", "unmuted", "failed"]),

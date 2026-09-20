@@ -84,6 +84,24 @@ class DiscordStatus(Base):
     updated_at: Mapped[datetime] = _ts(server_default=func.now(), onupdate=func.now())
 
 
+class AppSetting(Base):
+    """One operator-set value, live-editable from the console and outliving the
+    process that was told about it.
+
+    Deliberately key/value rather than a column per setting: these are console
+    knobs, not domain facts, and a new one should not need a migration on demo
+    day. `tts_voice` is the first — the voice Karen speaks in, which is one
+    setting for two synthesizers (ears' say-box and the brain's chair) so the
+    two can no longer drift apart.
+    """
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = _ts(server_default=func.now(), onupdate=func.now())
+
+
 class CallSession(Base):
     """One run of a meeting: started from the console, or on joining voice."""
 

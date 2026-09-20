@@ -253,6 +253,11 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12.5px; margi
         <button class="primary" id="b-say">Speak</button>
         <button id="b-stop" title="Stop playback and clear the queue">Stop</button>
       </div>
+      <div class="row" style="margin-top:6px">
+        <label class="muted" for="voice" style="font-size:11px;white-space:nowrap">voice</label>
+        <select id="voice" class="grow" title="Karen's voice — this box and the chair both. Applies to the next line spoken."></select>
+        <input id="voice-custom" class="grow" placeholder="voice id…" maxlength="128" hidden>
+      </div>
       <div class="hint" id="say-hint"></div>
     </div>
   </section>
@@ -792,6 +797,62 @@ async function say() {
 }
 $("b-say").onclick = say;
 $("say").onkeydown = (e) => { if (e.key === "Enter") say(); };
+
+/* One voice for this box and for the chair. ears stores it and tells the brain
+   over the wire, so both apply it to their next line — no restart either side. */
+const CUSTOM = "\u0000custom";
+let currentVoice = null;
+
+function renderVoices(v) {
+  currentVoice = v.voice;
+  $("voice-custom").hidden = true;
+  $("voice").hidden = false;
+  $("voice").innerHTML =
+    v.known.map((id) => `<option value="${esc(id)}" ${id === v.voice ? "selected" : ""}>${esc(id)}</option>`).join("") +
+    `<option value="${CUSTOM}">Another voice id…</option>`;
+  $("voice").title = `Karen's voice for the say-box and the chair · model ${v.model}`;
+}
+
+async function loadVoices() {
+  try { renderVoices(await api("GET", "/api/voices")); }
+  catch { $("voice").innerHTML = '<option>unavailable</option>'; }
+}
+
+async function setVoice(voice) {
+  try {
+    renderVoices(await api("PUT", "/api/voice", { voice }));
+    $("say-hint").textContent = `voice → ${voice} · applies to the next line`;
+  } catch (e) {
+    if (currentVoice) $("voice").value = currentVoice;
+    toast(e.message);
+  }
+}
+
+/* An inline field rather than prompt(): a modal blocks the whole page, and this
+   console is driven headlessly often enough for that to matter. */
+function showCustom(on) {
+  $("voice-custom").hidden = !on;
+  $("voice").hidden = on;
+  if (on) { $("voice-custom").value = ""; $("voice-custom").focus(); }
+}
+
+$("voice").onchange = () => {
+  const picked = $("voice").value;
+  if (picked === CUSTOM) return showCustom(true);
+  setVoice(picked);
+};
+
+$("voice-custom").onkeydown = (e) => {
+  if (e.key === "Escape") { showCustom(false); $("voice").value = currentVoice; return; }
+  if (e.key !== "Enter") return;
+  const typed = $("voice-custom").value.trim();
+  if (!typed) return;
+  showCustom(false);
+  setVoice(typed);
+};
+$("voice-custom").onblur = () => { showCustom(false); $("voice").value = currentVoice; };
+
+loadVoices();
 $("b-stop").onclick = () => api("POST", "/api/stop").catch((e) => toast(e.message));
 $("b-clear-tx").onclick = () => { $("transcript").innerHTML = ""; utterances.clear(); };
 $("b-clear-log").onclick = () => { $("log").innerHTML = ""; };

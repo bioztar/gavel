@@ -128,6 +128,18 @@ sentence is.
 | `turn.end` | Silent for `TURN_GAP_MS` | `discordId`, `turnId`, `startedAt`, `endedAt`, `durationMs`, `speakingMs` |
 | `session.started` | A run of a meeting begins — from the ears console, or on joining voice. Also re-sent on connect | `sessionId`, `meetingId`, `title`, `context`, `agenda` (§1 shape with `sessionId` filled, or `null`) |
 | `session.ended` | Console ended it, or a new one started | `sessionId` |
+| `voice` | The operator picked the chair's voice in ears' console. Sent on change, and **first** on connect | `voice` (a TTS voice id, e.g. `aura-2-thalia-en`) |
+
+`voice` is one setting for two synthesizers: ears' console say-box and the chair. Both
+read it per line rather than at startup, so a change lands on the next thing either says —
+no restart, and no second copy of the setting to keep in step. It leads `hello()` on
+purpose: a brain reconnecting mid-meeting should learn how to speak before it learns what
+the meeting is, or its first line comes out in a voice the operator already changed away
+from. ears stores the choice (`app_settings.tts_voice`), so it is also what the next boot
+uses; brain treats the frame as an override above its own `config/models.yaml`, because
+someone clicking a dropdown mid-meeting means it now and a YAML hot-reload must not
+silently undo them. Ignoring the frame is legal, as with every additive frame — a brain
+that does simply keeps using its configured voice.
 
 `session.started` opens a **gathering lobby**, not the agenda clock. Brain waits for all
 `agenda.attendees` to appear in the latest participant set and for a final transcript

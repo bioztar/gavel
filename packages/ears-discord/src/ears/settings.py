@@ -67,7 +67,14 @@ class Settings(BaseSettings):
     # voice is the same either way. The old Fish voice: model `slng/fish/tts:s2.1-pro`,
     # voice `16cabdb7f8d240569aff36c9e480d783`.
     slng_tts_model: str = "deepgram/aura:2"
+    # The startup default only. The console can change the voice live, and the
+    # chosen one is stored in `app_settings.tts_voice` and reloaded at boot —
+    # so once an operator has picked, this is no longer what is in use.
     slng_tts_voice: str = "aura-2-thalia-en"
+    # Comma-separated ids offered by the console's picker. Empty uses
+    # `tts.DEFAULT_TTS_VOICES`. The picker also accepts a typed id, so this is
+    # convenience, never a whitelist.
+    slng_tts_voices: str = ""
 
     # --- signal shaping ----------------------------------------------------
     # Silence that closes a turn — one person holding the floor.
@@ -88,6 +95,10 @@ class Settings(BaseSettings):
     # Chunks quieter than this (16-bit RMS) are silence frames, not speech. Speech sits
     # in the hundreds to thousands.
     silence_rms: float = 60.0
+
+    @property
+    def tts_voice_options(self) -> list[str]:
+        return [v.strip() for v in self.slng_tts_voices.split(",") if v.strip()]
 
     @property
     def stt_enabled(self) -> bool:

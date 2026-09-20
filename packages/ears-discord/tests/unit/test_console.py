@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import httpx
 from fastapi.testclient import TestClient
 from pytest_httpx import HTTPXMock
 
@@ -12,7 +13,7 @@ from ears.bus import Bus
 from ears.db.store import Store
 from ears.frames import Participant
 from ears.settings import Settings
-from ears.tts import TtsResult
+from ears.tts import SlngTts, TtsResult
 from ears.wire import create_api
 
 AGENDA = {
@@ -134,8 +135,9 @@ def test_joining_voice_starts_a_session_brains_hear_about() -> None:
     ears.on_joined("g", "c1", [Participant(discord_id="1", name="Vitaly")])
     assert ears.session_id is not None
     with client.websocket_connect("/") as ws:
-        types = [ws.receive_json()["type"] for _ in range(3)]
-    assert types == ["ready", "participants", "session.started"]
+        types = [ws.receive_json()["type"] for _ in range(4)]
+    # `voice` leads: a brain learns how to speak before what the meeting is.
+    assert types == ["voice", "ready", "participants", "session.started"]
 
 
 def test_say_goes_through_playback_and_is_visible_on_live() -> None:
@@ -247,3 +249,74 @@ def test_refresh_names_re_announces_the_roster_and_a_new_session_uses_it() -> No
     assert started["agenda"]["attendees"] == [
         {"discordId": "1", "name": "Newer Name", "role": "host"}
     ]
+
+
+# --- the chair's voice ----------------------------------------------------------------
+# One setting for two synthesizers: ears' say-box reads it per line, and the brain is
+# told over the wire. Both apply it to their next line, not their next restart.
+
+
+def test_voices_offers_the_known_list_and_what_is_selected() -> None:
+    _, client, _ = make()
+    body = client.get("/api/voices").json()
+    assert body["voice"] == "aura-2-thalia-en"
+    assert "aura-2-thalia-en" in body["known"]
+    assert body["model"] == "deepgram/aura:2"
+
+
+def test_changing_the_voice_tells_every_brain_at_once() -> None:
+    ears, client, sent = make()
+    resp = client.put("/api/voice", json={"voice": "aura-2-luna-en"})
+
+    assert resp.status_code == 200
+    assert resp.json()["voice"] == "aura-2-luna-en"
+    assert ears.tts_voice == "aura-2-luna-en"
+    frames = [f for f in sent if f["type"] == "voice"]
+    assert [f["voice"] for f in frames] == ["aura-2-luna-en"]
+
+
+def test_the_say_box_uses_the_new_voice_on_the_very_next_line() -> None:
+    """The regression this replaces: `SlngTts` snapshotted the voice at
+    construction, so a change could not reach anything until a restart."""
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    ears = Ears(settings, Store(None), Bus(None, "t", 10), None, None)  # type: ignore[arg-type]
+    tts = SlngTts(settings, httpx.AsyncClient(), voice=lambda: ears.tts_voice)
+
+    assert tts._body("hi")["model"] == "aura-2-thalia-en"
+    ears.tts_voice = "aura-2-orion-en"
+    assert tts._body("hi")["model"] == "aura-2-orion-en"
+
+
+def test_a_chosen_voice_is_offered_even_when_it_is_not_in_the_known_list() -> None:
+    _, client, _ = make()
+    client.put("/api/voice", json={"voice": "some-voice-shipped-yesterday"})
+    body = client.get("/api/voices").json()
+    assert body["voice"] == "some-voice-shipped-yesterday"
+    assert body["known"][0] == "some-voice-shipped-yesterday"
+
+
+def test_a_blank_voice_is_refused_and_changes_nothing() -> None:
+    ears, client, sent = make()
+    assert client.put("/api/voice", json={"voice": "   "}).status_code == 422
+    assert ears.tts_voice == "aura-2-thalia-en"
+    assert [f for f in sent if f["type"] == "voice"] == []
+
+
+def test_a_brain_that_connects_is_told_the_current_voice() -> None:
+    """A brain reconnecting mid-meeting would otherwise fall back to its own
+    YAML and speak in the voice the operator already changed away from."""
+    ears, client, _ = make()
+    client.put("/api/voice", json={"voice": "aura-2-luna-en"})
+    voice_frames = [f for f in ears.hello() if f["type"] == "voice"]
+    assert [f["voice"] for f in voice_frames] == ["aura-2-luna-en"]
+
+
+async def test_the_choice_outlives_the_process() -> None:
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    store = Store(None)  # memory-backed here; the same code path writes app_settings
+    ears = Ears(settings, store, Bus(None, "t", 10), None, FakeTts())  # type: ignore[arg-type]
+    ears.hub.broadcast = lambda _f: None  # type: ignore[method-assign]
+    await ears.set_tts_voice("aura-2-luna-en")
+
+    # what `__main__` does on the next boot
+    assert await store.get_setting("tts_voice") == "aura-2-luna-en"
