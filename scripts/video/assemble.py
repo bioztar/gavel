@@ -81,7 +81,7 @@ def build(seg: dict) -> pathlib.Path:
               f"[withface][2:v]overlay=0:0[v]")
     else:
         fc = f"{chain}[bg];[bg][2:v]overlay=0:0[v]"
-    fc += f";[1:a]atempo={TEMPO}[a]"
+    fc += f";[1:a]atempo={TEMPO},loudnorm=I=-16:TP=-1.5:LRA=11[a]"
     cmd += ["-filter_complex", fc, "-map", "[v]", "-map", "[a]",
             "-t", f"{seconds:.2f}", "-r", "30", "-c:v", "libx264", "-preset", "veryfast",
             "-crf", "20", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k", "-ar", "48000",
