@@ -10,10 +10,7 @@ from playwright.sync_api import sync_playwright
 
 OUT = pathlib.Path("/Users/alex/DEV/_assets/gavel-video/shots")
 BASE = "https://gavel.pro7ocol.com"
-REAL = ("Karen, set up a meeting with Artem in fifteen minutes, fifteen minutes long, called "
-        "gavel live demo. Three topics. One: solution and architecture, five minutes, I present it. "
-        "Two: open discussion, six minutes - I want both Artem and me heard on it. "
-        "Three: roadmap, four minutes, I present it.")
+REAL = ('Karen, set up a meeting with Artem in fifteen minutes, fifteen minutes long, called gavel live demo. Two topics. One: solution and architecture, six minutes, I present it. Two: roadmap, eight minutes, open discussion - I want both Artem and me heard on it.')
 THIN = "Karen, set up a meeting with Artem tomorrow at ten. Thirty minutes."
 EXE = ("/Users/alex/Library/Caches/ms-playwright/chromium-1217/chrome-mac-arm64/"
        "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing")
@@ -43,30 +40,25 @@ with sync_playwright() as p:
     page.goto(f"{BASE}/compose", wait_until="networkidle")
     page.fill("#brief", REAL); page.click("button[type=submit]")
     page.wait_for_load_state("networkidle"); page.wait_for_timeout(4000)
-    shoot(page, "table", "focus-agenda")
+    # the form always keeps one blank row for adding a topic; it is noise in a still
+    tbl = page.locator("table").bounding_box()
+    blank = page.locator("tbody tr").last.bounding_box()
+    page.screenshot(path=str(OUT / "focus-agenda.png"), clip={
+        "x": max(tbl["x"] - PAD, 0), "y": max(tbl["y"] - PAD, 0),
+        "width": tbl["width"] + PAD * 2, "height": blank["y"] - tbl["y"] + PAD})
+    print("shot focus-agenda (blank row trimmed)")
     page.locator("label[for=enf_high]").click(); page.wait_for_timeout(400)
     shoot(page, ".seg", "focus-gauge")
     b.close()
 
-# The host-is-not-exempt wording ships in this repo but is not on the box yet, so the
-# gauge shot is taken from the live page's own HTML with that one line swapped.
-OLD_HINT = "You are the host, so she will never mute you."
-NEW_HINT = ("Nobody is exempt, including you. If the host is the one running over, "
-            "the host is the one who gets chaired.")
+# The gauge shot needs High selected and the sentence under it, which is a separate element.
 with sync_playwright() as p:
     b = p.chromium.launch(executable_path=EXE)
     page = b.new_page(viewport={"width": 1600, "height": 1200}, device_scale_factor=2)
     page.goto(f"{BASE}/compose", wait_until="networkidle")
     page.fill("#brief", REAL); page.click("button[type=submit]")
     page.wait_for_load_state("networkidle"); page.wait_for_timeout(4000)
-    page.locator("label[for=enf_high]").click(); page.wait_for_timeout(300)
-    html = page.content()
-    assert OLD_HINT in html, "hint text moved - check compose.py"
-    page.set_content(html.replace(OLD_HINT, NEW_HINT), wait_until="load")
-    # set_content re-renders from source, so the High selection has to be made again
-    page.locator("label[for=enf_high]").click()
-    page.wait_for_timeout(400)
-    # the dial and the sentence under it are separate elements; the shot needs both
+    page.locator("label[for=enf_high]").click(); page.wait_for_timeout(400)
     seg = page.locator(".seg").bounding_box()
     head = page.locator("h2", has_text="How hard she chairs").bounding_box()
     hint = page.locator(".seg ~ p.hint").first.bounding_box()

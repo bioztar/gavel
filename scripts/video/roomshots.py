@@ -17,17 +17,15 @@ EXE = ("/Users/alex/Library/Caches/ms-playwright/chromium-1217/chrome-mac-arm64/
 START = dt.datetime(2026, 9, 20, 10, 21, tzinfo=dt.UTC)
 
 AGENDA = {
-    "purpose": "Walk Artem through the gavel solution and architecture, discuss it openly, "
-               "and align on the roadmap.",
+    "purpose": "Walk Artem through the solution and architecture, then decide together "
+               "where the roadmap goes next.",
     "attendees": [{"discordId": "vitaly", "name": "Vitaly", "role": "host"},
                   {"discordId": "artem", "name": "Artem", "role": "attendee"}],
     "topics": [
-        {"id": "t1", "title": "Solution and architecture", "budgetSeconds": 300,
+        {"id": "t1", "title": "Solution and architecture", "budgetSeconds": 360,
          "owner": "vitaly", "mustHear": ["vitaly"], "type": "presentation"},
-        {"id": "t2", "title": "Open discussion", "budgetSeconds": 360,
+        {"id": "t2", "title": "Roadmap", "budgetSeconds": 480,
          "owner": "vitaly", "mustHear": ["vitaly", "artem"], "type": "discussion"},
-        {"id": "t3", "title": "Roadmap", "budgetSeconds": 240,
-         "owner": "vitaly", "mustHear": ["vitaly"], "type": "presentation"},
     ],
 }
 RECORD = InviteRecord(session_id="demo", title="Gavel Live Demo", start=START,
@@ -37,17 +35,14 @@ RECORD = InviteRecord(session_id="demo", title="Gavel Live Demo", start=START,
 # Mid-meeting: topic 2, Artem has held the floor, Karen has already parked one tangent.
 BRAIN = {
     "sessionId": "s1", "phase": "chairing", "chairName": "Karen", "chairBusy": False,
-    "topic": {"title": "Open discussion", "budgetSeconds": 360, "elapsedSeconds": 214,
-              "index": 1},
+    "topic": {"title": "Roadmap", "budgetSeconds": 480, "elapsedSeconds": 96, "index": 1},
     "topics": [
-        {"title": "Solution and architecture", "budgetSeconds": 300, "type": "presentation",
+        {"title": "Solution and architecture", "budgetSeconds": 360, "type": "presentation",
          "done": True, "discussed": True},
-        {"title": "Open discussion", "budgetSeconds": 360, "type": "discussion",
+        {"title": "Roadmap", "budgetSeconds": 480, "type": "discussion",
          "done": False, "discussed": True},
-        {"title": "Roadmap", "budgetSeconds": 240, "type": "presentation",
-         "done": False, "discussed": False},
     ],
-    "people": [{"name": "Artem", "role": "attendee", "totalSeconds": 74, "speaking": True},
+    "people": [{"name": "Artem", "role": "attendee", "totalSeconds": 92, "speaking": True},
                {"name": "Vitaly", "role": "host", "totalSeconds": 268, "speaking": False,
                 "offAgenda": False}],
     "interventions": [
@@ -55,16 +50,17 @@ BRAIN = {
          "line": "Gavel live demo, fifteen minutes, three topics. Vitaly, the floor is yours."},
         {"at": START.isoformat(), "kind": "redirect",
          "line": "Vitaly, parked for later: cloud pricing. Back to solution and architecture."},
-        {"at": START.isoformat(), "kind": "handover",
-         "line": "Artem, you are named must-be-heard on this topic and have not spoken yet."},
+        {"at": START.isoformat(), "kind": "topic",
+         "line": "That is six minutes on solution and architecture. Moving to topic two: roadmap."},
     ],
     "digest": {
         "facts": ["The interrupt decision is plain code on a 250 ms tick, not a model call.",
                   "Six containers behind Traefik; one of them knows what Discord is."],
-        "decisions": ["Teams is the wedge, not Meet or Zoom.",
+        "decisions": ["Teams is where this belongs; Meet and Zoom are the same adapter work.",
                       "Discord stays the demo surface for the hackathon."],
         "openItems": ["Per-speaker VAD at the edge before thirty attendees.",
-                      "Carry floor state across a voice-websocket reconnect."],
+                      "Carry floor state across a voice-websocket reconnect.",
+                      "Hand the transcript and decisions to the team's knowledge agent."],
         "parked": [{"name": "Cloud pricing", "summary": "Reserved vs spot across three providers."}],
     },
 }

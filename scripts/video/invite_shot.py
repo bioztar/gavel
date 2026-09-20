@@ -10,19 +10,17 @@ EXE = ("/Users/alex/Library/Caches/ms-playwright/chromium-1217/chrome-mac-arm64/
        "Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing")
 
 agenda = {
-    "purpose": "Walk Artem through the gavel solution and architecture, discuss it openly, "
-               "and align on the roadmap.",
+    "purpose": "Walk Artem through the solution and architecture, then decide together "
+               "where the roadmap goes next.",
     "attendees": [
         {"discordId": "vitaly", "name": "Vitaly", "role": "host"},
         {"discordId": "artem", "name": "Artem", "role": "attendee"},
     ],
     "topics": [
-        {"id": "t1", "title": "Solution and architecture", "budgetSeconds": 300,
+        {"id": "t1", "title": "Solution and architecture", "budgetSeconds": 360,
          "owner": "vitaly", "mustHear": ["vitaly"], "type": "presentation"},
-        {"id": "t2", "title": "Open discussion", "budgetSeconds": 360,
+        {"id": "t2", "title": "Roadmap", "budgetSeconds": 480,
          "owner": "vitaly", "mustHear": ["vitaly", "artem"], "type": "discussion"},
-        {"id": "t3", "title": "Roadmap", "budgetSeconds": 240,
-         "owner": "vitaly", "mustHear": ["vitaly"], "type": "presentation"},
     ],
 }
 start = dt.datetime(2026, 9, 20, 10, 21)
