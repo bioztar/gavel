@@ -22,5 +22,5 @@ async def start(store: InviteStore, ears: EarsClient, session_id: str) -> dict[s
         agenda_for_ears = {k: v for k, v in record.agenda.items() if k != "sessionId"}
         meeting_id = await ears.create_meeting(record.title, record.context, agenda_for_ears)
         ears_session_id = await ears.start_session(meeting_id)
-        store.mark_started(session_id, meeting_id, ears_session_id)
+        await store.mark_started(session_id, meeting_id, ears_session_id)
         return {"meetingId": meeting_id, "sessionId": ears_session_id}

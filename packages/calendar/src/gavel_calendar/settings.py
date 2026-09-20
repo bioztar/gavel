@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from datetime import timedelta
 from functools import lru_cache
 
@@ -44,6 +45,16 @@ class Settings(BaseSettings):
     calendar_port: int = 8790
     # Base URL the join page and /invite responses use to build join links.
     calendar_public_url: str = "http://localhost:8790"
+
+    # --- the shared database -------------------------------------------------
+    # The same Postgres `packages/ears-discord` owns, and the same DSN — this
+    # service keeps one table of its own in it (`db/models.py` says why) and
+    # never touches ears'. Empty, or unreachable at boot, and the store falls
+    # back to memory-only: invites work for the life of the process and no
+    # longer, which is exactly how this service behaved before the table
+    # existed. SQLAlchemy wants the driver named; a plain `postgresql://` is
+    # accepted and normalised, since brain is handed that spelling in compose.
+    postgres_dsn: str = ""
 
     # --- ears-discord, the only session entry point we call ------------------
     # HTTP, not the `ws://` wire URL — same host/port, see packages/ears-discord's
@@ -124,6 +135,18 @@ class Settings(BaseSettings):
     # IANA name. Venue is Barcelona; also what "in one hour" / "tomorrow at
     # 10" resolve against — see llm.py.
     compose_timezone: str = "Europe/Madrid"
+
+    @property
+    def async_postgres_dsn(self) -> str:
+        """`postgresql+asyncpg://`, whichever spelling arrived. ears is handed
+        the `+asyncpg` form and brain the plain one; this service should boot on
+        either rather than depending on which neighbour's copy was pasted."""
+        dsn = self.postgres_dsn.strip()
+        if not dsn:
+            return ""
+        if dsn.startswith("postgresql+") or dsn.startswith("postgres+"):
+            return dsn
+        return re.sub(r"^postgres(ql)?://", "postgresql+asyncpg://", dsn)
 
     @property
     def ics_feed_urls(self) -> list[str]:

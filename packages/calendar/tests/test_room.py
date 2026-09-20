@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,6 +23,13 @@ def _clean_store() -> Iterator[None]:
     store._records.clear()
     yield
     store._records.clear()
+
+
+def _save(record: InviteRecord) -> None:
+    """These tests drive the app through the sync `TestClient`, so there is no
+    running loop to await the store's now-async writes on. The store is
+    memory-only here (no DSN), so this is just the write, not a database."""
+    asyncio.run(store.save(record))
 
 
 def _record(**kw: Any) -> InviteRecord:
@@ -110,7 +118,7 @@ def test_state_route_banks_what_it_sees_so_the_report_outlives_the_session(
 ) -> None:
     httpx_mock.add_response(url=settings.brain_state_url, json=_brain())
     httpx_mock.add_response(url=settings.brain_state_url, json=_brain("ears-2"))
-    store.save(_record(started=True, ears_session_id="ears-1"))
+    _save(_record(started=True, ears_session_id="ears-1"))
 
     with TestClient(app) as client:
         live = client.get("/m/abc123/state").json()
@@ -124,7 +132,7 @@ def test_state_route_banks_what_it_sees_so_the_report_outlives_the_session(
 
 def test_state_route_survives_an_unreachable_brain(httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_exception(httpx.ConnectError("no brain"), url=settings.brain_state_url)
-    store.save(_record())
+    _save(_record())
 
     with TestClient(app) as client:
         resp = client.get("/m/abc123/state")
@@ -133,7 +141,7 @@ def test_state_route_survives_an_unreachable_brain(httpx_mock: HTTPXMock) -> Non
 
 
 def test_room_page_carries_the_chair_video_stage_and_the_agenda() -> None:
-    store.save(_record())
+    _save(_record())
     with TestClient(app) as client:
         page = client.get("/m/abc123")
 

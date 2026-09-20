@@ -13,6 +13,8 @@ COPY packages/calendar/pyproject.toml packages/calendar/uv.lock packages/calenda
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY packages/calendar/src ./src
+COPY packages/calendar/alembic ./alembic
+COPY packages/calendar/alembic.ini ./alembic.ini
 RUN uv sync --frozen --no-dev
 
 CMD ["python", "-m", "gavel_calendar"]

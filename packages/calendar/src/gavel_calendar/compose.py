@@ -576,7 +576,7 @@ async def handle_send(form: FormData, store: InviteStore, settings: Settings) ->
         context=invite.description,
     )
     # The meeting exists from this point on, no matter what happens next.
-    store.save(record)
+    await store.save(record)
     join_url = f"{settings.calendar_public_url}/m/{session_id}"
 
     mail_result = await _safe_mail(

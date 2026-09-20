@@ -101,7 +101,7 @@ def _events_by_uid(feed_cal: Calendar) -> dict[str, list[Any]]:
     return grouped
 
 
-def _ingest_occurrence(
+async def _ingest_occurrence(
     store: InviteStore,
     registry: FeedRegistry,
     feed_index: int,
@@ -149,7 +149,7 @@ def _ingest_occurrence(
             context=parsed.description,
         )
     )
-    store.save(record)
+    await store.save(record)
     registry.mark_seen(feed_index, occurrence_uid, sequence)
     return True
 
@@ -207,7 +207,9 @@ async def _poll_one_feed(
             continue  # this UID was unusable; the rest of the feed still is
 
         for parsed in occurrences:
-            if _ingest_occurrence(store, registry, feed_index, parsed, sequence, attendee_map):
+            if await _ingest_occurrence(
+                store, registry, feed_index, parsed, sequence, attendee_map
+            ):
                 ingested += 1
 
     registry.record_success(feed_index, at=now, event_count=ingested)

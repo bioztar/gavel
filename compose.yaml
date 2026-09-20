@@ -43,6 +43,23 @@ services:
         condition: service_healthy
     restart: "no"
 
+  # calendar keeps one table of its own (`calendar_invites`) in the same
+  # database, with its own Alembic lineage stamping `alembic_version_calendar`.
+  # Separate from `migrate` above because the two lineages are independent and
+  # each service's image carries only its own.
+  calendar-migrate:
+    image: gavel-calendar:local
+    build:
+      context: .
+      dockerfile: packages/calendar/Dockerfile
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      POSTGRES_DSN: postgresql+asyncpg://gavel:gavel@postgres:5432/gavel
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   ears:
     image: gavel-ears:local
     build:
@@ -189,6 +206,10 @@ services:
       CALENDAR_ICS_FEEDS: ${CALENDAR_ICS_FEEDS:-}
       CALENDAR_FEED_WINDOW_HOURS: ${CALENDAR_FEED_WINDOW_HOURS:-24}
       EARS_API_URL: http://ears:8787
+      # The same database as ears, for this service's own `calendar_invites`.
+      # Without it the store runs memory-only and every /m/ link dies with the
+      # container — which is what `GET /health`'s `durable` flag reports.
+      POSTGRES_DSN: postgresql+asyncpg://gavel:gavel@postgres:5432/gavel
       # The meeting room page (GET /m/{id}) reads the chair's live view from the
       # brain server-side, and embeds chair-video's stage as Karen's face. Both
       # are best-effort: unreachable brain = the agenda or the banked report, no
@@ -229,6 +250,8 @@ services:
       traefik.http.routers.gavel-calendar.tls.certresolver: mytlschallenge
       traefik.http.services.gavel-calendar.loadbalancer.server.port: "8790"
     depends_on:
+      calendar-migrate:
+        condition: service_completed_successfully
       ears:
         condition: service_healthy
     healthcheck:

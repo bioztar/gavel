@@ -35,7 +35,7 @@ async def test_scheduler_auto_starts_due_session(httpx_mock: HTTPXMock) -> None:
 
     store = InviteStore()
     past = datetime.now(UTC) - timedelta(seconds=1)
-    store.save(
+    await store.save(
         InviteRecord(
             session_id="s1",
             title="Due now",
@@ -72,7 +72,7 @@ async def test_scheduler_ignores_future_session(httpx_mock: HTTPXMock) -> None:
     ears = EarsClient("http://ears.test")
     store = InviteStore()
     future = datetime.now(UTC) + timedelta(hours=1)
-    store.save(
+    await store.save(
         InviteRecord(
             session_id="s2",
             title="Not yet",

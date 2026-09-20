@@ -49,6 +49,11 @@ feed_registry = FeedRegistry()
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    # Before the scheduler, never after: it starts whatever is `pending()` and
+    # already due, so an unrehydrated store would start a second ears session
+    # for a meeting this process had already started before a restart.
+    await store.attach(settings.async_postgres_dsn)
+
     tasks = [asyncio.create_task(scheduler.run(store, ears, settings.scheduler_poll_seconds))]
     if settings.ics_feed_urls:
         tasks.append(
@@ -68,6 +73,7 @@ async def lifespan(_app: FastAPI):
     finally:
         for task in tasks:
             task.cancel()
+        await store.close()
 
 
 app = FastAPI(title="gavel calendar", lifespan=lifespan)
@@ -92,7 +98,14 @@ async def health() -> dict[str, Any]:
                 "lastError": h.last_error,
             }
         )
-    return {"status": "ok", "pending": len(store.pending()), "feeds": feeds}
+    return {
+        "status": "ok",
+        # False means invites live only as long as this process — the store
+        # could not reach Postgres at boot. Worth seeing before a demo.
+        "durable": store.durable,
+        "pending": len(store.pending()),
+        "feeds": feeds,
+    }
 
 
 @app.post("/invite")
@@ -114,7 +127,7 @@ async def invite(
 
     session_id = uuid.uuid4().hex[:12]
     agenda = build_agenda(parsed, session_id, settings.attendee_map)
-    store.save(
+    await store.save(
         InviteRecord(
             session_id=session_id,
             title=parsed.title,
@@ -206,7 +219,7 @@ async def meeting_state(session_id: str) -> dict[str, Any]:
     if room.is_live(record, brain) and brain is not None:
         # Bank it: the brain forgets this session the moment the next one starts,
         # and the report has to outlive it.
-        store.bank_state(session_id, brain)
+        await store.bank_state(session_id, brain)
     return room.room_state(record, brain)
 
 

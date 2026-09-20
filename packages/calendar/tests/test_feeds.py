@@ -130,7 +130,7 @@ async def test_sequence_bump_does_not_restart_a_started_session(httpx_mock: HTTP
     registry = FeedRegistry()
     await poll_feeds_once(store, registry, [FEED_URL], {}, WINDOW)
     session_id = store.pending()[0].session_id
-    store.mark_started(session_id, "meeting-1", "ears-session-1")
+    await store.mark_started(session_id, "meeting-1", "ears-session-1")
 
     await poll_feeds_once(store, registry, [FEED_URL], {}, WINDOW)
 
