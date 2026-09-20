@@ -94,9 +94,10 @@
 - After `docker compose up -d --build calendar`, Traefik serves `404` for a few
   seconds while it re-resolves the new container. It clears itself. Do not go
   hunting for a routing misconfiguration — `curl` the route again.
-- **Redeploying `calendar` drops every pending invite.** `store.py` is in-memory on purpose,
-  so a rebuild or `restart` of that container makes live `/m/{id}` links 404 and empties
-  `/board`. Send the demo invite *after* the last calendar deploy, not before.
+- **Invites now survive a calendar redeploy** (`calendar_invites`, Alembic `0001` on the
+  calendar lineage). Verified 2026-09-20: an invite taken before `restart calendar` still
+  answered 200 on `/m/{id}` after it. With `POSTGRES_DSN` empty or Postgres unreachable at
+  boot the store falls back to memory-only, and the old behaviour returns.
 
 ## Next steps (ordered)
 1. Rehearse the demo against the live site, script in hand.
