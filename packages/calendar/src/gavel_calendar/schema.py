@@ -63,24 +63,25 @@ ENFORCEMENT_LEVELS: dict[str, dict[str, float | bool | str]] = {
         "offAgendaGraceSeconds": 45,
         "minSecondsBetweenInterventions": 90,
         "topicOverrunFactor": 1.5,
-        "floorMinSpeakingSeconds": 90,
+        "softHandoverSeconds": 90,
+        "hardHandoverSeconds": 0,  # never talks over anyone
         "silenceSeconds": 25,
         "escalateAfterSeconds": 20,
-        "handover": "soft",
         "allowMute": False,
     },
     "medium": {
         "offAgendaGraceSeconds": 8,
         "minSecondsBetweenInterventions": 45,
         "topicOverrunFactor": 1.2,
-        "floorMinSpeakingSeconds": 45,
+        "softHandoverSeconds": 45,
+        "hardHandoverSeconds": 90,
         "silenceSeconds": 15,
         "escalateAfterSeconds": 10,
-        "handover": "soft",
         "allowMute": False,
     },
-    # `handover: "hard"` is what the room actually sees: she cuts in as priority
-    # speaker instead of waiting for a pause. `allowMute` is the long tail — it
+    # The two handover thresholds meeting at 30s is what the room actually sees:
+    # the first handover already cuts in as priority speaker instead of waiting
+    # for a pause. `allowMute` is the long tail — it
     # only reaches a target through `escalate`, i.e. after an intervention that
     # was already ignored, and `policy.yaml` lists `host` in `neverMuteRoles`,
     # so the organizer is never a candidate whatever this says.
@@ -88,10 +89,10 @@ ENFORCEMENT_LEVELS: dict[str, dict[str, float | bool | str]] = {
         "offAgendaGraceSeconds": 5,
         "minSecondsBetweenInterventions": 25,
         "topicOverrunFactor": 1.05,
-        "floorMinSpeakingSeconds": 30,
+        "softHandoverSeconds": 30,
+        "hardHandoverSeconds": 30,  # no waiting for a pause: she cuts in
         "silenceSeconds": 10,
         "escalateAfterSeconds": 6,
-        "handover": "hard",
         "allowMute": True,
         "muteSeconds": 15,
     },

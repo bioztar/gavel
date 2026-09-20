@@ -16,7 +16,8 @@ Everything below is live on `https://gavel.pro7ocol.com` and merged to `main` (`
   `test_enforcement_gauge_reaches_the_agenda_policy`.
 - **Karen can never mute Vitaly.** `policy.yaml` has `neverMuteRoles: [host]`, the
   organizer always gets `role: host`, and mute only fires via `escalate`. The visible
-  delta at High is `handover: "hard"`, not the mute. Demo script says this out loud.
+  delta at High is the hard handover threshold meeting the soft one (both 30s), so the
+  first handover cuts in instead of waiting for a pause — not the mute. Demo script says this out loud.
 - **UI rebuilt light** — near-white ground, system font stack, hairline tables, pill
   buttons, segmented control, mobile breakpoint. Invite email matches the palette;
   its table skeleton is untouched so mail clients still render it.

@@ -278,7 +278,7 @@ async def test_enforcement_gauge_reaches_the_agenda_policy() -> None:
     )
     await compose.handle_send(form, store, settings)
     policy = store.pending()[0].agenda["policy"]
-    assert policy["handover"] == "hard"
+    assert policy["hardHandoverSeconds"] == policy["softHandoverSeconds"] == 30  # cuts in
     assert policy["allowMute"] is True
     assert policy["offAgendaGraceSeconds"] == 5  # the level, not the env's 8
     assert policy["requireStart"] is False  # env key the level never names
