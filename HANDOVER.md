@@ -1,11 +1,31 @@
-# HANDOVER — gavel — 2026-09-20 00:05
+# HANDOVER — gavel — 2026-09-20 10:55
 
-## State: demo path is built, deployed and proven live. Code freeze in ~11h (Sun 11:00).
+## State: demo path is built, deployed and proven live. Code freeze Sun 11:00 — now.
 
 The invite flow is three screens and holds one rule: **no agenda, no booking.**
 Everything below is live on `https://gavel.pro7ocol.com` and merged to `main` (`0771b26`).
 
-## Done this session
+## Done this session (10:55)
+- **The meeting room — one link, before / during / after.** `GET /m/{id}` is no longer a
+  join page; it is the meeting's public face. Before: agenda, Join the call, start button.
+  During: Karen's face (chair-video's `/stage/` in an iframe), the topic clock against its
+  budget, the floor as a share per person, and every call she has made in her own words,
+  labelled in English (`floorHog` → *Balanced the floor*). After: the same page, frozen,
+  as the report. `packages/calendar/src/gavel_calendar/room.py`, 7 new tests.
+- **This is the answer to "Discord blocks bot video."** One participant opens the link and
+  shares the tab — the room sees Karen and reads what she is doing, instead of squinting
+  at the Discord status message.
+- `GET /m/{id}/state` is what the page polls (2 s). It reads the brain's `/state`
+  server-side, so the browser never needs the brain's address and the console's auth is
+  untouched. Two rules: a state whose `sessionId` isn't this record's is **never** shown
+  under this link (one brain, one session), and every live poll **banks** the snapshot on
+  the invite record — the brain forgets a session when the next starts, and the report has
+  to outlive it. Unreachable brain = the banked report or the agenda, never an error page.
+- Env: `BRAIN_STATE_URL` (hard-coded to `http://brain:8788/state` in compose, like ears'
+  and stream-vonage's copies) and `CHAIR_VIDEO_STAGE_URL` (default `/stage/`, relative so
+  it needs no domain).
+
+## Done earlier this session
 - **Agenda gate.** A thin brief comes back as a refusal page — headline, one textarea,
   one button. No topic grid, no send path. `render_gate_html` in `compose.py`.
   `_rows_from_lines` is the insurance: if a typed agenda still parses to nothing, it

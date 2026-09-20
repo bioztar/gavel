@@ -189,6 +189,16 @@ services:
       CALENDAR_ICS_FEEDS: ${CALENDAR_ICS_FEEDS:-}
       CALENDAR_FEED_WINDOW_HOURS: ${CALENDAR_FEED_WINDOW_HOURS:-24}
       EARS_API_URL: http://ears:8787
+      # The meeting room page (GET /m/{id}) reads the chair's live view from the
+      # brain server-side, and embeds chair-video's stage as Karen's face. Both
+      # are best-effort: unreachable brain = the agenda or the banked report, no
+      # error page; hence no depends_on for either.
+      # Hard-coded like ears' and stream-vonage's copies: a repo-root .env with a
+      # 127.0.0.1 value would otherwise be substituted in here and point this
+      # container at itself.
+      BRAIN_STATE_URL: http://brain:8788/state
+      # Relative on purpose — Traefik routes /stage/ to chair-video on this host.
+      CHAIR_VIDEO_STAGE_URL: ${CHAIR_VIDEO_STAGE_URL:-/stage/}
       # compose front door: without NEBIUS_API_KEY the brief falls back to the
       # heuristic parser (logs compose.llm_skipped), which reads a bare time but
       # not intent. RESEND_API_KEY empty keeps the mailer in dry-run by design.

@@ -41,7 +41,8 @@ the `id`/`sessionId` `ears` handed back).
 | | |
 |---|---|
 | `POST /invite` | Upload (`file`, multipart) or paste (`ics`, form field) a raw `.ics`. Returns `{sessionId, joinUrl}`. |
-| `GET /m/{sessionId}` | The join page: title, start/end, purpose, agenda with budgets and owners, who is expected, one **Join** button. |
+| `GET /m/{sessionId}` | **The meeting room** — one link for before, during and after. See below. |
+| `GET /m/{sessionId}/state` | The JSON that page polls every 2 s: the chair's live view of *this* meeting, or the last one banked for it. |
 | `POST /m/{sessionId}/join` | Forces the session to start now. Same call the scheduler makes automatically at the event's start time. |
 | `GET /board` | Upcoming ingested meetings (manual invites and polled feed events alike), each with its own **Join** button — the demo path from "meeting exists" to "session running" when nothing wrote a join link back into the calendar. |
 | `GET /health` | `{status, pending, feeds}` — `feeds` is per-`CALENDAR_ICS_FEEDS` entry, addressed by index only: `{feed, lastSuccess, eventCount, lastError}`. Never the feed URL. |
@@ -49,6 +50,38 @@ the `id`/`sessionId` `ears` handed back).
 | `GET /compose` | The "set up a meeting" front door: a plain-English brief form, prefilled with `COMPOSE_DEFAULT_ATTENDEES`. |
 | `POST /compose/parse` | Sends the brief to the LLM, returns an editable confirmation form (title, start, duration, per-topic rows). No LLM configured, or the call fails: falls back to an empty/best-guess form instead of erroring — you can still fill it by hand and send. |
 | `POST /compose/send` | Confirms the form. See below for what this does and in what order. |
+
+## The meeting room — `GET /m/{sessionId}`
+
+The link in the invite ("Agenda and live status") is the whole meeting's public face, and
+it has three states:
+
+| | |
+|---|---|
+| **before** | Title, purpose, agenda with budgets, who is expected. A **Join the call** link and a **Start the meeting now** button. |
+| **during** | Karen's face, the topic clock against its budget, the floor as a share per person, and every call she has made — her own words, newest first, labelled in English (`floorHog` → *Balanced the floor*). Plus what has been decided, what is still open, and the parking lot. |
+| **after** | The same page, frozen: the report. |
+
+It is not the ears console. The console is an operator's instrument (raw frames, debug
+events, latencies); this is for the people in the meeting — full sentences, no ids.
+
+**Karen's face.** The page embeds chair-video's stage (`CHAIR_VIDEO_STAGE_URL`, `/stage/`
+on the deployed host). Discord does not let a bot publish video at all, so one participant
+opens this link and shares the tab: the room sees her while it reads what she is doing.
+
+**Where the state comes from.** The brain's `/state` (`BRAIN_STATE_URL`), fetched
+server-side — the browser never needs the brain's address, and the ears console's HTTP
+auth is left where it is. Two rules matter:
+
+- The brain chairs **one** session at a time and its `/state` says which. A state whose
+  `sessionId` is not this record's is not shown under this link, or the next meeting's
+  numbers would appear under this one's URL.
+- It keeps nothing once the next session starts, so every live poll **banks** the snapshot
+  on the invite record. That banked copy is the report.
+
+An unreachable brain is not an error: the page falls back to the banked report, or to the
+invite's own agenda. The agenda is server-rendered into the shell, so the link is worth
+opening before anything is live and before a byte of JS has run.
 
 ## The `.ics` parser
 
@@ -153,7 +186,9 @@ meeting.
 | `RESEND_API_KEY` | empty | powers `POST /compose/send`'s email step. Empty: mailer dry-runs, meeting is still created and the join link still works |
 | `COMPOSE_FROM_EMAIL` | empty | must be on a Resend-verified sending domain |
 | `COMPOSE_DEFAULT_ATTENDEES` | see `.env.example` | `"Name <email>, Name <email>, ..."` — prefills `GET /compose` |
-| `DISCORD_MEETING_URL` | see `.env.example` | used as the `.ics` `LOCATION` and the success page's Discord link |
+| `DISCORD_MEETING_URL` | see `.env.example` | the `.ics` `LOCATION`, the success page's Discord link, and the room page's **Join the call** |
+| `BRAIN_STATE_URL` | `http://localhost:8788/state` | the chair's live view, for the meeting room. Unreachable: the room shows the banked report or the agenda |
+| `CHAIR_VIDEO_STAGE_URL` | `/stage/` | Karen's face, embedded in the room. Relative by default — Traefik routes `/stage/` to chair-video on the deployed host |
 | `COMPOSE_TIMEZONE` | `Europe/Madrid` | IANA name — what relative times like "in an hour" resolve against |
 
 Missing/invalid config fails with the setting's name — no value is ever read into a log

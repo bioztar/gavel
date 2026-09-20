@@ -25,6 +25,11 @@ class InviteRecord:
     started: bool = False
     ears_meeting_id: str | None = None
     ears_session_id: str | None = None
+    # The last brain state seen for *this* meeting's session. The brain keeps one
+    # live session in memory and drops it when the next one starts, so the room
+    # page banks each live poll here — that banked copy is what the report is
+    # rendered from once the meeting is over. See room.py.
+    last_state: dict | None = None
 
 
 @dataclass
@@ -46,6 +51,11 @@ class InviteStore:
         record.started = True
         record.ears_meeting_id = ears_meeting_id
         record.ears_session_id = ears_session_id
+
+    def bank_state(self, session_id: str, state: dict) -> None:
+        record = self._records.get(session_id)
+        if record is not None:
+            record.last_state = state
 
     def lock_for(self, session_id: str) -> asyncio.Lock:
         return self._locks[session_id]

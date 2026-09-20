@@ -5,8 +5,11 @@
     POST /compose/parse      brief → LLM → editable confirm form
     POST /compose/send       confirm → meeting created, .ics + email sent best-effort
     POST /invite            upload or paste an .ics → {sessionId, joinUrl}
-    GET  /m/{session_id}    the join page: title, agenda with budgets, expected
-                             attendees, one Join button
+    GET  /m/{session_id}    the meeting room: the agenda before, Karen's face and
+                             her running commentary during, the report after —
+                             one link for all three. See room.py
+    GET  /m/{session_id}/state  what that page polls: the brain's view of this
+                             meeting, or the last one banked for it
     POST /m/{session_id}/join   force-starts the session now
     GET  /board              upcoming ingested meetings, each with its Join button —
                               the demo path from a read-only feed to a running session
@@ -26,11 +29,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+import httpx
 from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from . import compose, scheduler, service
-from .agenda import attendee_name, build_agenda
+from . import compose, room, scheduler, service
+from .agenda import build_agenda
 from .ears_client import EarsClient
 from .feed_store import FeedRegistry
 from .ics_parser import InvalidInvite, parse_ics
@@ -182,11 +186,41 @@ def demo_script() -> str:
 
 
 @app.get("/m/{session_id}", response_class=HTMLResponse)
-async def join_page(session_id: str) -> str:
+async def meeting_room(session_id: str) -> str:
     record = store.get(session_id)
     if record is None:
         raise HTTPException(404, "no such invite")
-    return _render_join_page(record)
+    return room.render_room_page(
+        record,
+        stage_url=settings.chair_video_stage_url,
+        discord_url=settings.discord_meeting_url,
+    )
+
+
+@app.get("/m/{session_id}/state")
+async def meeting_state(session_id: str) -> dict[str, Any]:
+    record = store.get(session_id)
+    if record is None:
+        raise HTTPException(404, "no such invite")
+    brain = await _brain_state()
+    if room.is_live(record, brain) and brain is not None:
+        # Bank it: the brain forgets this session the moment the next one starts,
+        # and the report has to outlive it.
+        store.bank_state(session_id, brain)
+    return room.room_state(record, brain)
+
+
+async def _brain_state() -> dict[str, Any] | None:
+    """The brain's `/state`, or None. A page that cannot reach the brain shows
+    the agenda or the banked report — it never shows an error to a room."""
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            response = await client.get(settings.brain_state_url)
+        response.raise_for_status()
+        state = response.json()
+    except (httpx.HTTPError, ValueError):
+        return None
+    return state if isinstance(state, dict) else None
 
 
 @app.post("/m/{session_id}/join", response_class=HTMLResponse)
@@ -230,47 +264,13 @@ form {{ margin: 0; }}
 </body></html>"""
 
 
-def _render_join_page(record: InviteRecord) -> str:
-    e = html.escape
-    rows = "".join(
-        f"<tr><td>{e(t['title'])}</td><td>{t['budgetSeconds'] // 60} min</td>"
-        f"<td>{e(attendee_name(record.agenda, t.get('owner')))}</td></tr>"
-        for t in record.agenda["topics"]
-    )
-    attendees = "".join(
-        f"<li>{e(a['name'])} ({e(a['role'])})</li>" for a in record.agenda["attendees"]
-    )
-    started_banner = "<p><strong>Already started.</strong></p>" if record.started else ""
-    return f"""<!doctype html>
-<html><head><meta charset="utf-8"><title>{e(record.title)}</title>
-<style>
-body {{ font-family: system-ui, sans-serif; max-width: 720px; margin: 3rem auto; padding: 0 1rem; }}
-table {{ width: 100%; border-collapse: collapse; margin: 1rem 0; }}
-td, th {{ text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #ddd; }}
-button {{ font-size: 1.1rem; padding: 0.6rem 1.4rem; cursor: pointer; }}
-</style></head>
-<body>
-<h1>{e(record.title)}</h1>
-<p>{e(record.start.isoformat())} — {e(record.end.isoformat())}</p>
-<p>{e(record.agenda["purpose"])}</p>
-{started_banner}
-<h2>Agenda</h2>
-<table><tr><th>Topic</th><th>Budget</th><th>Owner</th></tr>{rows}</table>
-<h2>Expected</h2>
-<ul>{attendees}</ul>
-<form method="post" action="/m/{e(record.session_id)}/join">
-<button type="submit">Join</button>
-</form>
-</body></html>"""
-
-
 def _render_started_page(record: InviteRecord, result: dict[str, str]) -> str:
     e = html.escape
     return f"""<!doctype html>
 <html><head><meta charset="utf-8"><title>{e(record.title)} — started</title></head>
 <body style="font-family: system-ui, sans-serif; max-width: 720px; margin: 3rem auto;">
 <h1>Session started</h1>
-<p>{e(record.title)} is live.</p>
+<p>{e(record.title)} is live. <a href="/m/{e(record.session_id)}">Follow it in the room</a>.</p>
 <p>ears meeting <code>{e(result["meetingId"])}</code>, session <code>{e(result["sessionId"])}</code>.</p>
 </body></html>"""
 
