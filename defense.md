@@ -1,4 +1,4 @@
-• # Two-minute code defense
+# Two-minute code defense
 
 We treated Norma’s findings as useful engineering feedback, not as a checklist we had to follow blindly. For each finding, we asked: Is this a real risk in the
 way Gavel is deployed? Can we fix it without hurting the live demo?
@@ -22,3 +22,14 @@ finding.
 
 Before using Gavel across multiple hosts or in production, we would add service identities, authentication between internal services, access rules for each
 endpoint, and automatic credential rotation.
+
+## Norma scan progress
+
+| Scan | Status | Score | Total issues | Security | Security issues |
+|---|---:|---:|---:|---:|---:|
+| Sep 19, 18:43 | Success | 73 | 176 | 49% | 5 high |
+| Sep 20, 08:15 | Success | 71 | 227 | 43% | 6 high |
+| Sep 20, 10:11 | Partial | 72 | 250 | 49% | 5 high |
+| Sep 20, 10:25 | Success | 70 | 256 | 43% | 6 high |
+| Sep 20, 11:04 | Success | 71 | 239 | 43% | 6 high |
+| Sep 20, 12:25 | Success | **90 — Gold** | **194** | **100%** | **0** |
