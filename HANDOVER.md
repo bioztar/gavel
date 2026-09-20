@@ -94,6 +94,9 @@
 - After `docker compose up -d --build calendar`, Traefik serves `404` for a few
   seconds while it re-resolves the new container. It clears itself. Do not go
   hunting for a routing misconfiguration — `curl` the route again.
+- **Redeploying `calendar` drops every pending invite.** `store.py` is in-memory on purpose,
+  so a rebuild or `restart` of that container makes live `/m/{id}` links 404 and empties
+  `/board`. Send the demo invite *after* the last calendar deploy, not before.
 
 ## Next steps (ordered)
 1. Rehearse the demo against the live site, script in hand.
