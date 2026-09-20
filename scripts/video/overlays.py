@@ -15,10 +15,17 @@ LABEL = {"vitaly": "VITALY", "artem": "ARTEM", "karen": "KAREN &nbsp;·&nbsp; th
 
 TPL = """<div style="width:1920px;height:1080px;position:relative;font-family:-apple-system,system-ui,sans-serif">
 {badge}
-<div style="position:absolute;left:0;right:0;bottom:0;height:104px;background:linear-gradient(transparent,rgba(8,9,12,.82) 38%)"></div>
-<div style="position:absolute;left:72px;bottom:30px;color:#fff;font-size:30px;font-weight:700;letter-spacing:.09em">{label}</div>
-<div style="position:absolute;right:72px;bottom:34px;color:rgba(255,255,255,.58);font-size:22px">synthetic voice — first pass</div>
+<div style="position:absolute;left:0;right:0;{edge}:0;height:104px;background:linear-gradient({a},rgba(8,9,12,.82) {stop})"></div>
+<div style="position:absolute;left:72px;{edge}:30px;color:#fff;font-size:30px;font-weight:700;letter-spacing:.09em">{label}</div>
+<div style="position:absolute;right:72px;{edge}:34px;color:rgba(255,255,255,.58);font-size:22px">synthetic voice — first pass</div>
 </div>"""
+ROOM_TPL = """<div style="width:1920px;height:1080px;position:relative;font-family:-apple-system,system-ui,sans-serif">
+<div style="position:absolute;left:46px;top:712px;display:inline-flex;align-items:center;gap:14px;
+ background:rgba(8,9,12,.88);color:#fff;padding:12px 22px;border-radius:999px;font-size:26px;
+ font-weight:700;letter-spacing:.08em">{label}
+ <span style="font-weight:400;letter-spacing:0;font-size:20px;color:rgba(255,255,255,.55)">synthetic voice</span>
+</div></div>"""
+
 BADGE = ("""<div style="position:absolute;right:72px;top:56px;background:#c4531b;color:#fff;"""
          """padding:11px 20px;border-radius:7px;font-size:23px;font-weight:700;letter-spacing:.05em">"""
          """PLACEHOLDER SHOT — {what}</div>""")
@@ -28,8 +35,18 @@ with sync_playwright() as p:
     page = b.new_page(viewport={"width": 1920, "height": 1080})
     for seg in SCRIPT["segments"]:
         _, _, placeholder = _asm.SHOT_MAP[seg["id"]]
+        placeholder = None if _asm.SHOT_MAP[seg["id"]][0] == "room-live" else placeholder
         badge = BADGE.format(what=placeholder.upper()) if placeholder else ""
-        page.set_content(TPL.format(label=LABEL[seg["speaker"]], badge=badge))
+        # the meeting room fills its own bottom edge, so its label goes to the top
+        shot = _asm.SHOT_MAP[seg["id"]][0]
+        top = shot == "room-live"
+        if top:
+            # the room uses all four edges; the label goes in the empty column under the agenda
+            page.set_content(ROOM_TPL.format(label=LABEL[seg["speaker"]]))
+        else:
+            page.set_content(TPL.format(
+                label=LABEL[seg["speaker"]], badge=badge,
+                edge="bottom", a="transparent", stop="38%"))
         page.wait_for_timeout(120)
         page.screenshot(path=str(OUT / f"{seg['id']}.png"), omit_background=True)
     print("overlays", len(SCRIPT["segments"]))

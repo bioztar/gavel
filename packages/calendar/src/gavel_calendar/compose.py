@@ -460,7 +460,7 @@ on. The default chair.</span></label>
 <label for="enf_high"><b>High</b><span>Cuts in mid-sentence, short grace, and may
 mute after a warning is ignored.</span></label>
 </div>
-<p class="hint">You are the host, so she will never mute you.</p>
+<p class="hint">Nobody is exempt, including you. If the host is the one running over, the host is the one who gets chaired.</p>
 
 <button type="submit">Send the invite</button>
 </form>

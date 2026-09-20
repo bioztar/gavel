@@ -55,7 +55,7 @@
       "id": "07-gauge",
       "speaker": "vitaly",
       "shot": "confirm",
-      "text": "How hard she chairs is a dial. Low, medium, high. On medium she waits for a pause. On high she cuts in mid-sentence, and after a warning she is allowed to mute. Note who she can't mute: me. The host is never a target. I am leaving it on high."
+      "text": "How hard she chairs is a dial. Low, medium, high. On medium she waits for a pause. On high she cuts in mid-sentence, and after a warning she is allowed to mute. And nobody is exempt. Not the organizer, not me. If the host is the one running over, the host is the one who gets chaired. I am leaving it on high."
     },
     {
       "id": "08-send",
@@ -67,7 +67,13 @@
       "id": "09-join",
       "speaker": "vitaly",
       "shot": "calendar",
-      "text": "Accepted. In my calendar with a join link. And the link is a Discord call."
+      "text": "Accepted, and it is in my calendar. And the invite carries two links, not one. One drops me straight into the Discord call. The other opens the meeting room."
+    },
+    {
+      "id": "09b-room",
+      "speaker": "vitaly",
+      "shot": "room",
+      "text": "This is the room, and it is the page you put on the shared screen. Karen on the left, the agenda under her, topic one already struck through. On the right, the topic that is actually running: how much of its six minutes it has had, and who is holding the floor right now. Underneath, what the room decided, what is still open, and what she parked."
     },
     {
       "id": "10-karen-opens",

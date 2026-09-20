@@ -29,8 +29,9 @@ engine:
   escalateCooldownSeconds: 120
   # A redirect stops being "pending" once someone else talks, or after this long.
   redirectExpirySeconds: 60
-  # Never muted, whatever allowMute says.
-  neverMuteRoles: [host]
+  # Never muted, whatever allowMute says. Empty on purpose: the chair is worth
+  # nothing if the person who booked the meeting is the one it cannot touch.
+  neverMuteRoles: []
   # If the chair's `spoken` never arrives, stop waiting after this long. Covers the wait for
   # a pause (speak.maxWaitMs) plus a long line.
   spokenTimeoutSeconds: 30
