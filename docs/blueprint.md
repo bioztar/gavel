@@ -34,7 +34,7 @@ model: one sentence, under 20 words.
   to a second page; the thing that makes the time-governance claim visible is simply on screen
   inside the meeting. See section 5.
 - **We build `ears-meet` rather than buying bot infrastructure.** Decision 1 below is settled.
-  Four autonomous build lanes are in flight right now — see section 10.
+  All five autonomous build lanes are reviewed and accepted — see section 10.
 
 ---
 
