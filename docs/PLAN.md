@@ -41,7 +41,7 @@ Run it with `just setup && just run` in `packages/ears-discord`
 ([README](../packages/ears-discord/README.md)). Test server: https://discord.gg/qR6RwKuAh.
 
 **Next:** run S4 on a real multi-person Discord call, export that session for E4, then
-decide whether the remaining time goes to the second surface or demo polish.
+decide whether the remaining time goes to the chair's face or demo polish.
 
 ## The spine
 
@@ -102,26 +102,6 @@ fix was py-cord PR #3159. Once that worked, E5 came almost for free from py-cord
 per-user sink. The one extra rule: frames that are still encrypted while DAVE negotiates
 are dropped rather than decoded into noise.
 
-## ears-vonage — chunks
-
-The second call surface. Same wire, so the brain is untouched. It is a **browser tab**
-that joins the session as an ordinary participant — no headless Chrome, no deployment.
-
-| # | Chunk | Effort | Depends on | Status |
-|---|---|---|---|---|
-| V1 | Join a session, subscribe to everyone, threshold `audioLevelUpdated` into `speaking.start/end` frames over the wire | 1h | contract |
-| V2 | Publish the chair's voice — `AudioContext` destination as the publisher's `audioSource`, fed by the brain's `speak` frames | 1h | V1 |
-| V3 | Publish the chair's face — canvas `captureStream()` as the video source, painted with fal frames | 1h | V1, B9 |
-| V4 | Depth: `session.signal()` pushes agenda + interventions to every participant's UI; enable archiving | 30m | V1 |
-
-Two things to respect at init, both documented gotchas: never initialise a publisher with
-`audioSource: false` (it can never gain audio afterwards), and `setVideoSource()` only
-works on camera publishers, so change the canvas rather than the source.
-
-This surface is *less* risky than Discord — audio levels and custom tracks are
-documented and supported, where Discord's voice receive is neither. It is also the only
-one where the chair's face can be in the call.
-
 ## brain — chunks
 
 | # | Chunk | Effort | Depends on |
@@ -135,7 +115,7 @@ one where the chair's face can be in the call.
 | B6 | Nebius — relevance/notes plus one sentence in Karen's voice, with template fallback | 1h | B6a | done |
 | B7 | SLNG TTS → `speak` frame over the wire, including exact display text | 1h | B6 | done |
 | B8 | Operator view — agenda, talk-time, Karen's lines, facts, decisions and parking lot | 1.5h | B2, B4 | done in ears console |
-| B11 | Fire drill — hazard heard, host confirms, demo SMS goes out | 1h | E6, V5, B6a | todo |
+| B11 | Fire drill — hazard heard, host confirms, demo SMS goes out | 1h | E6, B6a | todo |
 | B9 | fal face/video | 1.5h | B8, B6a, B7 | todo |
 | B10 | Transcripts, relevance, content-aware lines and structured minutes-lite | 1.5h | E6 | done |
 
@@ -172,37 +152,33 @@ either never fires on stage or fires every eight seconds.
 
 ## Schedule
 
-| Barcelona | ears-discord | brain | ears-vonage |
-|---|---|---|---|
-| 12:15–13:15 | **E1 spike — join, speaking events, playback** | B1 agenda + state, B2 talk-time | credentials from the Vonage mentor |
-| 13:15–14:15 | E2 wire | B3 replay harness — offline loop running | V1 join + subscribe |
-| 14:15–16:00 | E3 speak handler, E4 record fixture | B4 agenda clock, B5 policy | V1 levels → frames |
-| 16:00–17:00 | **Integration checkpoint — real voice → real interrupt, on Discord.** Everyone, one call | | |
-| 17:00–18:30 | E5 per-speaker decode | B6 Nebius line, B7 TTS | V2 publish the chair's voice |
-| 18:30–19:30 | dinner | dinner | dinner |
-| 19:30–21:00 | E6 SLNG STT | B8 stage | V4 signal + archiving |
-| 21:00 | **CUT LINE — is the agent interrupting live and reliably on at least one surface?** If not, everyone works on the spine until it is. Nothing else matters | | |
-| 21:00–22:30 | E6 finish, feed B10 | B9 fal video | V3 the chair's face in the call |
-| 22:30–23:00 | Dry run, both surfaces, four people. Record it | | |
-| Sun 09:00–10:00 | Fix what the dry run broke | | |
-| Sun 10:00–11:00 | READMEs, 60-second recording, submit | | |
+| Barcelona | ears-discord | brain |
+|---|---|---|
+| 12:15–13:15 | **E1 spike — join, speaking events, playback** | B1 agenda + state, B2 talk-time |
+| 13:15–14:15 | E2 wire | B3 replay harness — offline loop running |
+| 14:15–16:00 | E3 speak handler, E4 record fixture | B4 agenda clock, B5 policy |
+| 16:00–17:00 | **Integration checkpoint — real voice → real interrupt, on Discord.** Everyone, one call | |
+| 17:00–18:30 | E5 per-speaker decode | B6 Nebius line, B7 TTS |
+| 18:30–19:30 | dinner | dinner |
+| 19:30–21:00 | E6 SLNG STT | B8 stage |
+| 21:00 | **CUT LINE — is the agent interrupting live and reliably?** If not, everyone works on the spine until it is. Nothing else matters | |
+| 21:00–22:30 | E6 finish, feed B10 | B9 fal video |
+| 22:30–23:00 | Dry run, four people. Record it | |
+| Sun 09:00–10:00 | Fix what the dry run broke | |
+| Sun 10:00–11:00 | READMEs, 60-second recording, submit | |
 
-Three workstreams and two people is the honest tension in this schedule. The resolution:
-**Discord and brain are the spine and start together; Vonage starts when the brain's
-offline loop is running** and is picked up by whoever is freer, or by a third agent if
-Artem has one to spare. If it slips, it slips — the demo works on one surface.
+**Discord and brain are the spine and start together.** Anything else is picked up by
+whoever is freer, or by a third agent if Artem has one to spare. If it slips, it slips.
 
 ## Cut lines
 
 Drop in this order:
 
 1. **Concierge** — already parked. The agenda is a prepared file.
-2. **The chair's face (B9, V3)** — decoration. The stage without a face still shows the meters.
+2. **The chair's face (B9)** — decoration. The stage without a face still shows the meters.
 3. **Transcript features (E5, E6, B10)** — the whole tier 2. The spine does not need them.
-4. **The second surface** — if Vonage is not working by 21:00, demo Discord alone and
-   show the seam in the README. One brain, two ears, is a slide as well as a fact.
-5. **Nebius line (B6)** — fall back to templates.
-6. Never cut: E1, E2, E3, B1, B2, B4, B5, B7. That is the demo.
+4. **Nebius line (B6)** — fall back to templates.
+5. Never cut: E1, E2, E3, B1, B2, B4, B5, B7. That is the demo.
 
 ## Risks
 
@@ -225,7 +201,7 @@ whoever it interrupted and resumes the topic where it left off.
 
 It demos three things at once: the chair hears content, not just who is talking (SLNG STT);
 it reasons about what it heard (Nebius, through the Mastra agent); and it acts outside the
-call (Vonage Messages). Depth of API use, in one twenty-second beat.
+call (an SMS API). Depth of API use, in one twenty-second beat.
 
 **How it fires**
 
@@ -237,7 +213,7 @@ call (Vonage Messages). Depth of API use, in one twenty-second beat.
    trigger is exempt, and it is the only one that is.
 4. Chair asks a **host** (an attendee with `role: host` in the agenda) to confirm. Nothing is
    sent without a spoken yes inside 20 seconds. Anything else and it stands down out loud.
-5. On confirm: Vonage SMS to `EMERGENCY_DEMO_NUMBER`, stage shows the message that went out,
+5. On confirm: an SMS to `EMERGENCY_DEMO_NUMBER`, stage shows the message that went out,
    chair announces it and hands the floor back.
 
 **Safety rules — these are not negotiable, and they are in the code, not the plan**
@@ -260,14 +236,14 @@ pipeline is honest, a faked output is not.
 
 The fal mentor pointed at the **lip-sync** endpoint on the H3 Max family rather than
 continuous video generation. That is a better fit and a cheaper one, and it changes the
-shape of B9 and V3.
+shape of B9.
 
 The chair only needs a face **while it is speaking**. The pipeline becomes:
 
 ```
 trigger fires -> Nebius line -> SLNG TTS audio -> fal lip-sync(portrait, that audio) -> clip
                                       |                                                  |
-                                      +-> audio into the call ------------------- stage / Vonage video
+                                      +-> audio into the call ------------------- stage
 ```
 
 - One still portrait of the chair, generated once at the start of the day and reused.
@@ -302,10 +278,9 @@ rather than per word. A chair whose mouth is approximate but who is *always ther
 reads better on a projector than a still that occasionally animates.
 
 **The question that decides it**, and the first thing to ask the fal mentor: *is the Director
-output playable in a browser `<video>` element (HLS or WebRTC URL)?* If yes, both surfaces get
-it nearly free — `<video>` → canvas → `captureStream()` → the stage, and the same canvas track
-straight into the Vonage publisher (V3). If it only comes back as files or a proprietary
-player, the plumbing cost jumps and lip-sync becomes the better buy.
+output playable in a browser `<video>` element (HLS or WebRTC URL)?* If yes, the stage gets it
+nearly free — `<video>` → canvas → `captureStream()` → the stage. If it only comes back as
+files or a proprietary player, the plumbing cost jumps and lip-sync becomes the better buy.
 
 Decide within thirty minutes of the key working. Whichever loses, the fallback is the still
 portrait — the demo never depends on the face.
@@ -339,9 +314,7 @@ for the MiniMax H3 Max Director track, which reads as aimed at livestream-style 
 |---|---|---|
 | **SLNG** | TTS for the chair's voice; streaming STT per speaker with diarization (live in ears) | core |
 | **Nebius** | Token Factory for what the chair says | core |
-| **Vonage** (gold) | The chair joins a session as a real participant — custom audio and video tracks, signalling, archiving | core |
-| **fal.ai** | Live-generated video, called through Mastra, on the stage and in the Vonage call | stretch |
+| **fal.ai** | Live-generated video, called through Mastra, on the stage | stretch |
 | **Mastra** | The harness around the brain's outward calls — Nebius, SLNG, fal as tools, with traces | core |
 
-Building the second surface is what puts the gold track back on the table. Mastra no longer
-depends on the Concierge — it is the harness the live chair already runs on. The overall prize does not care which track you entered.
+Mastra no longer depends on the Concierge — it is the harness the live chair already runs on. The overall prize does not care which track you entered.

@@ -2,7 +2,7 @@
 
 **Status:** **STOPPED 2026-09-21 09:25 UTC** on Vitaly's instruction (was live and validated)
 **Host:** `uk-lon-1` (173.234.79.39) · **Domain:** https://gavel.pro7ocol.com
-**Deployed commit:** `5baf50b` (`feat(scripts): set-vonage-key.sh` — on top of Artem's `3227f0a`, Karen waits for a pause + STT fix)
+**Deployed commit:** `5baf50b` (on top of Artem's `3227f0a`, Karen waits for a pause + STT fix)
 **Deployed at:** 2026-09-19 17:02 UTC · **Last validated:** 2026-09-19 17:02 UTC
 **Checkout on the box:** `/home/coder/DEV/gavel` · **Compose project:** `gavel`
 
@@ -17,7 +17,7 @@
 
 ## What is running
 
-Eight containers from `compose.yaml`, one of which is a run-once migration job.
+Seven containers from `compose.yaml`, one of which is a run-once migration job.
 
 | Container | Image | Size | Bind | Health | Purpose |
 |---|---|---|---|---|---|
@@ -25,7 +25,6 @@ Eight containers from `compose.yaml`, one of which is a run-once migration job.
 | `gavel-brain-1` | `gavel-brain:local` | 807 MB | `127.0.0.1:8788` | healthy | All chair decisions — talk-time, interruptions, agenda budget. Imports no call SDK |
 | `gavel-calendar-1` | `gavel-calendar:local` | 385 MB | `127.0.0.1:8790` | healthy | Invite board, `.ics` feed poller, scheduler. **The only public service** |
 | `gavel-chair-video-1` | `gavel-chair-video:local` | 387 MB | `127.0.0.1:8791` | healthy | Karen's face — fal lip-sync, idle loop |
-| `gavel-stream-vonage-1` | `gavel-stream-vonage:local` | — | `127.0.0.1:8792` | healthy | Vonage Video HLS broadcast + archive, publisher/watch pages. **No credentials yet** — `/healthz` reports `credentials: absent` |
 | `gavel-postgres-1` | `postgres:17-alpine` | 424 MB | `127.0.0.1:5432` | healthy | Meetings, sessions, transcripts, memories, LLM cost log |
 | `gavel-redis-1` | `redis:7-alpine` | 57.8 MB | `127.0.0.1:6379` | healthy | Ephemeral only (`--save "" --appendonly no`) |
 | `gavel-migrate-1` | `gavel-ears:local` | — | — | `Exited (0)` | `alembic upgrade head`, runs once per `up`, gates `ears` |
@@ -104,16 +103,11 @@ The whole host routes to `calendar`. What answers on it:
 | `https://gavel.pro7ocol.com/health` | 200 | `{"status":"ok","pending":0,"feeds":[]}` |
 | `https://gavel.pro7ocol.com/` | 307 → `/board` | A judge types the bare domain and lands on the board |
 | `https://gavel.pro7ocol.com/compose` | 200 | The compose front door — free-text brief → confirm → meeting |
-| `https://gavel.pro7ocol.com/watch` | 200 | The live stream page — judges open this one |
-| `https://gavel.pro7ocol.com/stream/status` | 200 | Read-only; what the watch page polls |
 | `https://gavel.pro7ocol.com/console` | 404 | Correct — the operator console is deliberately not exposed |
-| `https://gavel.pro7ocol.com/publisher` | 404 | Correct — starting a broadcast stays loopback-only |
-| `POST https://gavel.pro7ocol.com/stream/start` | 404 | Correct — creates sessions and archives, costs money |
 | `http://gavel.pro7ocol.com/board` | 301 → `https://…/board` | HTTP is redirected, not served |
 
 `ears`, `brain` and `chair-video` have **no** Traefik labels and are unreachable from the
-internet. `stream-vonage` publishes exactly two read-only routes and nothing else (see
-Vonage wiring below). They are reached only over the compose network by service name, or from the box
+internet. They are reached only over the compose network by service name, or from the box
 over loopback.
 
 ---
@@ -178,7 +172,6 @@ read, printed or logged:
 | `EARS_WIRE_URL` | set | — |
 | `CONCIERGE_WEBHOOK_URL` | set | — |
 | `WIRE_PORT`, `STAGE_PORT` | set | port overrides |
-| `VONAGE_API_KEY` | set | **not the Video product** — sits beside `VONAGE_SMS_FROM` in `.env.example`, i.e. Messages/SMS |
 | `DEVIN_PAT_KEY` | set | not used by any service; agent-orchestration API only |
 | `DISCORD_GUILD_ID` | empty | **fine** — servers are now chosen in the console and stored in Postgres; this is a legacy seed (`packages/ears-discord/README.md:23-29`) |
 | `NEBIUS_MODEL` | empty | **fine** — `config/models.yaml` owns the profiles; `config.ts:210-212` only overrides on a truthy value |
@@ -313,109 +306,6 @@ Brain is connected to the wire:
 
 ---
 
----
-
-## Vonage Video wiring
-
-The Application exists in the Vonage dashboard and uses **key auth** (private/public keypair,
-JWT), not the legacy key/secret pair:
-
-```
-VONAGE_APPLICATION_ID = c9a721b4-914b-49ef-9690-0f3b06da678e
-```
-
-That id is an identifier, not a credential — it is safe in this file. The **private key is
-not**, and never appears here, in `.env.example`, or in any log. `packages/stream-vonage`
-supports both auth styles and picks automatically (`vonage.py: detect_auth_style`): an
-Application id + private key means JWT auth (`vonage==4.9.0`), a bare key/secret means the
-legacy path (`opentok==3.15.0`).
-
-### Installing the private key
-
-`VONAGE_PRIVATE_KEY` holds the PEM **contents**, not a path — as a single line with literal
-`\n` between the PEM lines, which `settings.py: vonage_private_key_pem` unescapes on read.
-A multi-line value in a `.env` is parsed inconsistently by docker compose, so it is stored
-escaped on purpose.
-
-Do not hand-edit `.env`. Use the helper, which never lets the key reach a terminal, a log or
-a shell history entry:
-
-```bash
-# from a machine that can reach this box over ssh
-ssh coder@173.234.79.39 'umask 077; cat > ~/vonage_private.key && \
-  /home/coder/DEV/gavel/scripts/set-vonage-key.sh ~/vonage_private.key \
-    c9a721b4-914b-49ef-9690-0f3b06da678e' < ~/Downloads/private.key
-
-# or, when ssh to this box is not available, from a PLAIN SHELL on the box
-# (never an agent chat box — that would put the key in a conversation transcript):
-scripts/set-vonage-key.sh --paste c9a721b4-914b-49ef-9690-0f3b06da678e
-# paste the whole PEM including BEGIN/END lines, then Ctrl-D
-```
-
-It checks the `BEGIN … PRIVATE KEY` header, replaces rather than appends (re-running is
-safe), chmods `.env` to 600, and prints only the shape of what landed — byte count and PEM
-line count, never content.
-
-Then:
-
-```bash
-docker compose up -d --wait stream-vonage
-curl -s localhost:8792/healthz     # credentials: "present", authStyle: "jwt"
-```
-
-**Installed and verified 2026-09-19 17:02 UTC.** `/healthz` reports
-`{"credentials":"present","authStyle":"jwt"}`, the container sees a 28-line PEM, and a real
-`createSession` call against Vonage returned a 110-character session id — which is the only
-proof that matters: it means the JWT is accepted *and* the Application has the **Video**
-capability enabled. A Messages- or Voice-only Application authenticates fine and then 4xxs
-on session create, so healthz alone would not have caught it.
-
-Before the key was installed, `/healthz` reported `{"credentials":"absent","authStyle":null}`
-and `POST /stream/start` failed with `VONAGE_API_SECRET is not set` — the setting name, never
-a value.
-
-### Exposure
-
-`stream-vonage` binds `127.0.0.1:8792` and publishes **exactly two routes** through the shared
-Traefik, on the same host as `calendar`:
-
-```yaml
-traefik.http.routers.gavel-watch.rule:
-  Host(`gavel.pro7ocol.com`) && (Path(`/watch`) || Path(`/stream/status`))
-traefik.http.routers.gavel-watch.priority: "100"
-```
-
-Exact `Path`, never `PathPrefix` — `/stream/status` is read-only, but `PathPrefix(/stream)`
-would have published `/stream/start` and `/stream/stop` with it, and those create Vonage
-sessions and archives. `/publisher`, `/healthz` and `/brain-state` stay loopback-only.
-
-The explicit `priority: 100` beats `calendar`'s bare `Host()` rule, which would otherwise
-swallow both paths. Traefik's default priority is rule length and this rule is already the
-longer one, but a demo is the wrong place to rely on that.
-
-`/stream/status` returns `sessionId` and `hlsUrl`. Neither is a credential on its own —
-joining a Vonage session needs a token signed with the private key, and that is minted
-server-side for the `/publisher` page only, which is not exposed. The HLS URL *is* the
-playback stream, so anyone who loads the watch page can watch: that is the point of it.
-
-Verified live after deploy: `/watch` 200, `/stream/status` 200, `/publisher` 404,
-`/healthz` 404, `/brain-state` 404, `POST /stream/start` 404, `POST /stream/stop` 404, and
-`calendar` untouched (`/` 307, `/board` 200, `/compose` 200, `/health` 200).
-
-### Reference implementations from the Vonage team
-
-- `Vonage-Community/demo-video-javascript-fal-starter` — Vonage Video + fal avatar
-  livestreaming. Uses **Broadcast** (watch page + RTMP out to YouTube/Twitch/LinkedIn),
-  **Archiving** to record, and **Signaling** for chat and avatar commands; the fal model is
-  `decart/lucy-2-5/realtime`. This is the closest match to what `stream-vonage` already
-  does, and its `setup.js` provisions the Vonage Application automatically.
-- `Vonage-Community/demo-video-javascript-mastra-starter` — Vonage Video + Mastra agents.
-  The interesting part for gavel is **Audio Connector**: it bridges call audio to and from an
-  AI voice agent over a WebSocket (`src/wsBridge.ts`), and uses Signaling to push the agent's
-  live transcript into the UI as captions. That is structurally what `packages/ears-discord`
-  does through Discord. It is a real alternative ears path, and a decision for Vitaly — not
-  a change to make two days before freeze.
-
 ## Known gaps
 
 1. **`RESEND_API_KEY` and `DISCORD_MEETING_URL` are unset in the container.** The compose
@@ -440,12 +330,9 @@ Verified live after deploy: `/watch` 200, `/stream/status` 200, `/publisher` 404
 ## Links
 
 - Board (demo URL): https://gavel.pro7ocol.com/board
-- Live stream (judges): https://gavel.pro7ocol.com/watch
 - Health: https://gavel.pro7ocol.com/health
 - Repo: https://github.com/bioztar/gavel
 - This document, rendered: https://github.com/bioztar/gavel/blob/main/DEPLOYMENT.md
 - Host: `uk-lon-1`, 173.234.79.39 — the box these containers run on *is* the VPS
-- Vonage fal starter: https://github.com/Vonage-Community/demo-video-javascript-fal-starter
-- Vonage Mastra starter: https://github.com/Vonage-Community/demo-video-javascript-mastra-starter
 - Contract between the halves: `docs/CONTRACT.md`
 - Session state: `HANDOVER.md`

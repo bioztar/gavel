@@ -93,7 +93,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
 <h2>Schedule</h2>
 <div class="card" style="overflow-x:auto">
 <table>
-<thead><tr><th>When</th><th>ears-discord</th><th>brain</th><th>ears-vonage</th></tr></thead>
+<thead><tr><th>When</th><th>ears-discord</th><th>brain</th><th>second surface (cut)</th></tr></thead>
 <tbody>
 <tr><td>12:00–13:00</td><td>E1 spike</td><td>B1 + B2</td><td>—</td></tr>
 <tr><td>13:00–15:00</td><td>E2, E3</td><td>B3, B4</td><td>keys + V1</td></tr>
@@ -111,9 +111,9 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
 <div class="callout">
   <h3>Three workstreams, two people</h3>
   <p style="margin:6px 0 0">That is the honest tension. Discord and brain start together;
-  Vonage starts only once the brain's offline replay loop runs. If Vonage is not working by
-  21:00, demo one surface and show the seam in the README — the point is that a second
-  surface was one package, not a rewrite.</p>
+  a second surface starts only once the brain's offline replay loop runs. If it is not working
+  by 21:00, demo one surface and show the seam in the README — the point is that a second
+  surface is one package, not a rewrite.</p>
 </div>
 
 <h2>Credentials — blocking order</h2>
@@ -132,7 +132,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
 </div>
 
 <script type="application/json" id="fallback">{
-  "updated": "2026-09-19T13:23:02+00:00",
+  "updated": "2026-09-21T19:30:00+02:00",
   "freeze": "2026-09-20T11:00:00+02:00",
   "demos": "2026-09-20T14:00:00+02:00",
   "people": {
@@ -360,7 +360,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       ],
       "status": "done",
       "spine": false,
-      "note": "http://localhost:8787/console: meeting + agenda setup, start/end session, live transcript, floor/turn debug, signal log, say-box through SLNG TTS. Every frame recorded to Postgres."
+      "note": "http://localhost:8787/console: meeting + agenda setup, lobby readiness, Karen's exact lines, live transcript, facts/decisions/open items/parking lot, floor/turn debug, signal log, and say-box."
     },
     {
       "id": "B1",
@@ -422,7 +422,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       ],
       "status": "done",
       "spine": true,
-      "note": "escalate / offAgenda (park + priority redirect) / floorHog / topicOverrun / silence (named invite, round robin). Pure, tested."
+      "note": "Gathering lobby + addressed start; escalate / individual or group offAgenda / floorHog / topicOverrun / silence. Pure policy, tested."
     },
     {
       "id": "B6a",
@@ -462,21 +462,21 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       ],
       "status": "done",
       "spine": true,
-      "note": "SLNG TTS (fish, ~1.2 s), cached per line → speak frame with priority."
+      "note": "SLNG TTS (fish, ~1.2 s), cached per line → speak frame with priority and exact text for the ears transcript."
     },
     {
       "id": "B8",
       "lane": "brain",
-      "title": "Web stage — agenda, live talk-time bars, what the chair said",
-      "owner": "vitaly",
+      "title": "Operator view — agenda, talk-time, Karen's lines and meeting understanding",
+      "owner": "artem",
       "effort": "1.5h",
       "deps": [
         "B2",
         "B4"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": false,
-      "note": "The visible half of the judged moment."
+      "note": "Delivered in the ears console: agenda status/completion, live talk-time, Karen's exact lines, facts, decisions, open items, and parked off-topics."
     },
     {
       "id": "B11",
@@ -517,9 +517,9 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "deps": [
         "E6"
       ],
-      "status": "doing",
+      "status": "done",
       "spine": false,
-      "note": "Transcripts drive off-agenda detection + parking lot; minutes not yet."
+      "note": "Transcripts drive relevance, individual/group tangent detection, parking, content-aware lines, and structured facts/decisions/open items shown in ears."
     },
     {
       "id": "V1",
@@ -530,7 +530,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "deps": [
         "S1"
       ],
-      "status": "todo",
+      "status": "cut",
       "spine": false,
       "note": "Threshold ~0.2 with hysteresis. The hysteresis lives here, never in the brain."
     },
@@ -543,7 +543,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "deps": [
         "V1"
       ],
-      "status": "todo",
+      "status": "cut",
       "spine": false,
       "note": "Never init a publisher with audioSource:false — it can never gain audio after."
     },
@@ -557,7 +557,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
         "V1",
         "B9"
       ],
-      "status": "todo",
+      "status": "cut",
       "spine": false,
       "note": "Same canvas that renders the Director stream, captureStream()'d into the Vonage publisher. The one place the chair has a face in-call."
     },
@@ -570,7 +570,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "deps": [
         "S1"
       ],
-      "status": "todo",
+      "status": "cut",
       "spine": false,
       "note": "Destination is EMERGENCY_DEMO_NUMBER and nothing else."
     },
@@ -583,7 +583,7 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "deps": [
         "V1"
       ],
-      "status": "todo",
+      "status": "cut",
       "spine": false,
       "note": "Cheap points on a track judged partly on depth of API use."
     },
@@ -618,9 +618,9 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "deps": [
         "Q1"
       ],
-      "status": "todo",
+      "status": "done",
       "spine": false,
-      "note": "CONTRACT vs frames.py, .env.example vs settings actually read, README's dead packages/chair layout, new package endpoints."
+      "note": "Docs audited: contract/wire/lifecycle/state UI, env names, root README, plan, quality record, credentials, handover, and board now match the implemented code."
     },
     {
       "id": "G1",
@@ -869,14 +869,14 @@ Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p
       "name": "Vonage Video — app id + private key + secret (only the API key is in .env)",
       "who": "Vonage mentor on site",
       "blocks": "V1–V4, the gold track",
-      "status": "doing"
+      "status": "cut"
     },
     {
       "id": "vonage-sms",
       "name": "Vonage SMS — API key/secret + a sendable from-number",
       "who": "Vonage mentor on site",
       "blocks": "V5, B11 — the fire drill",
-      "status": "doing"
+      "status": "cut"
     },
     {
       "id": "slng",

@@ -39,8 +39,8 @@ load-bearing.
   │  EARS-DISCORD        │   speech    │  BRAIN               │
   │  owns the voice conn │ ──────────> │  knows no call API   │
   ├──────────────────────┤             │                      │
-  │  EARS-VONAGE         │ <────────── │  · talk-time         │
-  │  owns the session    │   speak()   │  · agenda clock      │
+  │  (a second ears is   │ <────────── │  · talk-time         │
+  │   one adapter away)  │   speak()   │  · agenda clock      │
   │                      │             │  · interrupt policy  │
   │  · who is speaking   │             │  · what to say       │
   │  · plays audio back  │             │  · meeting notes     │
@@ -55,15 +55,16 @@ load-bearing.
   CONCIERGE (stretch) — a Discord bot that interviews attendees and writes agenda.json
 ```
 
-Two call surfaces, one brain. `brain` holds every decision and knows about no call API
+One brain, any call surface. `brain` holds every decision and knows about no call API
 at all; an `ears` package owns one connection and makes no decisions. They meet at
 [docs/CONTRACT.md](docs/CONTRACT.md) and nowhere else — which is what lets the same
-agent chair a Discord call and a Vonage call, and lets people build in parallel for
-thirteen hours without touching each other's files.
+agent chair a call on any platform, and lets people build in parallel without touching
+each other's files. `ears-discord` is the one surface built; a second ears package is one
+adapter away, and the brain would not notice the swap.
 
-**Discord** is where meetings already happen. **Vonage** is where the chair gets a face:
-Vonage lets a participant publish any video track, Discord does not allow bots to
-publish video at all.
+**Discord** is where meetings already happen. A surface that lets a participant publish
+an arbitrary video track is where the chair would get a face in-call — Discord does not
+allow bots to publish video at all.
 
 ## Sponsor stack
 
@@ -72,18 +73,16 @@ publish video at all.
 | **SLNG** | Speech-to-text per speaker and Karen's text-to-speech voice | implemented |
 | **Nebius** | Token Factory inference for relevance, meeting notes, and Karen's spoken lines | implemented |
 | **Mastra** | Agents and the traced intervention workflow | implemented |
-| **Vonage** | Planned second call surface with custom audio/video tracks | planned |
-| **fal.ai** | Planned generated face/video for the second surface | planned |
+| **fal.ai** | Planned generated face/video for the stage | planned |
 
 Discord blocks video publishing from bots. The implemented Discord experience therefore
-uses the ears operator console; the Vonage and generated-video surfaces remain planned.
+uses the ears operator console; the generated-video surface remains planned.
 
 ## Layout
 
 | Path | Owner | What |
 |---|---|---|
 | `packages/ears-discord` | one person | Discord voice: join, speaking events, STT, audio playback |
-| `packages/ears-vonage` | one person | Vonage session: join as a participant, audio levels, publish voice + face |
 | `packages/brain` | the other | Meeting lifecycle, talk-time, agenda, moderation, notes, Nebius |
 | `packages/concierge` | whoever is free | Stretch: Discord bot that writes the agenda |
 | `packages/contract` | both | Shared schema and fixtures. Changes need both to agree |

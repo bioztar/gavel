@@ -30,7 +30,6 @@ flowchart LR
   subgraph SPEAK["3 — Speak"]
     SLNG2["SLNG · TTS<br/>her voice"]
     FAL["fal<br/>lip-synced avatar, WebRTC stage"]
-    VONAGE["Vonage Video<br/>HLS restream + archive"]
   end
 
   ROOM --> EARS --> SLNG1 --> DB --> BRAIN
@@ -38,7 +37,7 @@ flowchart LR
   BRAIN --> MASTRA --> NEBIUS --> SLNG2
   SLNG2 --> EARS
   EARS -->|"she interrupts, out loud"| ROOM
-  SLNG2 --> FAL --> VONAGE
+  SLNG2 --> FAL
 ```
 
 **The three moves**
@@ -47,14 +46,14 @@ flowchart LR
 |---|---|---|
 | 1 | **Hear** | `ears-discord` holds the voice connection and knows who is speaking. **SLNG** transcribes each utterance live. Postgres and Redis keep the transcript and the floor clock. |
 | 2 | **Think** | `brain` is Karen. Plain code holds the agenda and fires on facts, not vibes — 60% of the floor, a topic over budget, a must-hear attendee still silent. **Mastra** orchestrates the model calls; **Nebius** writes the one sentence she says: under 20 words, names the person, hands the floor somewhere specific. `calendar` turned a real `.ics` invite into that agenda before the meeting started. |
-| 3 | **Speak** | **SLNG** turns the line into her voice, `ears-discord` plays it back into the live call — the room hears her interrupt. The same audio drives **fal**, which lip-syncs an avatar into a live WebRTC stage feed, so Karen has a face on the projector. **Vonage Video** restreams that stage as HLS with an archive for anyone not in the call. |
+| 3 | **Speak** | **SLNG** turns the line into her voice, `ears-discord` plays it back into the live call — the room hears her interrupt. The same audio drives **fal**, which lip-syncs an avatar into a live WebRTC stage feed, so Karen has a face on the projector. |
 
-Underneath: six containers behind Traefik on one VPS — `ears-discord`, `brain`, `calendar`,
-`chair-video`, `stream-vonage`, Postgres/Redis. Every seam is HTTP or a WebSocket, so any one
-of them can be swapped without touching the others.
+Underneath: five containers behind Traefik on one VPS — `ears-discord`, `brain`, `calendar`,
+`chair-video`, Postgres/Redis. Every seam is HTTP or a WebSocket, so any one of them can be
+swapped without touching the others.
 
 **Sponsors in the live path:** SLNG (speech), Nebius (inference), Mastra (orchestration),
-fal (avatar), Vonage (streaming).
+fal (avatar).
 
 ---
 

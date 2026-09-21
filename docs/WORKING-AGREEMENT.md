@@ -9,7 +9,7 @@ impossible rather than unlikely.
 
 | Path | Who writes it |
 |---|---|
-| `packages/ears-discord/**`, `packages/ears-vonage/**` | the voice owner |
+| `packages/ears-discord/**` | the voice owner |
 | `packages/brain/**` | the moderation owner |
 | `packages/concierge/**` | whoever picks it up, if anyone does |
 | `packages/contract/**` | either, but say so out loud first |

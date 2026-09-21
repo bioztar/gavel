@@ -218,9 +218,8 @@ services:
       # brain server-side, and embeds chair-video's stage as Karen's face. Both
       # are best-effort: unreachable brain = the agenda or the banked report, no
       # error page; hence no depends_on for either.
-      # Hard-coded like ears' and stream-vonage's copies: a repo-root .env with a
-      # 127.0.0.1 value would otherwise be substituted in here and point this
-      # container at itself.
+      # Hard-coded like ears' copy: a repo-root .env with a 127.0.0.1 value would
+      # otherwise be substituted in here and point this container at itself.
       BRAIN_STATE_URL: http://brain:8788/state
       # Relative on purpose — Traefik routes /stage/ to chair-video on this host.
       CHAIR_VIDEO_STAGE_URL: ${CHAIR_VIDEO_STAGE_URL:-/stage/}
@@ -311,62 +310,6 @@ services:
           "python",
           "-c",
           "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8791/healthz', timeout=7)",
-        ]
-      interval: 10s
-      timeout: 8s
-      retries: 6
-      start_period: 5s
-
-  stream-vonage:
-    image: gavel-stream-vonage:local
-    build:
-      context: .
-      dockerfile: packages/stream-vonage/Dockerfile
-    init: true
-    restart: unless-stopped
-    environment:
-      HOST: 0.0.0.0
-      PORT: 8792
-      VONAGE_APPLICATION_ID: ${VONAGE_APPLICATION_ID:-}
-      VONAGE_PRIVATE_KEY: ${VONAGE_PRIVATE_KEY:-}
-      VONAGE_API_KEY: ${VONAGE_API_KEY:-}
-      VONAGE_API_SECRET: ${VONAGE_API_SECRET:-}
-      BRAIN_STATE_URL: http://brain:8788/state
-      BRAIN_STATE_POLL_SECONDS: ${STREAM_BRAIN_STATE_POLL_SECONDS:-2.0}
-    ports:
-      - "127.0.0.1:${STREAM_PORT:-8792}:8792"
-    networks:
-      - default
-      - traefik-public
-    labels:
-      # Only the two read-only routes a viewer needs are published. Exact Path,
-      # never PathPrefix: /stream/status must not open /stream/start and /stop,
-      # which create sessions and archives and cost money. /publisher, /healthz
-      # and /brain-state stay loopback-only.
-      #
-      # Priority beats calendar's bare Host() rule, which would otherwise swallow
-      # these two paths — Traefik's default priority is rule length, and this rule
-      # is already longer, but a demo is the wrong place to rely on that.
-      traefik.enable: "true"
-      traefik.docker.network: ${TRAEFIK_NETWORK:-traefik-public}
-      traefik.http.routers.gavel-watch.rule:
-        Host(`${GAVEL_DOMAIN:-gavel.pro7ocol.com}`) && (Path(`/watch`) ||
-        Path(`/stream/status`))
-      traefik.http.routers.gavel-watch.priority: "100"
-      traefik.http.routers.gavel-watch.entrypoints: websecure
-      traefik.http.routers.gavel-watch.tls: "true"
-      traefik.http.routers.gavel-watch.tls.certresolver: mytlschallenge
-      traefik.http.services.gavel-watch.loadbalancer.server.port: "8792"
-    depends_on:
-      brain:
-        condition: service_healthy
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8792/healthz', timeout=7)",
         ]
       interval: 10s
       timeout: 8s

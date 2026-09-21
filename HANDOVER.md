@@ -59,8 +59,7 @@
   the invite record — the brain forgets a session when the next starts, and the report has
   to outlive it. Unreachable brain = the banked report or the agenda, never an error page.
 - Env: `BRAIN_STATE_URL` (hard-coded to `http://brain:8788/state` in compose, like ears'
-  and stream-vonage's copies) and `CHAIR_VIDEO_STAGE_URL` (default `/stage/`, relative so
-  it needs no domain).
+  copy) and `CHAIR_VIDEO_STAGE_URL` (default `/stage/`, relative so it needs no domain).
 
 ## Done earlier this session
 - **Agenda gate.** A thin brief comes back as a refusal page — headline, one textarea,
@@ -108,9 +107,9 @@
 1. Rehearse the demo against the live site, script in hand.
 2. `/compose`, `/architecture`, `/demo-script` are publicly unauthenticated — Vitaly's
    call whether that stands through the hackathon.
-3. After the hackathon: `scripts/set-console-auth.sh --off`, rotate `VONAGE_API_KEY`,
-   and decide on the two loose secret copies (`/home/coder/vonage_private.key`,
-   `/home/coder/DEV/gavel/.env.bak`). `.env.example` still does not mention `--off`.
+3. After the hackathon: `scripts/set-console-auth.sh --off`, and decide on the loose
+   secret copy (`/home/coder/DEV/gavel/.env.bak`). `.env.example` still does not mention
+   `--off`.
 4. Back-burner, unbuilt: infer invitees with the LLM instead of the three hard-coded
    addresses.
 

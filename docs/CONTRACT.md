@@ -62,11 +62,11 @@ Two processes, a WebSocket on localhost. JSON frames, `{ "type": ..., ... }`.
 Sub-millisecond on one machine, and it means either half runs alone.
 
 **An `ears` package owns exactly one call connection and makes no decisions. `brain`
-makes every decision and imports no call SDK — not discord.js, not the Vonage SDK.**
+makes every decision and imports no call SDK — not discord.js, not any other.**
 
-There are two ears implementations and they are interchangeable. `brain` is started
-pointing at one wire and cannot tell which surface is on the other end. Adding a third
-surface later is a third ears package and nothing else.
+Every ears implementation is interchangeable. `brain` is started pointing at one wire and
+cannot tell which surface is on the other end. Adding a second surface is a second ears
+package and nothing else.
 
 ### ears → brain
 
@@ -88,10 +88,10 @@ How each side produces them:
 | | source | note |
 |---|---|---|
 | Discord | the voice gateway's speaking state, per user | arrives as discrete start/stop |
-| Vonage | `subscriber.on('audioLevelUpdated')`, per subscriber, 0–1.0 | a continuous level — the ears package thresholds it (~0.2) with hysteresis and emits the discrete frames |
+| a surface that exposes a continuous audio level | per-participant level, 0–1.0 | thresholds it (~0.2) with hysteresis in the ears package and emits the discrete frames |
 
-The hysteresis lives in `ears-vonage`, never in the brain. The brain sees the same two
-frames from both surfaces and that is the entire point of the seam.
+The hysteresis lives in the ears package, never in the brain. The brain sees the same two
+frames from every surface and that is the entire point of the seam.
 
 ### brain → ears
 
@@ -285,22 +285,3 @@ An unknown or missing `persona` silently falls back to the configured default �
 not silence the chair. `packages/brain/config/personas.yaml` is the source of truth for a
 persona's tone and template lines; `chair-video`'s own settings decide which asset file a
 persona renders with.
-
-## 6. stream-vonage (packages/stream-vonage)
-
-Puts the live gavel stage on Vonage Video as a second, parallel surface (HLS broadcast +
-archive) for judges/viewers. It is additive only: Discord (§2) stays the meeting and the
-only place brain and ears talk to each other; `stream-vonage` never touches that wire, makes
-no moderation decisions, and reads brain's state only one-way (poll `GET /state`, relay it
-into the Vonage session via `session.signal()` for anyone watching). See
-`packages/stream-vonage/README.md` for the two supported Vonage auth styles, the full
-endpoint list, and the `audioSource` publishing gotcha.
-
-| Endpoint | Request | Response |
-|---|---|---|
-| `POST /stream/start` | — | `{"hlsUrl","sessionId","archiveId","broadcastId", ...}`; 503 if credentials absent (names the missing setting), 409 if already active |
-| `POST /stream/stop` | — | `{"archiveId","archiveUrl","hlsUrl"}` — `archiveUrl` is commonly still `null` right after stop (Vonage encodes async) |
-| `GET /healthz` | — | `{"credentials":"present"\|"absent","authStyle":"jwt"\|"api_key"\|null}` |
-
-A dead or unconfigured `stream-vonage` must never affect the Discord call — it has no
-inbound dependency from brain or ears, only an outbound poll of brain's read-only `/state`.
