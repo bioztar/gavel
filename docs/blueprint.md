@@ -112,8 +112,8 @@ presence in the room is a shared screen — see section 5.
 | `ears-vonage` | 0 | A README describing a package that was never written. Credentials never arrived. |
 | plus | — | the compose service, `scripts/set-vonage-key.sh`, the `VONAGE_*` settings, ~15 documents that still name it. |
 
-**In flight:** a Devin lane (ultra mode) is preparing this as branch `chore/excise-vonage` and a
-PR right now. It will **not** be merged before the review.
+**Reviewed:** [PR #4](https://github.com/bioztar/gavel/pull/4) — 40 files, branch
+`chore/excise-vonage`, verified and open. It will **not** be merged before the review.
 
 ### Off the live path — no action
 
@@ -395,11 +395,11 @@ it cannot fill.
 
 | Item | Owner | State |
 |---|---|---|
-| Vonage excision — `chore/excise-vonage` | Devin (ultra) | **In flight.** PR only, not merged before the review. |
-| Avatar cut — `chore/cut-avatar` | Devin (ultra) | **In flight.** Deletes `chair-video`, unwires it from brain, leaves the speech path alone. |
-| `ears-meet` — `feat/ears-meet` | Devin (ultra) | **In flight.** Xvfb + headful Chromium, DOM speaking indicators, virtual mic, contract conformance test. |
-| Karen's screen — `feat/karen-screen` | Devin (ultra) | **In flight.** New `packages/stage`, SSE, projection-legible. |
-| Compose extension — `feat/compose-extension` | Devin (ultra) | **In flight.** MV3, OAuth, no key in the bundle; server endpoints specified, not built. |
+| Vonage excision — `chore/excise-vonage` | Devin (ultra) | **Reviewed.** [PR #4](https://github.com/bioztar/gavel/pull/4) — 40 files, verified, open and unmerged. |
+| Avatar cut — `chore/cut-avatar` | Devin (ultra) | **Reviewed.** [PR #5](https://github.com/bioztar/gavel/pull/5) — 10,760 deletions; persona stills proven byte-identical after a correction. |
+| `ears-meet` — `feat/ears-meet` | Devin (ultra) | **Reviewed.** [PR #8](https://github.com/bioztar/gavel/pull/8) — 91 tests; brain reaches identical decisions from Meet frames as from Discord. |
+| Karen's screen — `feat/karen-screen` | Devin (ultra) | **Reviewed.** [PR #6](https://github.com/bioztar/gavel/pull/6) — no clipped text at 720p or 1080p, re-verified in the pixels. |
+| Compose extension — `feat/compose-extension` | Devin (ultra) | **Reviewed.** [PR #7](https://github.com/bioztar/gavel/pull/7) — 56 tests; no provider key in the bundle; server endpoints specified, not built. |
 | gavel containers on the VPS | helm | **Stopped.** Database dumped first, volume intact, one command to revive. |
 | This document | helm | **Published.** Committed and served from GitHub Pages. |
 | Zoom raw-audio injection spike | — | **Held.** Half a day; must precede any Zoom commitment. |
@@ -409,6 +409,9 @@ it cannot fill.
 
 *Verified in this document: `brain` contains zero call-SDK imports; Meet Media API offers are
 receive-only with a three-stream audio cap; fal Director list price is $0.08/s at 768p with a
-$1.20 session minimum. Marked as unverified, and to be proven by the build lanes rather than by this document: Zoom
-Meeting SDK raw-audio injection, and Chromium auto-selection of a capture source for Karen's
-screen share.*
+$1.20 session minimum. Verified since first publication, by measurement on 21 September: Chromium auto-selects the
+`gavel-stage` tab for Karen's screen share with no picker dialog — real headful Chromium on Xvfb,
+a track at 1280x720 and `displaySurface: "browser"`. Desktop capture on the same virtual display
+fails outright, so tab capture is the only route and the "A tab" menu item is load-bearing. Still
+unverified, and to be proven by a live call rather than by this document: Zoom Meeting SDK
+raw-audio injection, and the two Meet DOM selectors behind the present menu.*

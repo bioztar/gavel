@@ -299,7 +299,7 @@
     <p style="font-size:14.3px;color:var(--slate);margin:2px 0 14px">A README describing a package that was never written. Credentials never arrived; it was blocked from the start.</p>
     <p style="font-size:14.3px;color:var(--slate);margin:2px 0 14px">Also going: the compose service, <code>scripts/set-vonage-key.sh</code>, the <code>VONAGE_*</code> settings, and ~15 documents that still name it.</p>
     <div class="callout blue" style="margin:0">
-      <p style="margin:0;font-size:14px"><strong>In flight.</strong> A Devin lane is preparing this as a branch and a PR right now — <span class="mono">chore/excise-vonage</span>. It will <strong>not</strong> be merged before the review.</p>
+      <p style="margin:0;font-size:14px"><strong>Reviewed.</strong> <a href="https://github.com/bioztar/gavel/pull/4">PR #4</a> — 40 files, verified and open — <span class="mono">chore/excise-vonage</span>. It will <strong>not</strong> be merged before the review.</p>
     </div>
   </div>
 </div>
@@ -604,11 +604,11 @@
 <table>
 <thead><tr><th>Item</th><th>Owner</th><th>State</th></tr></thead>
 <tbody>
-<tr><td>Vonage excision — <span class="mono">chore/excise-vonage</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-defer">In flight</span> PR only, not merged before the review</td></tr>
-<tr><td>Avatar cut — <span class="mono">chore/cut-avatar</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-defer">In flight</span> Deletes <code>chair-video</code>, unwires it from brain, leaves the speech path alone</td></tr>
-<tr><td><code>ears-meet</code> — <span class="mono">feat/ears-meet</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-defer">In flight</span> Xvfb + headful Chromium, DOM speaking indicators, virtual mic, contract conformance test</td></tr>
-<tr><td>Karen&rsquo;s screen — <span class="mono">feat/karen-screen</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-defer">In flight</span> New <code>packages/stage</code>, SSE, projection-legible</td></tr>
-<tr><td>Compose extension — <span class="mono">feat/compose-extension</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-defer">In flight</span> MV3, OAuth, no key in the bundle; server endpoints specified, not built</td></tr>
+<tr><td>Vonage excision — <span class="mono">chore/excise-vonage</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-keep">Reviewed</span> <a href="https://github.com/bioztar/gavel/pull/4">PR&nbsp;#4</a> &mdash; 40 files, verified, open and unmerged</td></tr>
+<tr><td>Avatar cut — <span class="mono">chore/cut-avatar</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-keep">Reviewed</span> <a href="https://github.com/bioztar/gavel/pull/5">PR&nbsp;#5</a> &mdash; 10,760 deletions; persona stills proven byte-identical after a correction</td></tr>
+<tr><td><code>ears-meet</code> — <span class="mono">feat/ears-meet</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-keep">Reviewed</span> <a href="https://github.com/bioztar/gavel/pull/8">PR&nbsp;#8</a> &mdash; 91 tests; brain reaches identical decisions from Meet frames as from Discord</td></tr>
+<tr><td>Karen&rsquo;s screen — <span class="mono">feat/karen-screen</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-keep">Reviewed</span> <a href="https://github.com/bioztar/gavel/pull/6">PR&nbsp;#6</a> &mdash; no clipped text at 720p or 1080p, re-verified in the pixels</td></tr>
+<tr><td>Compose extension — <span class="mono">feat/compose-extension</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-keep">Reviewed</span> <a href="https://github.com/bioztar/gavel/pull/7">PR&nbsp;#7</a> &mdash; 56 tests; no provider key in the bundle; server endpoints specified, not built</td></tr>
 <tr><td>gavel containers on the VPS</td><td>helm</td><td><span class="pill p-off">Stopped</span> Database dumped first, volume intact, one command to revive</td></tr>
 <tr><td>This document</td><td>helm</td><td><span class="pill p-keep">Published</span> Committed and served from GitHub Pages</td></tr>
 <tr><td>Zoom raw-audio injection spike</td><td>—</td><td><span class="pill p-no">Held</span> Half a day; must precede any Zoom commitment</td></tr>
@@ -620,7 +620,7 @@
 <footer>
 <p><strong>gavel</strong> — architecture reset and platform plan · 21 September 2026 · working document, not a contract.<br>
 Companion documents: <a href="architecture.html">architecture</a> · <a href="index.html">build board</a> · <a href="https://github.com/bioztar/gavel/blob/main/docs/CONTRACT.md">the frozen contract</a> · <a href="blueprint.md">Markdown twin</a></p>
-<p>Verified in this document: <code>brain</code> contains zero call-SDK imports; Meet Media API offers are receive-only with a three-stream audio cap; fal Director list price is $0.08/s at 768p with a $1.20 session minimum. Marked as unverified, and to be proven by the build lanes rather than by this document: Zoom Meeting SDK raw-audio injection, and Chromium auto-selection of a capture source for Karen&rsquo;s screen share.</p>
+<p>Verified in this document: <code>brain</code> contains zero call-SDK imports; Meet Media API offers are receive-only with a three-stream audio cap; fal Director list price is $0.08/s at 768p with a $1.20 session minimum. Verified since first publication, by measurement on 21 September: Chromium auto-selects the <code>gavel-stage</code> tab for Karen&rsquo;s screen share with no picker dialog &mdash; real headful Chromium on Xvfb, a track at 1280&times;720 and <span class="mono">displaySurface: "browser"</span>. Desktop capture on the same virtual display fails outright, so tab capture is the only route and the &ldquo;A tab&rdquo; menu item is load-bearing. Still unverified, and to be proven by a live call rather than by this document: Zoom Meeting SDK raw-audio injection, and the two Meet DOM selectors behind the present menu.</p>
 </footer>
 
 </div>
