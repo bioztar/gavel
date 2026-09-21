@@ -187,8 +187,6 @@ const Persona = z.object({
   id: z.enum(PERSONA_IDS),
   displayName: z.string(),
   tone: z.string(),
-  avatar: z.string(),
-  idle: z.string(),
   voice: z.string().default(""),
 });
 export type Persona = z.infer<typeof Persona>;

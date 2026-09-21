@@ -87,7 +87,6 @@ then it held me to it."*
   beats a perfect one nobody believes (demo-script §11).
 - Parse comes back wrong → fix the row, say *"the parse is a draft, the table is the
   contract"*, keep rolling. Never re-record for a parse miss.
-- Her face fails to render → ignore it, keep going. Voice is the product.
 - Overrun on a take is fine — I cut. Dead air is not; keep talking through every click.
 
 ## When a take is done

@@ -4,10 +4,6 @@ The same job as `ears-discord`, on Vonage's Video API instead: own the call conn
 report who is speaking, play the chair's audio into the call. Speaks the identical wire
 protocol, so `brain` cannot tell which one it is talking to.
 
-This one is also where the chair gets a **face inside the call** — Vonage lets a
-publisher use any `MediaStreamTrack` as its video source, which Discord does not allow
-bots to do at all.
-
 ## Shape
 
 It is a **web page**, not a headless service. The chair joins the session as an ordinary
@@ -18,7 +14,6 @@ media devices, no deployment. For a hackathon demo that is the whole trick.
   browser tab ("the chair")
     ├── subscribes to every participant   → audioLevelUpdated → speaking.start/end
     ├── publishes audio  (MediaStreamDestination fed by the brain's TTS)
-    ├── publishes video  (canvas.captureStream() fed by fal frames)
     └── WebSocket to brain — same frames as ears-discord
 ```
 
@@ -31,13 +26,10 @@ media devices, no deployment. For a hackathon demo that is the whole trick.
   threshold briefly before emitting `speaking.start`, and below it for longer before
   `speaking.end`. Those two timers are the only real tuning in this package.
 - **Custom publisher sources.** `OT.initPublisher()` accepts a `MediaStreamTrack` as
-  `audioSource` and as the video source. Audio comes from an `AudioContext`
-  `MediaStreamDestination` the brain's TTS is played into; video from a canvas via
-  `captureStream()`, painted with whatever fal returns.
+  `audioSource`. Audio comes from an `AudioContext` `MediaStreamDestination` the brain's
+  TTS is played into. Karen publishes no video — she has no generated face.
 - **Gotcha to respect at init:** never initialise with `audioSource: false` — a publisher
-  created without an audio source can never gain one. And `setVideoSource()` only works
-  on camera publishers, so to change the video later, replace the track on the existing
-  canvas rather than calling it.
+  created without an audio source can never gain one.
 
 ## Depth of API use
 
@@ -51,7 +43,7 @@ having:
 
 ## Env
 
-`VONAGE_APP_ID`, `VONAGE_SESSION_ID`, `VONAGE_TOKEN`, `EARS_WIRE_URL`, `FAL_KEY`.
+`VONAGE_APP_ID`, `VONAGE_SESSION_ID`, `VONAGE_TOKEN`, `EARS_WIRE_URL`.
 
 Sessions and tokens are generated server-side. Vonage mentors are on site — get the
 credentials early, it is a five-minute conversation that blocks a three-hour chunk.

@@ -1,19 +1,14 @@
-"""Synthesize every line in script.json. Vitaly = cloned voice, Artem = elevenlabs, Karen = SLNG."""
+"""Synthesize Karen's lines in script.json with SLNG; narrator mp3s are supplied in audio/."""
 from __future__ import annotations
-import json, os, pathlib, subprocess, sys
+import json, pathlib, subprocess
 from concurrent.futures import ThreadPoolExecutor
 
-sys.path.insert(0, "/Users/alex/DEV/gavel/packages/chair-video/src")
-os.environ.setdefault("GAVEL_ENV_FILE", "/Users/alex/DEV/gavel/.env")
-from chair_video.settings import get_settings  # noqa: E402
-from chair_video.fal import FalClient  # noqa: E402
-import httpx  # noqa: E402
+import httpx
 
 ROOT = pathlib.Path("/Users/alex/DEV/_assets/gavel-video")
 AUDIO = ROOT / "audio"
 AUDIO.mkdir(parents=True, exist_ok=True)
 SCRIPT = json.loads(pathlib.Path(__file__).with_name("script.json").read_text())
-SETTINGS = get_settings()
 
 
 def _slng_key() -> str:
@@ -43,16 +38,9 @@ def synth(seg: dict) -> tuple[str, float]:
         r.raise_for_status()
         dest.write_bytes(r.content)
     else:
-        with FalClient(SETTINGS) as fal:
-            if voice["engine"] == "minimax":
-                res = fal.run("fal-ai/minimax/speech-02-hd",
-                              {"text": seg["text"],
-                               "voice_setting": {"custom_voice_id": voice["voice"],
-                                                 "speed": voice.get("speed", 1.0)}})
-            else:
-                res = fal.run("fal-ai/elevenlabs/tts/turbo-v2.5",
-                              {"text": seg["text"], "voice": voice["voice"]})
-            dest.write_bytes(httpx.get(res.data["audio"]["url"], timeout=120).content)
+        raise SystemExit(
+            f"{seg['id']}: no synth for engine {voice['engine']!r} — narrator lines are "
+            f"produced outside the repo; drop the mp3 into {AUDIO}")
     return seg["id"], duration(dest)
 
 

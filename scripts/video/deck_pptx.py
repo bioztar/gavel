@@ -13,7 +13,7 @@ EXE = ("/Users/alex/Library/Caches/ms-playwright/chromium-1217/chrome-mac-arm64/
 NOTES = [
     "Karen sits in the call. Hear: Discord, SLNG speech-to-text, Postgres and Redis. "
     "Think: rules four times a second, Mastra orchestration, Nebius for the words. "
-    "Speak: SLNG back into the call, fal moves her face, Vonage for the stage.",
+    "Speak: SLNG back into the call, Vonage for the stage.",
     "Built and checked by machines too. Devin wrote PRs, Quality Clouds scanned the repo, "
     "Galtea scored the chair across five dimensions, Langfuse traced every model call.",
     "Discord was the demo. Teams is the product. One container knows what a voice call is. "

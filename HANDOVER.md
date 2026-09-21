@@ -15,7 +15,6 @@
   - Screens are real: the gate and confirm pages were captured by driving the **live**
     `/compose` on gavel.pro7ocol.com headless. `/compose/send` was never called; the invite
     email was rendered locally through `render_invite_html`.
-  - Karen's four interventions are real `veed/lipsync/v2` renders over `idle-formal.mp4`.
   - Trimmed to the 7:00 ceiling using demo-script §3's own cut lines plus `atempo=1.06`.
 
 ## In flight / next
@@ -30,12 +29,11 @@
 ## Done this session (11:15) — the meeting room
 - **The meeting room — one link, before / during / after.** `GET /m/{id}` is no longer a
   join page; it is the meeting's public face, **built to be screen-shared**. The organizer
-  opens it and shares the tab, so it is also the answer to "Discord blocks bot video":
-  chair-video's `/stage/` is embedded as Karen's face.
+  opens it and shares the tab, so it is also the answer to "Discord blocks bot video".
   `packages/calendar/src/gavel_calendar/room.py`, 7 new tests.
 - **It is a board, not a document.** One screen, no scrollbar, type sized in `vh` so it
   scales to whatever it is shared on; light on white because a projector has no black.
-  Before: the face, the agenda, who is expected (missing people marked). During: the topic
+  Before: the agenda, who is expected (missing people marked). During: the topic
   clock against its budget, one line for who has the floor, what the chair has understood
   on this topic, the agenda, and decided / still open / parked. After: the picture drops
   and the record takes the screen.
@@ -45,10 +43,6 @@
   room reads mid-sentence. Both are in the **Detail view** in the ⋯ menu (remembered per
   browser), along with **Join the call** (the Discord voice channel, never hidden — people
   arrive late), **Copy this link**, and, before the meeting, **Start the meeting now**.
-- **chair-video fix:** the stage's "Click to start the chair" overlay shipped visible and
-  was only ever hidden *by* a click, so it sat over Karen's face in the embed. It now
-  starts hidden and `entry.mjs` reveals it only if autoplay is refused — which is what its
-  own comment always said it was for. `static/index.html` only; no bundle rebuild.
 - **ears console has a light theme.** Follows the OS, and the header's light/dark button
   overrides it, remembered per browser, applied before first paint. For when the console
   is on a projector next to the room page.
@@ -59,8 +53,7 @@
   the invite record — the brain forgets a session when the next starts, and the report has
   to outlive it. Unreachable brain = the banked report or the agenda, never an error page.
 - Env: `BRAIN_STATE_URL` (hard-coded to `http://brain:8788/state` in compose, like ears'
-  and stream-vonage's copies) and `CHAIR_VIDEO_STAGE_URL` (default `/stage/`, relative so
-  it needs no domain).
+  and stream-vonage's copies).
 
 ## Done earlier this session
 - **Agenda gate.** A thin brief comes back as a refusal page — headline, one textarea,

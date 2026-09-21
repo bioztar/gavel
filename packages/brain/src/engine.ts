@@ -10,7 +10,7 @@ import { type Agenda, type Attendee, mergePolicy } from "./contract/agenda";
 import type { EarsFrame, Participant, PauseGate } from "./contract/frames";
 import { ContextBlock } from "./chair/context";
 import type { Llm, Usage } from "./chair/llm";
-import { pcmS16leToWav, STREAM_RATE, type Tts } from "./chair/tts";
+import { STREAM_RATE, type Tts } from "./chair/tts";
 import type { Memory, Store } from "./ears/store";
 import type { Wire } from "./ears/wire";
 import { log } from "./log";
@@ -21,52 +21,6 @@ import { Conversation } from "./state/conversation";
 import { type Classification, RelevanceTracker } from "./state/relevance";
 import { TalkLedger } from "./state/talk";
 import { render } from "./template";
-
-// chair-video is a separate package with no other consumer wired in yet
-// (mission scope is this one hook, nothing else in packages/brain) — reading
-// the env var directly here, rather than through ./config, keeps main.ts and
-// replay.ts untouched. Unset means no stage: the idle-loop/lip-sync path in
-// chair-video keeps working either way, this is additive.
-const CHAIR_VIDEO_URL = process.env.CHAIR_VIDEO_URL?.trim() || null;
-
-// Fire-and-forget: the projector stage is cosmetic next to actually being
-// heard in the Discord call, so a slow or down chair-video must never delay
-// or break the wire.send() below it. 2s is generous for a same-network
-// hackathon box; anything slower isn't worth waiting on.
-function stageCall(path: string, body: unknown): void {
-  if (!CHAIR_VIDEO_URL) return;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 2000);
-  fetch(`${CHAIR_VIDEO_URL}${path}`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-    signal: controller.signal,
-  })
-    .catch((err: unknown) => log.warn("stage.push_failed", { path, error: String(err) }))
-    .finally(() => clearTimeout(timeoutId));
-}
-
-function pushToStage(audio: Buffer, format: string, personaId: string): void {
-  stageCall("/director/speak", { audioBase64: audio.toString("base64"), format, persona: personaId });
-}
-
-/**
- * Open and close the projector stream with the meeting itself.
- *
- * Before this, nothing ever called stop: `/director/speak` lazily opened a fal
- * session and the only thing that could end one was the next utterance noticing
- * the session was too old. A meeting that simply finished left a live WebRTC
- * session billing per second until someone spotted it. These hooks now own
- * the lifetime: silence during an active meeting must not hide Karen.
- */
-function stageStart(personaId: string): void {
-  stageCall("/director/session/start", { persona: personaId });
-}
-
-function stageStop(): void {
-  stageCall("/director/session/stop", {});
-}
 
 export type MeetingPhase = "idle" | "gathering" | "active" | "finished";
 
@@ -201,7 +155,6 @@ export class Engine {
           log.info("session.ended", { sessionId: frame.sessionId });
           this.agenda = null;
           this.phase = this.agendaCompleted ? "finished" : "idle";
-          stageStop();
         }
         break;
       case "speaking.start":
@@ -876,7 +829,6 @@ export class Engine {
     if (this.cfg.models.tts.transport === "stream" && this.deps.tts.stream) return this.speakStreamed(utteranceId, text, priority, gate);
     try {
       const speech = await this.deps.tts.synthesize(text);
-      pushToStage(speech.audio, speech.format, this.cfg.persona.id);
       const sent = this.deps.wire.send({
         type: "speak",
         utteranceId,
@@ -913,7 +865,6 @@ export class Engine {
     gate: PauseGate,
   ): Promise<{ ttsMs?: number; utteranceId?: string }> {
     const wire = this.deps.wire;
-    const stageChunks: Buffer[] = [];
     const started = wire.send({
       type: "speak.start",
       utteranceId,
@@ -932,13 +883,9 @@ export class Engine {
     this.pending = { utteranceId, at: this.now() };
     try {
       const done = await this.deps.tts.stream!(text, (pcm) => {
-        stageChunks.push(pcm);
         wire.send({ type: "speak.chunk", utteranceId, audio: pcm.toString("base64") });
       });
       wire.send({ type: "speak.end", utteranceId });
-      if (stageChunks.length) {
-        pushToStage(pcmS16leToWav(Buffer.concat(stageChunks)), "wav", this.cfg.persona.id);
-      }
       return { ttsMs: done.firstAudioMs, utteranceId };
     } catch (err) {
       log.warn("chair.tts_failed", { error: String(err) });
@@ -980,7 +927,6 @@ export class Engine {
     if (!topic) {
       this.agendaCompleted = true;
       this.phase = "finished";
-      stageStop();
     }
     log.info("topic.advanced", { to: topic?.title ?? "(agenda done)" });
   }
@@ -1038,11 +984,6 @@ export class Engine {
   private activateMeeting(): void {
     const now = this.now();
     this.phase = "active";
-    // The stage page is already open and idling; this is what makes Karen
-    // appear on it without anyone touching the projector. Deliberately here
-    // and not in startSession() — the lobby can sit for a long time, and a fal
-    // session bills from the second it opens.
-    stageStart(this.cfg.persona.id);
     const topic = this.topic();
     if (topic) this.discussed.add(topic.id);
     // Nobody is "waiting in the lobby" any more; anyone who arrives now is a newcomer.

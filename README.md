@@ -61,9 +61,8 @@ at all; an `ears` package owns one connection and makes no decisions. They meet 
 agent chair a Discord call and a Vonage call, and lets people build in parallel for
 thirteen hours without touching each other's files.
 
-**Discord** is where meetings already happen. **Vonage** is where the chair gets a face:
-Vonage lets a participant publish any video track, Discord does not allow bots to
-publish video at all.
+**Discord** is where meetings already happen. Karen has no generated face there — Discord
+does not allow bots to publish video — so her presence in the room is her voice.
 
 ## Sponsor stack
 
@@ -73,10 +72,9 @@ publish video at all.
 | **Nebius** | Token Factory inference for relevance, meeting notes, and Karen's spoken lines | implemented |
 | **Mastra** | Agents and the traced intervention workflow | implemented |
 | **Vonage** | Planned second call surface with custom audio/video tracks | planned |
-| **fal.ai** | Planned generated face/video for the second surface | planned |
 
 Discord blocks video publishing from bots. The implemented Discord experience therefore
-uses the ears operator console; the Vonage and generated-video surfaces remain planned.
+uses the ears operator console; the Vonage surface remains planned.
 
 ## Layout
 
@@ -104,13 +102,13 @@ first. Nothing on a wall clock ever starts it.
 ## Run everything with Docker Compose
 
 The root [`compose.yaml`](compose.yaml) runs the complete deployment: Postgres, Redis,
-schema migrations, Discord ears, brain, calendar ingestion, and chair-video. Docker is
+schema migrations, Discord ears, brain, and calendar ingestion. Docker is
 the only host dependency; the VPS's existing `traefik-public` network provides HTTPS for
 the calendar join page.
 
 ```bash
 cp .env.example .env             # first run only; fill DISCORD_EARS_TOKEN,
-                                 # SLNG_API_KEY, NEBIUS_API_KEY and FAL_KEY
+                                 # SLNG_API_KEY and NEBIUS_API_KEY
 docker compose up --build -d --wait
 docker compose ps
 ```

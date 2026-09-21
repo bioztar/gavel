@@ -166,12 +166,6 @@ services:
       AGENDA_FILE: /app/contract/fixtures/agenda.demo.json
       STAGE_HOST: 0.0.0.0
       STAGE_PORT: 8788
-      # Stage hook: engine.ts fire-and-forgets each spoken line to
-      # chair-video /director/speak so the projector page shows a talking Karen.
-      # Unset = inert (pushToStage returns immediately), which is how it shipped.
-      # Deliberately not a depends_on: the push is best-effort with a 2s abort,
-      # so a sick chair-video must never hold the brain's boot or its speech.
-      CHAIR_VIDEO_URL: ${CHAIR_VIDEO_URL:-http://chair-video:8791}
     ports:
       - "127.0.0.1:${STAGE_PORT:-8788}:8788"
     depends_on:
@@ -215,15 +209,12 @@ services:
       # container — which is what `GET /health`'s `durable` flag reports.
       POSTGRES_DSN: postgresql+asyncpg://gavel:gavel@postgres:5432/gavel
       # The meeting room page (GET /m/{id}) reads the chair's live view from the
-      # brain server-side, and embeds chair-video's stage as Karen's face. Both
-      # are best-effort: unreachable brain = the agenda or the banked report, no
-      # error page; hence no depends_on for either.
+      # brain server-side. Best-effort: unreachable brain = the agenda or the
+      # banked report, no error page; hence no depends_on.
       # Hard-coded like ears' and stream-vonage's copies: a repo-root .env with a
       # 127.0.0.1 value would otherwise be substituted in here and point this
       # container at itself.
       BRAIN_STATE_URL: http://brain:8788/state
-      # Relative on purpose — Traefik routes /stage/ to chair-video on this host.
-      CHAIR_VIDEO_STAGE_URL: ${CHAIR_VIDEO_STAGE_URL:-/stage/}
       # compose front door: without NEBIUS_API_KEY the brief falls back to the
       # heuristic parser (logs compose.llm_skipped), which reads a bare time but
       # not intent. RESEND_API_KEY empty keeps the mailer in dry-run by design.
@@ -269,52 +260,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 12
-      start_period: 5s
-
-  chair-video:
-    image: gavel-chair-video:local
-    build:
-      context: .
-      dockerfile: packages/chair-video/Dockerfile
-    init: true
-    restart: unless-stopped
-    environment:
-      FAL_KEY: ${FAL_KEY:-}
-      HOST: 0.0.0.0
-      PORT: 8791
-      LIPSYNC_MODEL: ${LIPSYNC_MODEL:-veed/lipsync/v2}
-      AVATAR_MODEL: ${AVATAR_MODEL:-fal-ai/flux/schnell}
-      FAL_POLL_TIMEOUT_S: ${FAL_POLL_TIMEOUT_S:-120}
-      FAL_POLL_INTERVAL_S: ${FAL_POLL_INTERVAL_S:-1}
-      # Keep Karen visible for the whole meeting, but replace the underlying
-      # generative scene periodically before temporal drift cooks the image.
-      DIRECTOR_SCENE_DURATION_S: ${DIRECTOR_SCENE_DURATION_S:-300}
-    ports:
-      - "127.0.0.1:${CHAIR_VIDEO_PORT:-8791}:8791"
-    networks:
-      - default
-      - traefik-public
-    labels:
-      traefik.enable: "true"
-      traefik.docker.network: ${TRAEFIK_NETWORK:-traefik-public}
-      traefik.http.routers.gavel-karen-video.rule:
-        Host(`${GAVEL_DOMAIN:-gavel.pro7ocol.com}`) && (Path(`/karen-video`) || PathPrefix(`/stage/`) || PathPrefix(`/director/`))
-      traefik.http.routers.gavel-karen-video.priority: "90"
-      traefik.http.routers.gavel-karen-video.entrypoints: websecure
-      traefik.http.routers.gavel-karen-video.tls: "true"
-      traefik.http.routers.gavel-karen-video.tls.certresolver: mytlschallenge
-      traefik.http.services.gavel-karen-video.loadbalancer.server.port: "8791"
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8791/healthz', timeout=7)",
-        ]
-      interval: 10s
-      timeout: 8s
-      retries: 6
       start_period: 5s
 
   stream-vonage:

@@ -180,10 +180,10 @@ Off slide 1, left to right, one sentence per lane:
 > Deterministic, testable, and it runs every 250 milliseconds. Mastra and Nebius are only
 > asked for the *words* — the decision was already made.
 >
-> **Speak** — text to speech back through SLNG, into the same call, and fal lip-syncs her
-> face so there is someone to look at.
+> **Speak** — text to speech back through SLNG, into the same call. No generated face —
+> her presence in the room is her voice, and the status screen is what you look at.
 >
-> Six containers behind Traefik. One of them knows what Discord is. That is the whole
+> Five containers behind Traefik. One of them knows what Discord is. That is the whole
 > reason this moves to Teams."
 
 Then drift.
@@ -253,7 +253,6 @@ work without one, and then it held me to it.")*
 | The invite renders badly on the projector | Open the `.ics` instead — its DESCRIPTION carries the same agenda, owners included. |
 | She misses the drift | Keep going — do **not** wait on her. The discussion handover is the money beat and has a much wider margin. If she lands it late, name it: "45-second cooldown between interventions — she had just opened the meeting." |
 | Email is slow | Keep a second tab with the invite already open. Never stand in silence watching a mailbox. |
-| Her face does not render | Ignore it. The voice is the product; the face is garnish. Do not debug on stage. |
 | Discord join fails | Join from `/m/<session id>` directly. |
 | Artem gets interrupted early | That is still the demo working — say so and move on. |
 | Everything falls over | `/architecture` is three slides and tells the story standing still. Talk over the deck and finish on time. |

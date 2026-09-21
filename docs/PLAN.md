@@ -111,7 +111,7 @@ that joins the session as an ordinary participant — no headless Chrome, no dep
 |---|---|---|---|---|
 | V1 | Join a session, subscribe to everyone, threshold `audioLevelUpdated` into `speaking.start/end` frames over the wire | 1h | contract |
 | V2 | Publish the chair's voice — `AudioContext` destination as the publisher's `audioSource`, fed by the brain's `speak` frames | 1h | V1 |
-| V3 | Publish the chair's face — canvas `captureStream()` as the video source, painted with fal frames | 1h | V1, B9 |
+| V3 | Publish the chair's face as a video track | — | — | cut — Karen has no generated face; she shares a live status screen instead |
 | V4 | Depth: `session.signal()` pushes agenda + interventions to every participant's UI; enable archiving | 30m | V1 |
 
 Two things to respect at init, both documented gotchas: never initialise a publisher with
@@ -119,8 +119,7 @@ Two things to respect at init, both documented gotchas: never initialise a publi
 works on camera publishers, so change the canvas rather than the source.
 
 This surface is *less* risky than Discord — audio levels and custom tracks are
-documented and supported, where Discord's voice receive is neither. It is also the only
-one where the chair's face can be in the call.
+documented and supported, where Discord's voice receive is neither.
 
 ## brain — chunks
 
@@ -136,7 +135,7 @@ one where the chair's face can be in the call.
 | B7 | SLNG TTS → `speak` frame over the wire, including exact display text | 1h | B6 | done |
 | B8 | Operator view — agenda, talk-time, Karen's lines, facts, decisions and parking lot | 1.5h | B2, B4 | done in ears console |
 | B11 | Fire drill — hazard heard, host confirms, demo SMS goes out | 1h | E6, V5, B6a | todo |
-| B9 | fal face/video | 1.5h | B8, B6a, B7 | todo |
+| B9 | Generated face/video | — | — | cut — no generated face; Karen shares a live status screen |
 | B10 | Transcripts, relevance, content-aware lines and structured minutes-lite | 1.5h | E6 | done |
 
 B6 always has a template fallback. A model call inside a live interruption is a latency
@@ -182,7 +181,7 @@ either never fires on stage or fires every eight seconds.
 | 18:30–19:30 | dinner | dinner | dinner |
 | 19:30–21:00 | E6 SLNG STT | B8 stage | V4 signal + archiving |
 | 21:00 | **CUT LINE — is the agent interrupting live and reliably on at least one surface?** If not, everyone works on the spine until it is. Nothing else matters | | |
-| 21:00–22:30 | E6 finish, feed B10 | B9 fal video | V3 the chair's face in the call |
+| 21:00–22:30 | E6 finish, feed B10 | B10 content-aware lines | V4 signal + archiving polish |
 | 22:30–23:00 | Dry run, both surfaces, four people. Record it | | |
 | Sun 09:00–10:00 | Fix what the dry run broke | | |
 | Sun 10:00–11:00 | READMEs, 60-second recording, submit | | |
@@ -197,7 +196,7 @@ Artem has one to spare. If it slips, it slips — the demo works on one surface.
 Drop in this order:
 
 1. **Concierge** — already parked. The agenda is a prepared file.
-2. **The chair's face (B9, V3)** — decoration. The stage without a face still shows the meters.
+2. **The chair's face (B9, V3)** — cut. Karen has no generated face; the status screen shows the meters.
 3. **Transcript features (E5, E6, B10)** — the whole tier 2. The spine does not need them.
 4. **The second surface** — if Vonage is not working by 21:00, demo Discord alone and
    show the seam in the README. One brain, two ears, is a slide as well as a fact.
@@ -207,8 +206,9 @@ Drop in this order:
 ## Risks
 
 - **E1 is the unknown.** One hour, first thing, before anything is built on it.
-- **Discord blocks bot video.** A fact, not a risk — the chair's face is on the browser
-  stage, never a camera in the call. Do not spend an hour rediscovering it.
+- **Discord blocks bot video.** A fact, not a risk — Karen's presence in the call is her
+  voice, and the meeting state goes on a screen-shared status page, never a bot camera.
+  Do not spend an hour rediscovering it.
 - **Latency on the intervention.** Measure TTS round-trip early. Over ~3 seconds and the
   interruption lands after the moment. Pre-warm the TTS and template the common lines.
 - **"Built during the event — prior ideas fine, prior code is not."** This repo started
@@ -256,69 +256,10 @@ call (Vonage Messages). Depth of API use, in one twenty-second beat.
 line, everything downstream runs for real. Say so in the demo — a scripted input into a real
 pipeline is honest, a faked output is not.
 
-## The face, revised (fal)
-
-The fal mentor pointed at the **lip-sync** endpoint on the H3 Max family rather than
-continuous video generation. That is a better fit and a cheaper one, and it changes the
-shape of B9 and V3.
-
-The chair only needs a face **while it is speaking**. The pipeline becomes:
-
-```
-trigger fires -> Nebius line -> SLNG TTS audio -> fal lip-sync(portrait, that audio) -> clip
-                                      |                                                  |
-                                      +-> audio into the call ------------------- stage / Vonage video
-```
-
-- One still portrait of the chair, generated once at the start of the day and reused.
-- Between interventions the stage shows that still (or a two-second idle loop). No spend,
-  no latency, nothing to keep alive.
-- Lip-sync runs on the exact audio already produced for B7, so the face and the voice cannot
-  drift apart.
-
-**Latency is the open question.** Lip-sync is not instant, and the chair interrupting four
-seconds late is worse than a chair with no face. Measure it first thing after the key lands.
-If the round trip is slow: speak on time with the still frame up, and let the clip land on
-the stage a beat later as a replay. Never hold the audio back to wait for video.
-
-**Director vs lip-sync — pick one on the day, not both.**
-
-The Director endpoint is an *infinite livestream*: a video stream that stays up and is steered
-with prompts while it runs. Lip-sync is a clip per utterance. They solve different halves of
-the same problem and the build has time for one.
-
-| | Director (livestream) | Lip-sync (clip per line) |
-|---|---|---|
-| Presence | Chair is visibly there the whole call | Still portrait until it speaks |
-| Mouth matches the words | No | Yes |
-| Latency at the moment of interruption | None — stream is already live, steer it | A clip has to be generated first |
-| Track fit | Aimed squarely at the H3 Max Director track | Generic |
-| Risk | A stream to keep alive, publish, and pay for all day | Round-trip time on every intervention |
-
-**Lean Director**, for three reasons: it is what that track is judged on, presence is what
-sells "there is a chair in this meeting", and it removes latency from the exact moment that
-must not be late. Steer it on state change — idle, listening, interrupting, fire drill —
-rather than per word. A chair whose mouth is approximate but who is *always there and reacts*
-reads better on a projector than a still that occasionally animates.
-
-**The question that decides it**, and the first thing to ask the fal mentor: *is the Director
-output playable in a browser `<video>` element (HLS or WebRTC URL)?* If yes, both surfaces get
-it nearly free — `<video>` → canvas → `captureStream()` → the stage, and the same canvas track
-straight into the Vonage publisher (V3). If it only comes back as files or a proprietary
-player, the plumbing cost jumps and lip-sync becomes the better buy.
-
-Decide within thirty minutes of the key working. Whichever loses, the fallback is the still
-portrait — the demo never depends on the face.
-
-**Endpoint id to confirm with the mentor** — fal's lip-sync models sit under several
-families and the H3 Max variant is the one they suggested. Get the exact model id from them
-rather than guessing; ask at the same time whether a lip-sync clip per intervention counts
-for the MiniMax H3 Max Director track, which reads as aimed at livestream-style generation.
-
 ## Decisions
 
 - **Mastra stays thin** (decided 2026-09-19, Vitaly). It orchestrates the chair's outward
-  calls — Nebius as the model, SLNG and fal as tools, traces on — and nothing more. The
+  calls — Nebius as the model, SLNG as a tool, traces on — and nothing more. The
   interrupt triggers stay plain deterministic code outside the framework. Nothing that
   decides *whether* to speak may sit behind an agent loop; the framework only shapes *what*
   is said and carries the calls. Budget for B6a is 45 minutes. If it costs more than that on
@@ -340,8 +281,7 @@ for the MiniMax H3 Max Director track, which reads as aimed at livestream-style 
 | **SLNG** | TTS for the chair's voice; streaming STT per speaker with diarization (live in ears) | core |
 | **Nebius** | Token Factory for what the chair says | core |
 | **Vonage** (gold) | The chair joins a session as a real participant — custom audio and video tracks, signalling, archiving | core |
-| **fal.ai** | Live-generated video, called through Mastra, on the stage and in the Vonage call | stretch |
-| **Mastra** | The harness around the brain's outward calls — Nebius, SLNG, fal as tools, with traces | core |
+| **Mastra** | The harness around the brain's outward calls — Nebius and SLNG as tools, with traces | core |
 
 Building the second surface is what puts the gold track back on the table. Mastra no longer
 depends on the Concierge — it is the harness the live chair already runs on. The overall prize does not care which track you entered.

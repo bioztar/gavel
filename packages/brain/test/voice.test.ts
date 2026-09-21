@@ -8,7 +8,7 @@
  * dropdown mid-meeting means it now, and a YAML hot-reload must not undo them.
  */
 import { describe, expect, it } from "vitest";
-import { pcmS16leToWav, SlngTts } from "../src/chair/tts";
+import { SlngTts } from "../src/chair/tts";
 import { parseEarsFrame } from "../src/contract/frames";
 import { loadConfig } from "../src/config";
 
@@ -20,22 +20,6 @@ describe("the voice frame", () => {
 
   it("is ignored when it carries nothing usable", () => {
     expect(parseEarsFrame({ type: "voice", atMs: 1 })).toBeNull();
-  });
-});
-
-describe("streamed audio handoff", () => {
-  it("wraps raw PCM as a valid mono 48kHz WAV for the video Director", () => {
-    const pcm = Buffer.from([1, 2, 3, 4]);
-    const wav = pcmS16leToWav(pcm);
-
-    expect(wav.subarray(0, 4).toString("ascii")).toBe("RIFF");
-    expect(wav.subarray(8, 12).toString("ascii")).toBe("WAVE");
-    expect(wav.readUInt16LE(20)).toBe(1);
-    expect(wav.readUInt16LE(22)).toBe(1);
-    expect(wav.readUInt32LE(24)).toBe(48_000);
-    expect(wav.readUInt16LE(34)).toBe(16);
-    expect(wav.readUInt32LE(40)).toBe(pcm.length);
-    expect(wav.subarray(44)).toEqual(pcm);
   });
 });
 
