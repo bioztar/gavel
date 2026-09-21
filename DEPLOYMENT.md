@@ -1,10 +1,17 @@
 # gavel — backend deployment
 
-**Status:** live and validated
+**Status:** **STOPPED 2026-09-21 09:25 UTC** on Vitaly's instruction (was live and validated)
 **Host:** `uk-lon-1` (173.234.79.39) · **Domain:** https://gavel.pro7ocol.com
 **Deployed commit:** `5baf50b` (`feat(scripts): set-vonage-key.sh` — on top of Artem's `3227f0a`, Karen waits for a pause + STT fix)
 **Deployed at:** 2026-09-19 17:02 UTC · **Last validated:** 2026-09-19 17:02 UTC
 **Checkout on the box:** `/home/coder/DEV/gavel` · **Compose project:** `gavel`
+
+
+> **Stopped.** All nine containers are `exited` via `docker compose stop` — containers and
+> the `gavel_postgres_data` volume are intact, nothing was removed. A `pg_dumpall` was taken
+> first: `~/backups/gavel-20260921-0924.sql` (8.0 MB, exit 0, 116 tables/COPYs).
+> Bring it back with `cd /home/coder/DEV/gavel && docker compose start` (or `up -d` to also
+> pick up image changes). `https://gavel.pro7ocol.com` now returns 404 from Traefik, as expected.
 
 ---
 
