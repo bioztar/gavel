@@ -222,6 +222,16 @@ PRESENT_BUTTON = Selector(
     required=False,
     note="Stage sharing is an enhancement; missing here means 'join without presenting'.",
 )
+# Load-bearing, not cosmetic: this item is what makes Meet ask Chromium for a TAB. Tab
+# capture is the only share that starts on a virtual display (measured 2026-09 under
+# Xvfb; "Entire screen" fails with NotReadableError), so if the item is missed there is
+# no degraded path — presenting cannot work. Required whenever STAGE_URL is set; only in
+# the DOM while the Present menu is open, so self_check opens the menu to look.
+TAB_CAPTURE_ONLY = (
+    "Meet's 'A tab' item is where the share is chosen; without it Meet falls back to "
+    "'Entire screen', and entire-screen capture cannot start on a virtual display (Xvfb) — "
+    "tab capture is the only working path"
+)
 PRESENT_TAB_MENU_ITEM = Selector(
     "call.present_tab_item",
     (
@@ -229,7 +239,8 @@ PRESENT_TAB_MENU_ITEM = Selector(
         '[role="menuitem"]:has-text("Chrome tab")',  # unverified — older wording
         'li:has-text("A tab")',  # unverified fallback
     ),
-    required=False,
+    required=True,
+    note=TAB_CAPTURE_ONLY,
 )
 STOP_PRESENTING_BUTTON = Selector(
     "call.stop_presenting",
@@ -327,7 +338,8 @@ ALL: tuple[Selector, ...] = (
 )
 
 # What self_check insists on once the bot is in the call. Tiles and the indicator are the
-# floor policy's eyes; the leave button proves we are in a call at all.
+# floor policy's eyes; the leave button proves we are in a call at all. PRESENT_TAB_MENU_ITEM
+# is required too, but only with a stage configured — self_check probes it separately.
 IN_CALL_REQUIRED: tuple[Selector, ...] = (PARTICIPANT_TILE, SPEAKING_INDICATOR, LEAVE_BUTTON)
 
 
@@ -344,11 +356,14 @@ class SelfCheckResult:
     def message(self) -> str:
         if self.ok:
             return f"all {len(self.matched)} selectors matched"
-        return (
+        msg = (
             "Meet DOM changed — selectors missing: "
             + ", ".join(self.missing_required)
             + " (fix packages/ears-meet/src/ears_meet/selectors.py)"
         )
+        if PRESENT_TAB_MENU_ITEM.name in self.missing_required:
+            msg += f"; {PRESENT_TAB_MENU_ITEM.name}: {TAB_CAPTURE_ONLY}"
+        return msg
 
 
 def observer_config() -> dict[str, object]:

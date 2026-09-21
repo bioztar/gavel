@@ -139,9 +139,13 @@ class Browser:
             "--disable-session-crashed-bubble",
             "--hide-crash-restore-bubble",
             "--lang=en-US",
-            # The stage share: pick the tab by title, no picker dialog.
+            # The stage share: pick the TAB by title, no picker dialog. Tab capture is the
+            # only share that starts on a virtual display — measured 2026-09 under Xvfb:
+            # getDisplayMedia({video:{displaySurface:'browser'}}) with this flag gives a
+            # web-contents track of the gavel-stage tab; entire-screen capture
+            # (--auto-select-desktop-capture-source) fails with NotReadableError every
+            # time, so that flag is deliberately absent — it is not a fallback here.
             f"--auto-select-tab-capture-source-by-title={s.stage_tab_title}",
-            f"--auto-select-desktop-capture-source={s.stage_tab_title}",
         ]
         self.context = await self._pw.chromium.launch_persistent_context(
             str(profile),
@@ -320,7 +324,7 @@ class Browser:
         """Are the selectors the package relies on present in this call? Names what is not."""
         result = sel.SelfCheckResult()
         for selector in sel.ALL:
-            if selector.where == "lobby":
+            if selector.where == "lobby" or selector is sel.PRESENT_TAB_MENU_ITEM:
                 continue
             hit = await self._match(selector)
             if hit is not None:
@@ -335,7 +339,29 @@ class Browser:
             result.matched.setdefault(sel.SPEAKING_INDICATOR.name, "observer")
             if sel.SPEAKING_INDICATOR.name in result.missing_required:
                 result.missing_required.remove(sel.SPEAKING_INDICATOR.name)
+        if self.settings.stage_url:
+            await self._check_present_menu(result)
         return result
+
+    async def _check_present_menu(self, result: sel.SelfCheckResult) -> None:
+        """The "A tab" item exists only while the Present menu is open, so the check opens
+        the menu, looks, and closes it again. With a stage configured it is required: the
+        item is what makes Meet ask Chromium for a tab, and a tab is the only capture that
+        starts on a virtual display (see `launch`)."""
+        page = self._page()
+        name = sel.PRESENT_TAB_MENU_ITEM.name
+        if sel.PRESENT_BUTTON.name not in result.matched:
+            result.missing_required.append(name)
+            return
+        if not await self._click(sel.PRESENT_BUTTON, wait_ms=3000):
+            result.missing_required.append(name)
+            return
+        hit = await self._first_candidate(sel.PRESENT_TAB_MENU_ITEM, wait_ms=3000)
+        await page.keyboard.press("Escape")
+        if hit is None:
+            result.missing_required.append(name)
+        else:
+            result.matched[name] = hit
 
     async def _match(self, selector: sel.Selector) -> str | None:
         page = self._page()
@@ -395,7 +421,11 @@ class Browser:
                 logger.warning("stage.no_present_button", selector=sel.PRESENT_BUTTON.name)
                 return False
             if not await self._click(sel.PRESENT_TAB_MENU_ITEM, wait_ms=5000):
-                logger.warning("stage.no_tab_item", selector=sel.PRESENT_TAB_MENU_ITEM.name)
+                logger.error(
+                    "stage.no_tab_item",
+                    selector=sel.PRESENT_TAB_MENU_ITEM.name,
+                    hint=sel.TAB_CAPTURE_ONLY,
+                )
                 await page.keyboard.press("Escape")
                 return False
             # Chromium auto-selects the tab by title (launch flag); Meet then shows Stop.
@@ -421,13 +451,24 @@ class Browser:
     async def _first(self, selector: sel.Selector, *, wait_ms: int) -> Any | None:
         """The first visible element for `selector`, trying each candidate for `wait_ms`
         in total (each candidate gets a share)."""
+        found = await self._first_with_candidate(selector, wait_ms=wait_ms)
+        return None if found is None else found[1]
+
+    async def _first_candidate(self, selector: sel.Selector, *, wait_ms: int) -> str | None:
+        """Which candidate of `selector` is visible, or None."""
+        found = await self._first_with_candidate(selector, wait_ms=wait_ms)
+        return None if found is None else found[0]
+
+    async def _first_with_candidate(
+        self, selector: sel.Selector, *, wait_ms: int
+    ) -> tuple[str, Any] | None:
         page = self._page()
         per = max(100, wait_ms // max(1, len(selector.candidates)))
         for candidate in selector.candidates:
             try:
                 loc = page.locator(candidate).first
                 await loc.wait_for(state="visible", timeout=per)
-                return loc
+                return candidate, loc
             except PlaywrightError:
                 continue
         return None

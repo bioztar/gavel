@@ -53,8 +53,8 @@ share) are unreliable or unavailable headless.
 | Captions | the bot turns on Meet's own live captions and mines the captions region: a line is one utterance, every edit a non-final `transcript` delta, a line unedited for `CAPTION_SETTLE_MS` is final. Attributed for free. `TRANSCRIPT_SOURCE=auto` uses captions when showing and STT otherwise. | `captions.py`, `browser.py` `enable_captions` |
 | Speaking | `speak` audio (wav/mp3/ogg via ffmpeg, or streamed `pcm_s16le`) is written with `pacat` into the `gavel_in` null sink; PulseAudio's default *source* is `gavel_in.monitor`, so that is what Chromium hands Meet as the microphone. The bot's mic is switched on in the lobby and re-checked after admission (`ensure_unmuted`); if a host mutes it, the next `spoken` reports egress unheard. Same queue, priority, `stop`, quiet-gate and streaming semantics as ears-discord. | `pulse.py` `PulsePlayer`, `app.py` playback queue |
 | **Egress proof** | two checks, neither of which trusts local playback: (1) at startup `pactl list source-outputs` must show Chromium recording from `gavel_in.monitor`, else `egress.not_attached` is logged loudly; (2) per utterance, Meet lights the bot's *own* tile indicator from the microphone it captures — if it never lights while we play ≥ 1 s, the `spoken` frame carries `error: "egress unheard: …"`. A silent bot cannot believe it spoke. | `pulse.py` `egress_attached`, `app.py` `_egress_verdict` |
-| Stage share | if `STAGE_URL` is set and answers, a second tab opens it and "Present now → A tab" is clicked; Chromium is launched with `--auto-select-tab-capture-source-by-title=gavel-stage` and `--auto-select-desktop-capture-source=gavel-stage` so no picker appears (the stage page guarantees `document.title === "gavel-stage"`). Unreachable or failing: logged, meeting proceeds unpresented. `POST /api/present` retries later. | `browser.py` `present_stage` |
-| Selectors | **all** in `selectors.py`, each a list of candidates tried in order, each candidate annotated `seen YYYY-MM` / `documented YYYY-MM` / `unverified`. `browser.self_check()` runs after joining and fails the process naming the missing *required* selector (`selfcheck.failed missing=[call.speaking_indicator]`); optional ones (captions, People panel) only warn. `GET /api/selfcheck` re-runs it live. | `selectors.py`, `browser.py` `self_check` |
+| Stage share | if `STAGE_URL` is set and answers, a second tab opens it and "Present now → **A tab**" is clicked; Chromium is launched with `--auto-select-tab-capture-source-by-title=gavel-stage` so no picker appears (the stage page guarantees `document.title === "gavel-stage"`). **Only tab capture works on a virtual display** — see "Stage share — status split in two" under §5; there is deliberately no `--auto-select-desktop-capture-source`, it is not a fallback. Stage unreachable: logged, meeting proceeds unpresented. `POST /api/present` retries later. | `browser.py` `present_stage` |
+| Selectors | **all** in `selectors.py`, each a list of candidates tried in order, each candidate annotated `seen YYYY-MM` / `documented YYYY-MM` / `unverified`. `browser.self_check()` runs after joining and fails the process naming the missing *required* selector (`selfcheck.failed missing=[call.speaking_indicator]`); optional ones (captions, People panel) only warn. With `STAGE_URL` set, `call.present_tab_item` is required too: the check opens the Present menu, looks for "A tab", presses Escape, and if it is gone fails with *why* (entire-screen capture cannot start on a virtual display). `GET /api/selfcheck` re-runs it live. | `selectors.py`, `browser.py` `self_check` |
 | Secrets | `MEET_BOT_EMAIL` / `MEET_BOT_PASSWORD` are `SecretStr`: repr, logs and `/api/status` show `**********`. Missing auth raises `MissingSetting("… MEET_PROFILE_DIR … MEET_BOT_EMAIL / MEET_BOT_PASSWORD …")` — names, never values. The profile directory is the credential and is `.gitignore`d. | `settings.py` |
 
 Structure, settings style, logging (`structlog`), the wire module, turns, STT and TTS
@@ -63,7 +63,7 @@ the same camelCase output.
 
 ## 3. What works (tested, deterministic, no network, no Google account)
 
-`cd packages/ears-meet && just check` — ruff, pyright, and 86 pytest tests, with the
+`cd packages/ears-meet && just check` — ruff, pyright, and 91 pytest tests, with the
 browser and PulseAudio faked at the `Surface` / `Player` seams and a fake clock:
 
 - **frame mapping** — Meet ids in `discordId`, `at` + `atMs` stamping, camelCase, brain
@@ -149,6 +149,17 @@ without it that assertion skips with a message and the recording assertions stil
 7. **Camera stays off.** The stage share is the face.
 8. **Dockerfile builds on the Playwright base image** (`mcr.microsoft.com/playwright/python:v1.63.0-noble`
    + xvfb + pulseaudio); it has been written, not yet built in CI.
+
+### Stage share — status split in two, measured 2026-09-21
+
+The seam has a Chromium half and a Meet half, and they are not equally proven. Item 1
+above covers the Meet half only; the Chromium half was measured on a box with Xvfb:
+
+| half | status | evidence |
+|---|---|---|
+| Chromium picks the `gavel-stage` tab with no picker | **VERIFIED** | Real headful Chromium on Xvfb, these exact launch args, a page titled `gavel-stage`, `getDisplayMedia({video:{displaySurface:'browser'}})` from a second page → succeeds, no picker; track `web-contents-media-stream://…`, `displaySurface: "browser"`, 1280×720 @ 30 fps, the `gavel-stage` tab selected. |
+| Entire-screen capture as a fallback | **DOES NOT WORK** | Same box, `getDisplayMedia({video:true})` with `--auto-select-desktop-capture-source=Screen 1` → `NotReadableError: Could not start video source`, every time. Desktop capture does not start on a virtual display. Hence the flag is absent and `A tab` is load-bearing. |
+| Meet's "Present now" button and its "A tab" menu item are where `PRESENT_BUTTON` / `PRESENT_TAB_MENU_ITEM` say | **unverified** until a live call | If Meet ever falls back to "Entire screen" here, capture fails outright rather than degrading — which is why the tab item is a required selector whenever a stage is configured, and why the failure log spells that out. |
 
 ### Contract frames — nothing missing, one remark
 

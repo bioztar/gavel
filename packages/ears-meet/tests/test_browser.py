@@ -10,28 +10,59 @@ import pytest
 
 from conftest import make_settings
 from ears_meet import selectors as sel
-from ears_meet.browser import Browser, JoinError
+from ears_meet.browser import Browser, JoinError, PlaywrightError
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "ears_meet"
 
 
 class FakeLocator:
-    def __init__(self, n: int) -> None:
-        self.n = n
+    def __init__(self, page: FakePage, css: str) -> None:
+        self.page = page
+        self.css = css
+
+    @property
+    def first(self) -> FakeLocator:
+        return self
 
     async def count(self) -> int:
-        return self.n
+        return 1 if self.css in self.page.present else 0
+
+    async def wait_for(self, *, state: str, timeout: int) -> None:  # noqa: ASYNC109 — Playwright's signature
+        if self.css not in self.page.present:
+            raise PlaywrightError(f"{self.css}: not {state} after {timeout}ms")
+
+    async def click(self) -> None:
+        self.page.clicked.append(self.css)
+        self.page.present |= self.page.reveals.get(self.css, set())
+
+
+class FakeKeyboard:
+    def __init__(self, page: FakePage) -> None:
+        self.page = page
+
+    async def press(self, key: str) -> None:
+        self.page.keys.append(key)
 
 
 class FakePage:
-    """Answers `locator(css).count()` from a set of CSS strings that 'exist'."""
+    """Answers `locator(css)` from a set of CSS strings that 'exist'. Clicking one of the
+    `reveals` keys adds its value to the set, the way a menu button reveals its items."""
 
-    def __init__(self, present: set[str], snapshot: dict[str, Any] | None = None) -> None:
-        self.present = present
+    def __init__(
+        self,
+        present: set[str],
+        snapshot: dict[str, Any] | None = None,
+        reveals: dict[str, set[str]] | None = None,
+    ) -> None:
+        self.present = set(present)
         self._snapshot = snapshot or {}
+        self.reveals = reveals or {}
+        self.clicked: list[str] = []
+        self.keys: list[str] = []
+        self.keyboard = FakeKeyboard(self)
 
     def locator(self, css: str) -> FakeLocator:
-        return FakeLocator(1 if css in self.present else 0)
+        return FakeLocator(self, css)
 
     async def evaluate(self, _js: str) -> dict[str, Any]:
         return self._snapshot
@@ -40,10 +71,14 @@ class FakePage:
         return False
 
 
-def browser_with(page: FakePage) -> Browser:
-    b = Browser(make_settings(), on_event=lambda _e: None)
+def browser_with(page: FakePage, **settings: Any) -> Browser:
+    b = Browser(make_settings(**settings), on_event=lambda _e: None)
     b.page = page  # type: ignore[assignment]
     return b
+
+
+PRESENT = sel.PRESENT_BUTTON.candidates[0]
+TAB_ITEM = sel.PRESENT_TAB_MENU_ITEM.candidates[0]
 
 
 def all_first_candidates(*selectors: sel.Selector) -> set[str]:
@@ -89,6 +124,49 @@ async def test_the_observer_can_vouch_for_the_indicator_it_found_per_tile() -> N
 
 
 @pytest.mark.asyncio
+async def test_without_a_stage_the_present_menu_is_not_probed() -> None:
+    page = FakePage(all_first_candidates(*sel.IN_CALL_REQUIRED) | {PRESENT})
+    result = await browser_with(page).self_check()
+    assert result.ok
+    assert page.clicked == []
+    assert sel.PRESENT_TAB_MENU_ITEM.name not in result.matched
+    assert sel.PRESENT_TAB_MENU_ITEM.name not in result.missing_optional
+
+
+@pytest.mark.asyncio
+async def test_with_a_stage_the_tab_item_is_found_behind_the_present_menu() -> None:
+    page = FakePage(
+        all_first_candidates(*sel.IN_CALL_REQUIRED) | {PRESENT},
+        reveals={PRESENT: {TAB_ITEM}},
+    )
+    result = await browser_with(page, stage_url="http://stage.local").self_check()
+    assert result.ok
+    assert result.matched[sel.PRESENT_TAB_MENU_ITEM.name] == TAB_ITEM
+    assert page.clicked == [PRESENT]
+    assert page.keys == ["Escape"], "the probe must close the menu it opened"
+
+
+@pytest.mark.asyncio
+async def test_with_a_stage_a_missing_tab_item_is_required_and_explains_why() -> None:
+    page = FakePage(all_first_candidates(*sel.IN_CALL_REQUIRED) | {PRESENT})  # menu, no item
+    result = await browser_with(page, stage_url="http://stage.local").self_check()
+    assert not result.ok
+    assert result.missing_required == [sel.PRESENT_TAB_MENU_ITEM.name]
+    assert page.keys == ["Escape"]
+    msg = result.message()
+    assert sel.PRESENT_TAB_MENU_ITEM.name in msg
+    assert "virtual display" in msg and "Entire screen" in msg
+
+
+@pytest.mark.asyncio
+async def test_with_a_stage_but_no_present_button_the_tab_item_is_still_required() -> None:
+    page = FakePage(all_first_candidates(*sel.IN_CALL_REQUIRED))
+    result = await browser_with(page, stage_url="http://stage.local").self_check()
+    assert result.missing_required == [sel.PRESENT_TAB_MENU_ITEM.name]
+    assert sel.PRESENT_BUTTON.name in result.missing_optional
+
+
+@pytest.mark.asyncio
 async def test_self_check_without_a_page_is_loud() -> None:
     b = Browser(make_settings(), on_event=lambda _e: None)
     with pytest.raises(JoinError, match="not launched"):
@@ -112,6 +190,15 @@ def test_every_selector_is_named_documented_and_listed_once() -> None:
     assert module_selectors == set(sel.ALL), "a Selector is defined but not in ALL"
     assert set(sel.IN_CALL_REQUIRED) <= set(sel.ALL)
     assert all(s.required and s.where != "lobby" for s in sel.IN_CALL_REQUIRED)
+    assert sel.PRESENT_TAB_MENU_ITEM.required and sel.PRESENT_TAB_MENU_ITEM.note
+
+
+def test_only_tab_capture_is_auto_selected() -> None:
+    source = (SRC / "browser.py").read_text()
+    assert "--auto-select-tab-capture-source-by-title=" in source
+    assert 'f"--auto-select-desktop-capture-source' not in source, (
+        "entire-screen capture cannot start on a virtual display; do not imply a fallback"
+    )
 
 
 def test_observer_js_is_shipped_and_configured_from_the_selector_module() -> None:
