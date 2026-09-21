@@ -583,6 +583,14 @@
     <div class="opt"><b>Keep</b>Langfuse tracing comes free through its exporter, and "the chair is debuggable" is a real claim we make. Cost is one more framework in the dependency tree.</div>
     <div class="opt"><b>Unwind</b><code>chair/llm.ts</code> already defines the interface; direct calls are a small change. Then Langfuse needs wiring directly, or we lose per-meeting traces.</div>
   </div>
+
+  <div class="card dec">
+    <h4>5 &middot; What does the chair actually know?</h4>
+    <p style="font-size:14.5px;color:var(--slate);margin:4px 0 0">Building the shared screen surfaced two gaps in the chair&rsquo;s own view model. Neither blocked the board, both change what it can honestly display, and neither should be patched without a decision.</p>
+    <div class="opt"><b>Topic owners</b>The agenda carries a budget per topic but no owner, so the board&rsquo;s owner column is blank in a live meeting. Either the chair starts tracking who owns each item &mdash; which makes &ldquo;Marc, this one is yours and you have four minutes&rdquo; possible &mdash; or the column comes out and the board never claims to know.</div>
+    <div class="opt"><b>Wall-clock vs plan</b>There is no meeting start time in the view, so &ldquo;time left&rdquo; is the sum of the remaining budgets, not real minutes against a 45-minute booking. Those diverge the moment a topic overruns. A start timestamp is a one-line addition and turns the clock into the thing people assume it already is.</div>
+    <p style="font-size:14px;margin:10px 0 0">Both are small. They are here because the board is the first surface that made the chair&rsquo;s blind spots visible to a room, and a screen shared into a customer&rsquo;s meeting should not display a field it cannot fill.</p>
+  </div>
 </div>
 
 <div class="callout">

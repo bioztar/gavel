@@ -373,6 +373,24 @@ given to anyone. Google Meet and Teams egress are both settled — virtual mic a
 
 ---
 
+### 5. What does the chair actually know?
+
+Building the shared screen surfaced two gaps in the chair's own view model. Neither blocked the
+board, both change what it can honestly display, and neither should be patched without a decision.
+
+- **Topic owners** — the agenda carries a budget per topic but no owner, so the board's owner
+  column is blank in a live meeting. Either the chair starts tracking who owns each item (which
+  makes "Marc, this one is yours and you have four minutes" possible) or the column comes out and
+  the board never claims to know.
+- **Wall-clock vs plan** — there is no meeting start time in the view, so "time left" is the sum of
+  the remaining budgets, not real minutes against a 45-minute booking. Those diverge the moment a
+  topic overruns. A start timestamp is a one-line addition and turns the clock into the thing
+  people assume it already is.
+
+Both are small. They are here because the board is the first surface that made the chair's blind
+spots visible to a room, and a screen shared into a customer's meeting should not display a field
+it cannot fill.
+
 ## 10. What is already moving
 
 | Item | Owner | State |
