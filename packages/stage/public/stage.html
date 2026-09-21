@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- ears-meet picks the tab to present by this exact title. Never change it, never append to it. -->
+<title>gavel-stage</title>
+<meta name="color-scheme" content="dark">
+<style>
+/* Everything is sized in `u`, one percent of a 16:9 stage that fills the window: the
+   layout is identical at 1280×720 and 1920×1080, only scaled. 1u = 12.8px at 720p.
+   Smallest text on the screen is 1.5u = 19.2px at 720p. Nothing scrolls, ever. */
+:root {
+  --u: min(1vw, calc(100vh / 56.25));
+  --bg: #06080c; --stage: #0b0e14; --panel: #12161e; --panel-2: #1a1f2a; --line: #262c39;
+  --text: #f4f6fa; --muted: #9aa4b8; --dim: #5d6679;
+  --karen: #c98bff; --ok: #3ddc97; --warn: #ffc24b; --bad: #ff5d5d; --accent: #7c8cff;
+  --fs-min: calc(var(--u) * 1.5);
+  --fs-body: calc(var(--u) * 1.85);
+  --fs-big: calc(var(--u) * 2.5);
+  --fs-huge: calc(var(--u) * 4.6);
+  --fs-hero: calc(var(--u) * 5.6);
+  --r: calc(var(--u) * 0.8);
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+* { box-sizing: border-box; min-width: 0; min-height: 0; }
+html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text);
+  font-family: var(--sans); font-size: var(--fs-body); line-height: 1.25; -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums; }
+body { display: grid; place-items: center; }
+b, strong { font-weight: 700; }
+
+#stage { width: calc(var(--u) * 100); height: calc(var(--u) * 56.25); background: var(--stage);
+  padding: calc(var(--u) * 1.4) calc(var(--u) * 1.8); display: grid; gap: calc(var(--u) * 1.1);
+  grid-template-rows: calc(var(--u) * 7.4) auto minmax(0, 1fr) calc(var(--u) * 8.4);
+  grid-template-areas: "head" "banner" "main" "foot"; }
+#stage[data-mode="empty"] > :not(#empty) { display: none; }
+#stage:not([data-mode="empty"]) > #empty { display: none; }
+
+/* ── header: title left, the clocks right ───────────────────────────────────── */
+#head { grid-area: head; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: calc(var(--u) * 2); align-items: center; }
+#title { font-size: var(--fs-big); font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#subtitle { font-size: var(--fs-min); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: calc(var(--u) * 0.3); }
+#subtitle:empty { display: none; }
+#clocks { display: flex; gap: calc(var(--u) * 1.2); align-items: stretch; }
+.clock { background: var(--panel); border: calc(var(--u) * 0.15) solid var(--line); border-radius: var(--r);
+  padding: calc(var(--u) * 0.5) calc(var(--u) * 1.4); display: grid; align-content: center; min-width: calc(var(--u) * 17); }
+.clock .k { font-size: var(--fs-min); color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.clock .v { font-size: var(--fs-huge); font-weight: 800; line-height: 1; letter-spacing: -0.02em; white-space: nowrap; }
+.clock .v small { font-size: var(--fs-big); color: var(--muted); font-weight: 600; }
+.clock.over { background: color-mix(in srgb, var(--bad) 22%, var(--panel)); border-color: var(--bad); }
+.clock.over .v, .clock.over .v small, .clock.over .k { color: #fff; }
+.clock.over .k::after { content: " · over"; color: var(--bad); font-weight: 800; }
+.clock.over { animation: throb 1.2s ease-in-out infinite; }
+.clock.warn .v { color: var(--warn); }
+.clock:empty { display: none; }
+@keyframes throb { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--bad) 0%, transparent); }
+  50% { box-shadow: 0 0 0 calc(var(--u) * 0.6) color-mix(in srgb, var(--bad) 45%, transparent); } }
+
+/* ── banner: one legible sentence when nothing is live ─────────────────────── */
+#banner { grid-area: banner; font-size: var(--fs-big); font-weight: 600; color: var(--text);
+  background: var(--panel-2); border-radius: var(--r); padding: calc(var(--u) * 0.9) calc(var(--u) * 1.4);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-left: calc(var(--u) * 0.6) solid var(--accent); }
+#banner:empty { display: none; }
+
+/* ── main: floor left (dominant), agenda + notes right ──────────────────────── */
+#main { grid-area: main; display: grid; grid-template-columns: 54fr 42fr; gap: calc(var(--u) * 1.1); }
+.panel { background: var(--panel); border-radius: var(--r); padding: calc(var(--u) * 1) calc(var(--u) * 1.4);
+  display: grid; grid-template-rows: auto minmax(0, 1fr); gap: calc(var(--u) * 0.6); overflow: hidden; }
+.panel > h2 { margin: 0; font-size: var(--fs-min); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+  font-weight: 600; display: flex; justify-content: space-between; gap: calc(var(--u) * 1); white-space: nowrap; overflow: hidden; }
+.panel > h2 .live { color: var(--ok); text-transform: none; letter-spacing: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+.panel > h2 .live::before { content: "●"; margin-right: calc(var(--u) * 0.6); animation: blink 1.4s ease-in-out infinite; }
+.panel > h2 .quiet { color: var(--dim); text-transform: none; letter-spacing: 0; font-weight: 500; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+/* floor */
+#floor { display: grid; grid-auto-rows: minmax(0, 1fr); gap: calc(var(--u) * 0.45); align-content: stretch; overflow: hidden; }
+.person { display: grid; grid-template-columns: calc(var(--u) * 14) minmax(0, 1fr) calc(var(--u) * 11);
+  gap: calc(var(--u) * 1); align-items: center; min-height: 0; container-type: size; }
+.person .name { font-size: var(--fs-body); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #c9d0dc; }
+.person .name::before { content: ""; display: inline-block; vertical-align: middle; margin: 0 calc(var(--u) * 0.6) calc(var(--u) * 0.2) 0;
+  width: calc(var(--u) * 0.9); height: calc(var(--u) * 0.9); border-radius: 50%; background: var(--line); }
+.person.speaking .name { color: var(--text); }
+.person.speaking .name::before { background: var(--ok); box-shadow: 0 0 0 calc(var(--u) * 0.35) color-mix(in srgb, var(--ok) 35%, transparent); animation: blink 1.4s ease-in-out infinite; }
+.person .track { position: relative; height: 62%; max-height: calc(var(--u) * 4.2); min-height: calc(var(--u) * 1.6); background: var(--panel-2); border-radius: calc(var(--u) * 0.5); overflow: hidden; }
+.person .fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: inherit; background: var(--bar, var(--accent));
+  transition: width 0.7s cubic-bezier(.2,.8,.2,1), background 0.4s; }
+.person.speaking .fill { box-shadow: inset 0 0 0 calc(var(--u) * 0.2) rgba(255,255,255,.35); }
+.person.hog .fill { background: var(--bad); }
+.person .mark { position: absolute; top: 0; bottom: 0; width: calc(var(--u) * 0.25); background: rgba(255,255,255,.35); }
+.person .pct { font-size: calc(var(--u) * 4.2); font-weight: 800; text-align: right; line-height: 1; letter-spacing: -0.02em; color: var(--text); }
+.person.hog .pct { color: var(--bad); }
+.person .pct small { display: block; font-size: var(--fs-min); line-height: 1; color: var(--muted); font-weight: 500; letter-spacing: 0; }
+.person.muted .name::after { content: " muted"; font-size: var(--fs-min); color: var(--warn); font-weight: 600; }
+.person.more .name { color: var(--dim); } .person.more .name::before { display: none; }
+.person.more .pct { color: var(--dim); font-size: var(--fs-big); }
+/* A row that got short (many people, or a banner above) drops the seconds and shrinks the
+   number. Aspect ratio, not pixels, so it holds at every resolution. */
+@container (min-aspect-ratio: 10.5/1) {
+  .person .pct { font-size: var(--fs-big); }
+  .person .pct small { display: none; }
+  .person .name { font-size: var(--fs-min); }
+}
+#floor .nobody { font-size: var(--fs-big); color: var(--dim); align-self: center; text-align: center; }
+
+/* agenda */
+#right { display: grid; grid-template-rows: minmax(0, 58fr) minmax(0, 42fr); gap: calc(var(--u) * 1.1); }
+#agenda { display: grid; grid-auto-rows: minmax(0, 1fr); gap: calc(var(--u) * 0.3); overflow: hidden; }
+.topic { display: grid; grid-template-columns: calc(var(--u) * 2.6) minmax(0, 1fr) auto auto; gap: calc(var(--u) * 0.8); align-items: center;
+  padding: 0 calc(var(--u) * 0.8); border-radius: calc(var(--u) * 0.5); color: var(--muted); font-size: var(--fs-body); min-height: 0; }
+.topic .n { font-weight: 700; text-align: center; color: var(--dim); }
+.topic .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.topic .o { font-size: var(--fs-min); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(var(--u) * 10); }
+.topic .o:empty { display: none; }
+.topic .b { font-size: var(--fs-min); color: var(--dim); white-space: nowrap; font-weight: 600; }
+.topic.done { color: var(--dim); } .topic.done .t { text-decoration: line-through; text-decoration-thickness: from-font; }
+.topic.done .n { color: var(--ok); }
+.topic.live { background: var(--panel-2); color: var(--text); box-shadow: inset calc(var(--u) * 0.5) 0 0 var(--ok); }
+.topic.live .n { color: var(--ok); } .topic.live .t { font-weight: 700; }
+.topic.live .b { color: var(--text); font-size: var(--fs-body); }
+.topic.live.over { box-shadow: inset calc(var(--u) * 0.5) 0 0 var(--bad); background: color-mix(in srgb, var(--bad) 22%, var(--panel-2)); }
+.topic.live.over .b, .topic.live.over .n { color: var(--bad); font-weight: 800; }
+.topic.more { color: var(--dim); font-size: var(--fs-min); } .topic.more .n { color: var(--dim); }
+#agenda.dense .topic { font-size: var(--fs-min); } #agenda.dense .topic .o { display: none; }
+#agenda .nothing { font-size: var(--fs-body); color: var(--dim); align-self: center; text-align: center; }
+
+/* notes */
+#notes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: calc(var(--u) * 1.1); }
+.col { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: calc(var(--u) * 0.4); overflow: hidden; }
+.col h3 { margin: 0; font-size: var(--fs-min); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600;
+  display: flex; justify-content: space-between; }
+.col h3 b { color: var(--text); }
+.col ul { margin: 0; padding: 0; list-style: none; display: grid; align-content: start; gap: calc(var(--u) * 0.35); overflow: hidden; }
+.col li { font-size: var(--fs-min); line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  padding-left: calc(var(--u) * 1.1); position: relative; color: var(--text); }
+.col li::before { content: ""; position: absolute; left: 0; top: calc(var(--u) * 0.55); width: calc(var(--u) * 0.55); height: calc(var(--u) * 0.55); border-radius: 50%; background: var(--accent); }
+.col.decisions li::before { background: var(--ok); } .col.parked li::before { background: var(--warn); }
+.col li.none { color: var(--dim); } .col li.none::before { display: none; }
+.col .more { color: var(--dim); font-size: var(--fs-min); }
+.col .more:empty { display: none; }
+
+/* ── footer: Karen's last line, verbatim ────────────────────────────────────── */
+#foot { grid-area: foot; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: calc(var(--u) * 1.4); align-items: center;
+  background: color-mix(in srgb, var(--karen) 10%, var(--panel)); border-radius: var(--r); padding: calc(var(--u) * 0.8) calc(var(--u) * 1.6);
+  border-left: calc(var(--u) * 0.6) solid var(--karen); }
+#chair { font-size: var(--fs-min); text-transform: uppercase; letter-spacing: 0.1em; color: var(--karen); font-weight: 700; align-self: start;
+  padding-top: calc(var(--u) * 0.5); }
+#line { font-size: var(--fs-big); font-weight: 600; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#line.none { color: var(--dim); font-weight: 500; }
+#link { font-size: var(--fs-min); color: var(--warn); white-space: nowrap; display: flex; align-items: center; gap: calc(var(--u) * 0.6); align-self: start; }
+#link:empty { display: none; }
+#link::before { content: ""; width: calc(var(--u) * 0.9); height: calc(var(--u) * 0.9); border-radius: 50%; background: var(--warn); animation: blink 1s ease-in-out infinite; }
+
+/* ── nothing from the server yet ────────────────────────────────────────────── */
+#empty { grid-area: 1 / 1 / -1 / -1; display: grid; place-content: center; text-align: center; gap: calc(var(--u) * 1.5); }
+#empty .brand { font-size: var(--fs-hero); font-weight: 800; letter-spacing: -0.03em; }
+#empty .brand span { color: var(--karen); }
+#empty .msg { font-size: var(--fs-big); color: var(--muted); }
+#empty .sub { font-size: var(--fs-min); color: var(--dim); }
+</style>
+</head>
+<body>
+<div id="stage" data-mode="empty">
+  <div id="empty">
+    <div class="brand">gavel <span>· Karen</span></div>
+    <div class="msg" id="empty-msg">Connecting to the meeting…</div>
+    <div class="sub" id="empty-sub"></div>
+  </div>
+  <header id="head">
+    <div><div id="title"></div><div id="subtitle"></div></div>
+    <div id="clocks"><div class="clock" id="clock-topic"></div><div class="clock" id="clock-meeting"></div></div>
+  </header>
+  <div id="banner"></div>
+  <div id="main">
+    <section class="panel"><h2><span>Share of the floor</span><span id="speaker"></span></h2><div id="floor"></div></section>
+    <div id="right">
+      <section class="panel"><h2><span>Agenda</span><span id="agenda-more" class="quiet"></span></h2><div id="agenda"></div></section>
+      <section class="panel" style="grid-template-rows: minmax(0, 1fr)"><div id="notes">
+        <div class="col decisions"><h3>Decisions <b id="n-decisions"></b></h3><ul id="l-decisions"></ul><div class="more" id="m-decisions"></div></div>
+        <div class="col open"><h3>Open <b id="n-open"></b></h3><ul id="l-open"></ul><div class="more" id="m-open"></div></div>
+        <div class="col parked"><h3>Parked <b id="n-parked"></b></h3><ul id="l-parked"></ul><div class="more" id="m-parked"></div></div>
+      </div></section>
+    </div>
+  </div>
+  <footer id="foot"><div id="chair">Karen</div><div id="line" class="none"></div><div id="link"></div></footer>
+</div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

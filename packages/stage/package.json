@@ -1,0 +1,21 @@
+{
+  "name": "@gavel/stage",
+  "private": true,
+  "type": "module",
+  "description": "The live meeting screen Karen presents into the call: agenda, talk-time, clock, her last line. Zero runtime dependencies.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/server.ts",
+    "dev": "node --watch src/server.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "jsdom": "~30.0.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}
