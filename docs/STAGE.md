@@ -73,11 +73,11 @@ JSON changed:
 retry: 1000
 
 event: state
-id: 1718000000000
+id: 41
 data: {"at":1718000000000,"brain":true,"state":{ …brain's whole view… }}
 
 event: link
-id: 1718000004000
+id: 42
 data: {"at":1718000004000,"brain":false}
 
 : ping 1718000015000
