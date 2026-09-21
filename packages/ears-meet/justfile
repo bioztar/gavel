@@ -1,0 +1,47 @@
+# ears-meet — the stenographer, in a Google Meet. https://just.systems
+set dotenv-load := false
+
+default:
+    @just --list
+
+# Deps + Playwright's Chromium. System packages (Xvfb, PulseAudio, ffmpeg): see docs/EARS-MEET.md
+setup: install
+    uv run playwright install chromium
+
+install:
+    uv sync
+
+# Join MEET_URL, serve the brain on ws://127.0.0.1:$WIRE_PORT
+run:
+    uv run python -m ears_meet
+
+# Sign the bot's Google account in, by hand, into MEET_PROFILE_DIR (opens a visible Chromium)
+login:
+    uv run python scripts/login.py
+
+# Join a real meeting, print every frame, speak a test tone, print a scorecard
+live-check *args:
+    uv run python scripts/live_check.py {{args}}
+
+# A stand-in brain against a running ears: print frames, speak every 30s
+stub-brain *args:
+    uv run python scripts/stub_brain.py {{args}}
+
+# Re-record the Meet conformance fixtures from the Discord ones (deterministic, no browser)
+record-fixtures:
+    rm -f tests/conformance/fixtures/*.jsonl
+    -uv run pytest tests/conformance -q -k committed_fixture
+    uv run pytest tests/conformance -q
+
+# Fast tests: no network, no Google account, no browser
+test *args:
+    uv run pytest {{args}}
+
+lint:
+    uv run ruff check .
+    uv run ruff format --check .
+
+typecheck:
+    uv run pyright
+
+check: lint typecheck test

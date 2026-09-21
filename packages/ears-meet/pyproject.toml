@@ -1,0 +1,71 @@
+[project]
+name = "gavel-ears-meet"
+version = "0.1.0"
+description = "gavel ears-meet: a Google Meet browser participant in, speaking events + attributed transcripts out."
+readme = "README.md"
+requires-python = ">=3.13"
+
+dependencies = [
+    # The browser. Chromium itself comes from `playwright install chromium` (Dockerfile)
+    # or MEET_CHROMIUM_PATH. Everything Playwright-specific lives in src/ears_meet/browser.py.
+    "playwright>=1.55",
+    "numpy>=2.3",
+    # web
+    "fastapi>=0.141",
+    "uvicorn[standard]>=0.53",
+    # config / models
+    "pydantic>=2.13",
+    "pydantic-settings>=2.15",
+    # http
+    "httpx>=0.28",
+    "websockets>=15.0",
+    # logging
+    "structlog>=26.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "pytest-asyncio>=1.3",
+    "pytest-httpx>=0.36",
+    "ruff>=0.15",
+    "pyright>=1.1.408",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ears_meet"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "C4", "SIM", "ASYNC", "BLE", "T20", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["T20"]
+"tests/*" = ["T20"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ears_meet"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-q --strict-markers"
+
+[tool.pyright]
+include = ["src", "tests", "scripts"]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
+reportMissingTypeStubs = false
+reportPrivateImportUsage = false
