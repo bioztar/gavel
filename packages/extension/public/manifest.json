@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "gavel — Chair this meeting",
+  "short_name": "gavel",
+  "version": "0.1.0",
+  "description": "Turns the brief in a Google Calendar invite into a chaired agenda, and refuses to book a meeting that has nothing to decide.",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "gavel",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "permissions": ["identity", "storage"],
+  "host_permissions": [],
+  "content_scripts": [
+    {
+      "matches": ["https://calendar.google.com/*"],
+      "js": ["content-calendar.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://meet.google.com/*"],
+      "js": ["content-meet.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "oauth2": {
+    "client_id": "__GOOGLE_OAUTH_CLIENT_ID__",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/calendar.events.owned"
+    ]
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+  }
+}

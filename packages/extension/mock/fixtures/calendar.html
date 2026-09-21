@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Google Calendar (fixture)</title>
+    <link rel="stylesheet" href="/fixtures/fixtures.css" />
+  </head>
+  <body class="calendar">
+    <header class="gbar">
+      <span class="logo">31</span>
+      <span class="product">Calendar</span>
+      <span class="fixture-tag">fixture — not Google</span>
+    </header>
+    <div role="main">
+      <form onsubmit="return false">
+        <div class="toprow">
+          <button type="button" class="icon" aria-label="Close">×</button>
+          <input type="text" aria-label="Add title" placeholder="Add title" class="title" />
+          <button type="button" class="save" aria-label="Save">Save</button>
+        </div>
+        <div class="tabs"><span class="on">Event</span><span>Task</span><span>Appointment schedule</span></div>
+
+        <div class="row">
+          <span class="ico">🕒</span>
+          <input type="text" aria-label="Start date" value="" class="date" />
+          <input type="text" aria-label="Start time" value="2:00pm" class="time" />
+          <span>–</span>
+          <input type="text" aria-label="End time" value="2:30pm" class="time" />
+          <input type="text" aria-label="End date" value="" class="date" />
+        </div>
+
+        <div class="cols">
+          <div class="col">
+            <div class="row">
+              <span class="ico">📍</span>
+              <input type="text" aria-label="Add location" placeholder="Add location" />
+            </div>
+            <div class="row">
+              <span class="ico">🎥</span>
+              <button type="button" class="chip-btn">Add Google Meet video conferencing</button>
+            </div>
+            <div class="row top">
+              <span class="ico">☰</span>
+              <div class="desc" aria-label="Description" role="textbox" aria-multiline="true" contenteditable="true" data-placeholder="Add description"></div>
+            </div>
+          </div>
+          <div class="col guests">
+            <input type="text" aria-label="Guests" placeholder="Add guests" class="guest-input" />
+            <div class="chips" id="chips"></div>
+            <div class="perm">
+              <div class="perm-title">Guest permissions</div>
+              <label><input type="checkbox" checked disabled /> Modify event</label>
+              <label><input type="checkbox" checked disabled /> Invite others</label>
+              <label><input type="checkbox" checked disabled /> See guest list</label>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+    <script src="/fixtures/fixtures.js"></script>
+  </body>
+</html>
