@@ -231,10 +231,16 @@ export function runDemo(link, params, now = Date.now) {
   const scene = params.get("scene") ?? "meeting";
   const offset = Number(params.get("t") ?? 0) || 0;
   const down = params.get("link") === "down";
+  // `owners=0` shows the shape brain publishes today (no topic owners), `owners=some` a mix.
+  const owners = params.get("owners");
   const started = now();
   const tick = () => {
     const t = offset + (now() - started) / 1000;
-    link.state = demoState(scene, Math.floor(t));
+    const s = demoState(scene, Math.floor(t));
+    if (owners === "0" || owners === "some") {
+      s.topics = (s.topics ?? []).map((tp, i) => (owners === "some" && i % 2 ? tp : { ...tp, owner: undefined }));
+    }
+    link.state = s;
     link.receivedAt = down ? started - 41_000 : now();
     link.connected = !down;
     link.brainOk = !down;

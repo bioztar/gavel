@@ -74,7 +74,8 @@ describe("mmss", () => {
     expect(mmss(0)).toBe("0:00");
     expect(mmss(65)).toBe("1:05");
     expect(mmss(3600)).toBe("60:00");
-    expect(mmss(-42)).toBe("−0:42");
+    // Never signed: an overrun is worded ("over"), not negated.
+    expect(mmss(-42)).toBe("0:42");
   });
 });
 
@@ -249,10 +250,10 @@ describe("reduce", () => {
     expect(board.people).toHaveLength(3);
   });
 
-  it("caps each notes column and counts the overflow, newest kept", () => {
+  it("caps each notes column and counts the overflow, newest kept and listed first", () => {
     const decisions = Array.from({ length: 7 }, (_, i) => `Decision ${i}`);
     const board = reduce(link(active({ digest: { decisions, openItems: ["x".repeat(200)], parked: [{ name: "Tom", summary: "the office move" }] } })), 1_000_000);
-    expect(board.notes.decisions).toEqual(["Decision 3", "Decision 4", "Decision 5", "Decision 6"]);
+    expect(board.notes.decisions).toEqual(["Decision 6", "Decision 5", "Decision 4", "Decision 3"]);
     expect(board.moreNotes.decisions).toBe(3);
     expect(board.notes.open[0]?.length).toBeLessThanOrEqual(LIMITS.note);
     expect(board.notes.parked).toEqual(["Tom: the office move"]);

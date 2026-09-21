@@ -52,11 +52,30 @@ reducer**, where it is unit-tested, not in CSS:
 | ------------------- | --------------------------- | ------------------------------------ |
 | attendees           | 8 (the speaker always among them) | one grey `+N more` row with their share |
 | topics              | 7, centred on the live one  | `N done` / `N more` rows at the ends |
-| notes per column    | 4, the newest               | `+N` on the column header            |
+| notes per column    | 4, the newest               | a grey `+N more` row at the foot of the column; the count is also on the header |
 | name                | 18 chars                    | word boundary if close, else mid-word, `…` |
 | topic title         | 44 chars                    | same                                 |
 | note                | 72 chars                    | same                                 |
 | Karen's line        | 200 chars                   | same (brain caps at 320)             |
+
+The reducer's caps are the outer bound; the last word belongs to the pixels. Notes and
+agenda rows are laid out at their natural height (a note is clamped to two whole lines with
+an ellipsis, an agenda title to one), and after every paint `fitRows()` in `render.js`
+measures each row's box against its list and hides **whole rows** from the bottom until
+every visible one — the `+N more` row included — sits inside. The invariant is *no glyph is
+ever painted partially clipped*; `test/layout.test.ts` holds it in a real headless Chrome
+across every demo scene at both resolutions by checking every text box against the padding
+box of every clipping ancestor, and that every clamped block is a whole number of lines tall.
+
+No counter is ever shown with a sign. Past zero the word changes instead: the meeting clock
+reads `7:57 over` (the label already says OVER), the topic clock `+22:58 over` next to the
+budget. `mmss()` returns a magnitude only.
+
+The owner column is a fixed 8-unit track, so its content cannot move the title or the
+budget. When brain sends no owner for any topic (today's live shape) the track is empty
+and the row reads as designed, not as missing; when some topics have owners and others do
+not, the ownerless ones show a dim `—`. Either way the moment an owner arrives it drops
+into the same slot with no reflow (`test/page.test.ts`).
 
 Smallest text on the board is 1.5 units = **19.2 px at 720p**, 28.8 px at 1080p. Percentages
 are 2.5–4.6 units, the clocks 2.5, the speaker's name 2.5. Dark background, three colours
@@ -120,6 +139,9 @@ view, with clocks and talk time moving in real time and a scripted over-budget m
 | `&scene=untimed`     | no budgets                                                |
 | `&scene=finished`    | the closing board                                         |
 | `&t=300`             | start five minutes in                                     |
+| `&t=1400`            | the meeting itself over budget: `7:55 over`               |
+| `&owners=0`          | no topic owners at all — brain's live shape today         |
+| `&owners=some`       | owners on every other topic — the mixed case, `—` for the rest |
 | `&link=down`         | the reconnecting marker                                   |
 
 ## Running it
@@ -162,10 +184,12 @@ Two things brain does **not** publish today, which the board would show the mome
 
 1. **Topic owners.** The agenda contract has `owner` (a discordId) and the reducer reads
    `topics[].owner` (resolved through `people[].id → name`) or `topics[].ownerName`, but
-   `engine.view()` does not include either yet, so the owner column is blank on a live
-   meeting. The demo shows it.
-2. **A meeting start time.** "Time left" is therefore *remaining by plan* — this topic's
-   remaining budget plus untouched budgets — not wall-clock against a scheduled end.
+   `engine.view()` does not include either yet, so the owner column is empty on a live
+   meeting (`&owners=0` in the demo shows exactly that; see above for how empty renders).
+2. **A meeting start time.** "Time left" is therefore **plan-derived, not wall-clock**: the
+   live topic's remaining budget plus the budgets of topics not yet reached. It says nothing
+   about the scheduled end of the calendar slot, and `N over` means the plan is N behind,
+   not that the meeting has run past its slot.
 
 `topic.elapsedSeconds` is assumed to be seconds on the live topic that keep increasing while
 `phase === "active"`; the board adds the time since the last update so the clock ticks even

@@ -44,6 +44,42 @@ function toggle(el, cls, on) {
   if (el) el.classList.toggle(cls, on);
 }
 
+/**
+ * The no-half-rows rule: a list's rows keep their natural height, so when there are too
+ * many the last ones fall outside the list box. Those are hidden whole and counted in the
+ * fold row, which must itself fit. Boxes are all zero in jsdom, where nothing is hidden.
+ * @param {HTMLElement} root   the clipping list box
+ * @param {HTMLElement[]} rows in order; the fold row is not one of them
+ * @param {HTMLElement} fold   a row after `rows`, shown only when something is left out
+ * @param {number} folded      items the reducer already left out
+ * @param {(n: number) => void} label writes the fold's text for n items
+ * @returns {number} rows left visible
+ */
+export function fitRows(root, rows, fold, folded, label) {
+  for (const r of rows) r.hidden = false;
+  fold.hidden = true;
+  const box = root.getBoundingClientRect();
+  /** @param {HTMLElement} el */
+  const inside = (el) => {
+    const r = el.getBoundingClientRect();
+    return r.top >= box.top - 0.5 && r.bottom <= box.bottom + 0.5;
+  };
+  let shown = rows.length;
+  let n = folded;
+  while (shown > 0 && !inside(/** @type {HTMLElement} */ (rows[shown - 1]))) {
+    /** @type {HTMLElement} */ (rows[--shown]).hidden = true;
+    n++;
+  }
+  if (n === 0) return shown;
+  fold.hidden = false;
+  label(n);
+  while (shown > 0 && !inside(fold)) {
+    /** @type {HTMLElement} */ (rows[--shown]).hidden = true;
+    label(++n);
+  }
+  return shown;
+}
+
 /** @param {Board["topicClock"]} c */
 function topicClock(c) {
   if (!c) return "";
@@ -55,8 +91,8 @@ function topicClock(c) {
 /** @param {Board["meetingClock"]} c */
 function meetingClock(c) {
   if (!c) return "";
-  const v = c.over ? `−${mmss(-c.remainingSeconds)}` : mmss(c.remainingSeconds);
-  return `<div class="k">Meeting</div><div class="v">${v}<small> left</small></div>`;
+  const v = `${mmss(c.remainingSeconds)}<small> ${c.over ? "over" : "left"}</small>`;
+  return `<div class="k">Meeting</div><div class="v">${v}</div>`;
 }
 
 /** @param {Board["people"]} rows @param {Board["morePeople"]} more @param {number} threshold */
@@ -122,6 +158,9 @@ function agenda(rows, more, mode) {
     return;
   }
   toggle(root, "dense", rows.length + (more.done ? 1 : 0) + (more.next ? 1 : 0) > 6);
+  // The owner column is always laid out: a dash where some topics have one and this does not,
+  // blank when none has.
+  const owners = rows.some((t) => t.owner);
   const line = (/** @type {Board["topics"][number]} */ t) => {
     const glyph = t.status === "done" ? "✓" : t.status === "live" ? "▶" : String(t.n);
     const budget = t.status === "live" && t.elapsedSeconds != null
@@ -129,11 +168,18 @@ function agenda(rows, more, mode) {
         ? t.over ? `+${mmss(t.elapsedSeconds - t.budgetSeconds)} over` : `${mmss(t.elapsedSeconds)} / ${mmss(t.budgetSeconds)}`
         : mmss(t.elapsedSeconds)
       : t.budgetSeconds > 0 ? mmss(t.budgetSeconds) : "";
-    return `<div class="topic ${t.status}${t.over ? " over" : ""}"><span class="n">${glyph}</span><span class="t">${esc(t.title)}</span><span class="o">${esc(t.owner)}</span><span class="b">${budget}</span></div>`;
+    const owner = t.owner ? `<span class="o">${esc(t.owner)}</span>` : `<span class="o none">${owners ? "—" : ""}</span>`;
+    return `<div class="topic ${t.status}${t.over ? " over" : ""}"><span class="n">${glyph}</span><span class="t">${esc(t.title)}</span>${owner}<span class="b">${budget}</span></div>`;
   };
   const before = more.done ? `<div class="topic more"><span class="n">✓</span><span class="t">${more.done} earlier topic${more.done === 1 ? "" : "s"} done</span><span class="o"></span><span class="b"></span></div>` : "";
-  const after = more.next ? `<div class="topic more"><span class="n">…</span><span class="t">+${more.next} more to come</span><span class="o"></span><span class="b"></span></div>` : "";
-  put("agenda", before + rows.map(line).join("") + after);
+  const fold = `<div class="topic more fold" hidden><span class="n">…</span><span class="t"></span><span class="o"></span><span class="b"></span></div>`;
+  put("agenda", before + rows.map(line).join("") + fold);
+  if (root) {
+    const all = /** @type {HTMLElement[]} */ ([...root.children]);
+    const foldEl = /** @type {HTMLElement} */ (all.pop());
+    const t = /** @type {HTMLElement} */ (foldEl.querySelector(".t"));
+    fitRows(root, all, foldEl, more.next, (n) => { t.textContent = `+${n} more`; });
+  }
   const done = rows.filter((t) => t.status === "done").length + more.done;
   const total = rows.length + more.done + more.next;
   text("agenda-more", `${done} of ${total} done`);
@@ -141,9 +187,14 @@ function agenda(rows, more, mode) {
 
 /** @param {string} key @param {string[]} items @param {number} more @param {string} none */
 function notes(key, items, more, none) {
-  put(`l-${key}`, items.length ? items.map((x) => `<li>${esc(x)}</li>`).join("") : `<li class="none">${none}</li>`);
+  const ul = document.getElementById(`l-${key}`);
+  put(`l-${key}`, (items.length ? items.map((x) => `<li>${esc(x)}</li>`).join("") : `<li class="none">${none}</li>`) + `<li class="more" hidden></li>`);
+  if (ul) {
+    const all = /** @type {HTMLElement[]} */ ([...ul.children]);
+    const fold = /** @type {HTMLElement} */ (all.pop());
+    fitRows(ul, all, fold, more, (n) => { fold.textContent = `+${n} more`; });
+  }
   text(`n-${key}`, items.length + more ? String(items.length + more) : "");
-  text(`m-${key}`, more ? `+${more} more` : "");
 }
 
 /** @param {Board} b */

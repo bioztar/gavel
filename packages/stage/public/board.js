@@ -139,11 +139,15 @@ export function clip(text, max) {
   return (atWord.length >= max * 0.6 ? atWord : head) + "…";
 }
 
-/** @param {number} seconds */
+/**
+ * Magnitude only — the screen never shows a signed duration. A counter that has gone past
+ * zero says so in words ("7:57 over"), never with a minus the room has to reason about.
+ * @param {number} seconds
+ */
 export function mmss(seconds) {
   const s = Math.max(0, Math.round(Math.abs(seconds)));
   const m = Math.floor(s / 60);
-  return `${seconds < 0 ? "−" : ""}${m}:${String(s % 60).padStart(2, "0")}`;
+  return `${m}:${String(s % 60).padStart(2, "0")}`;
 }
 
 /**
@@ -259,8 +263,9 @@ export function reduceTopics(state, names, liveElapsed) {
  */
 function reduceNotes(items) {
   const list = (items ?? []).map((x) => clip(x, LIMITS.note)).filter(Boolean);
-  // Newest last in brain; the screen shows the most recent ones.
-  const rows = list.slice(-LIMITS.notes);
+  // Newest last in brain; the screen shows the most recent ones, newest first, so a column
+  // that runs out of room loses the oldest into its `+N more` row.
+  const rows = list.slice(-LIMITS.notes).reverse();
   return { rows, more: list.length - rows.length };
 }
 

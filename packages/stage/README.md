@@ -22,7 +22,13 @@ pnpm typecheck         # strict TS over src/, test/ and the browser JS in public
 Open `http://127.0.0.1:8793/?demo=1` for the whole board from a fixture with moving data —
 no brain, no meeting. Scenes: `&scene=crowd` (12 people, a 40-character name, 9 topics),
 `gathering`, `idle`, `finished`, `open` (empty agenda), `untimed`; `&t=60` starts the
-clock a minute in; `&link=down` shows the reconnecting marker.
+clock a minute in (`&t=1400` puts the meeting over budget); `&owners=0` / `&owners=some`
+show the agenda with no or only some topic owners; `&link=down` shows the reconnecting marker.
+
+`pnpm test` includes `test/layout.test.ts`, which drives a real headless Chrome (found via
+`CHROME_BIN`, `PATH`, or Playwright's cache) through every demo scene at 1280×720 and
+1920×1080 and fails if any text box is painted partially clipped. On a machine with no
+Chrome set `STAGE_NO_CHROME=1` to skip it; the skip is printed, never silent.
 
 Env (names only; nothing here is a secret):
 

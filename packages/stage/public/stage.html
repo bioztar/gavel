@@ -24,6 +24,7 @@
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 * { box-sizing: border-box; min-width: 0; min-height: 0; }
+[hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text);
   font-family: var(--sans); font-size: var(--fs-body); line-height: 1.25; -webkit-font-smoothing: antialiased;
   font-variant-numeric: tabular-nums; }
@@ -89,30 +90,38 @@ b, strong { font-weight: 700; }
 .person.speaking .fill { box-shadow: inset 0 0 0 calc(var(--u) * 0.2) rgba(255,255,255,.35); }
 .person.hog .fill { background: var(--bad); }
 .person .mark { position: absolute; top: 0; bottom: 0; width: calc(var(--u) * 0.25); background: rgba(255,255,255,.35); }
-.person .pct { font-size: calc(var(--u) * 4.2); font-weight: 800; text-align: right; line-height: 1; letter-spacing: -0.02em; color: var(--text); }
+.person .pct { font-size: calc(var(--u) * 3.7); font-weight: 800; text-align: right; line-height: 1.1; letter-spacing: -0.02em; color: var(--text); }
 .person.hog .pct { color: var(--bad); }
-.person .pct small { display: block; font-size: var(--fs-min); line-height: 1; color: var(--muted); font-weight: 500; letter-spacing: 0; }
+.person .pct small { display: block; font-size: var(--fs-min); line-height: 0.9; color: var(--muted); font-weight: 500; letter-spacing: 0; }
 .person.muted .name::after { content: " muted"; font-size: var(--fs-min); color: var(--warn); font-weight: 600; }
 .person.more .name { color: var(--dim); } .person.more .name::before { display: none; }
 .person.more .pct { color: var(--dim); font-size: var(--fs-big); }
 /* A row that got short (many people, or a banner above) drops the seconds and shrinks the
-   number. Aspect ratio, not pixels, so it holds at every resolution. */
-@container (min-aspect-ratio: 10.5/1) {
+   number, in steps chosen so the text never stands taller than its row. Aspect ratio, not
+   pixels, so it holds at every resolution: a row is ~50.8u wide, so 9.3/1 means a row under
+   5.46u (the tall number needs 5.42u) and 18/1 a row under 2.82u (the big one needs 2.75u). */
+@container (min-aspect-ratio: 9.3/1) {
   .person .pct { font-size: var(--fs-big); }
   .person .pct small { display: none; }
+}
+@container (min-aspect-ratio: 18/1) {
+  .person .pct { font-size: var(--fs-body); }
   .person .name { font-size: var(--fs-min); }
 }
 #floor .nobody { font-size: var(--fs-big); color: var(--dim); align-self: center; text-align: center; }
 
 /* agenda */
 #right { display: grid; grid-template-rows: minmax(0, 58fr) minmax(0, 42fr); gap: calc(var(--u) * 1.1); }
-#agenda { display: grid; grid-auto-rows: minmax(0, 1fr); gap: calc(var(--u) * 0.3); overflow: hidden; }
-.topic { display: grid; grid-template-columns: calc(var(--u) * 2.6) minmax(0, 1fr) auto auto; gap: calc(var(--u) * 0.8); align-items: center;
-  padding: 0 calc(var(--u) * 0.8); border-radius: calc(var(--u) * 0.5); color: var(--muted); font-size: var(--fs-body); min-height: 0; }
+/* Rows never shrink below their text: when there are too many, whole rows fall off the
+   bottom and render.js folds them into the last row instead of letting them clip. */
+#agenda { display: grid; grid-auto-rows: minmax(max-content, 1fr); align-content: start; gap: calc(var(--u) * 0.3); overflow: hidden; }
+.topic { display: grid; grid-template-columns: calc(var(--u) * 2.6) minmax(0, 1fr) calc(var(--u) * 8) auto; gap: calc(var(--u) * 0.8); align-items: center;
+  padding: 0 calc(var(--u) * 0.8); border-radius: calc(var(--u) * 0.5); color: var(--muted); font-size: var(--fs-body); }
 .topic .n { font-weight: 700; text-align: center; color: var(--dim); }
 .topic .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
-.topic .o { font-size: var(--fs-min); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(var(--u) * 10); }
-.topic .o:empty { display: none; }
+/* Fixed owner track: a row without one is not a hole, and one arriving moves nothing. */
+.topic .o { font-size: var(--fs-min); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.topic .o.none { color: var(--line); }
 .topic .b { font-size: var(--fs-min); color: var(--dim); white-space: nowrap; font-weight: 600; }
 .topic.done { color: var(--dim); } .topic.done .t { text-decoration: line-through; text-decoration-thickness: from-font; }
 .topic.done .n { color: var(--ok); }
@@ -122,23 +131,27 @@ b, strong { font-weight: 700; }
 .topic.live.over { box-shadow: inset calc(var(--u) * 0.5) 0 0 var(--bad); background: color-mix(in srgb, var(--bad) 22%, var(--panel-2)); }
 .topic.live.over .b, .topic.live.over .n { color: var(--bad); font-weight: 800; }
 .topic.more { color: var(--dim); font-size: var(--fs-min); } .topic.more .n { color: var(--dim); }
-#agenda.dense .topic { font-size: var(--fs-min); } #agenda.dense .topic .o { display: none; }
+#agenda.dense { gap: calc(var(--u) * 0.2); }
+#agenda.dense .topic { font-size: var(--fs-min); line-height: 1.15; grid-template-columns: calc(var(--u) * 2.6) minmax(0, 1fr) auto; }
+#agenda.dense .topic .o { display: none; }
 #agenda .nothing { font-size: var(--fs-body); color: var(--dim); align-self: center; text-align: center; }
 
 /* notes */
 #notes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: calc(var(--u) * 1.1); }
-.col { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: calc(var(--u) * 0.4); overflow: hidden; }
+.col { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: calc(var(--u) * 0.4); overflow: hidden; }
 .col h3 { margin: 0; font-size: var(--fs-min); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600;
   display: flex; justify-content: space-between; }
 .col h3 b { color: var(--text); }
-.col ul { margin: 0; padding: 0; list-style: none; display: grid; align-content: start; gap: calc(var(--u) * 0.35); overflow: hidden; }
-.col li { font-size: var(--fs-min); line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+/* Every note is whole lines: two at most, ellipsis at the end. Rows keep their natural
+   height, so a column that is too short loses whole notes to the `+N more` row, never half
+   of one. */
+.col ul { margin: 0; padding: 0; list-style: none; display: grid; grid-auto-rows: max-content; align-content: start; gap: calc(var(--u) * 0.35); overflow: hidden; }
+.col li { font-size: var(--fs-min); line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   padding-left: calc(var(--u) * 1.1); position: relative; color: var(--text); }
 .col li::before { content: ""; position: absolute; left: 0; top: calc(var(--u) * 0.55); width: calc(var(--u) * 0.55); height: calc(var(--u) * 0.55); border-radius: 50%; background: var(--accent); }
 .col.decisions li::before { background: var(--ok); } .col.parked li::before { background: var(--warn); }
-.col li.none { color: var(--dim); } .col li.none::before { display: none; }
-.col .more { color: var(--dim); font-size: var(--fs-min); }
-.col .more:empty { display: none; }
+.col li.none, .col li.more { color: var(--dim); } .col li.none::before, .col li.more::before { display: none; }
+.col li.more { -webkit-line-clamp: 1; }
 
 /* ── footer: Karen's last line, verbatim ────────────────────────────────────── */
 #foot { grid-area: foot; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: calc(var(--u) * 1.4); align-items: center;
@@ -177,9 +190,9 @@ b, strong { font-weight: 700; }
     <div id="right">
       <section class="panel"><h2><span>Agenda</span><span id="agenda-more" class="quiet"></span></h2><div id="agenda"></div></section>
       <section class="panel" style="grid-template-rows: minmax(0, 1fr)"><div id="notes">
-        <div class="col decisions"><h3>Decisions <b id="n-decisions"></b></h3><ul id="l-decisions"></ul><div class="more" id="m-decisions"></div></div>
-        <div class="col open"><h3>Open <b id="n-open"></b></h3><ul id="l-open"></ul><div class="more" id="m-open"></div></div>
-        <div class="col parked"><h3>Parked <b id="n-parked"></b></h3><ul id="l-parked"></ul><div class="more" id="m-parked"></div></div>
+        <div class="col decisions"><h3>Decisions <b id="n-decisions"></b></h3><ul id="l-decisions"></ul></div>
+        <div class="col open"><h3>Open <b id="n-open"></b></h3><ul id="l-open"></ul></div>
+        <div class="col parked"><h3>Parked <b id="n-parked"></b></h3><ul id="l-parked"></ul></div>
       </div></section>
     </div>
   </div>
