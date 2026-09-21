@@ -206,11 +206,7 @@ async def meeting_room(session_id: str) -> str:
     record = store.get(session_id)
     if record is None:
         raise HTTPException(404, "no such invite")
-    return room.render_room_page(
-        record,
-        stage_url=settings.chair_video_stage_url,
-        discord_url=settings.discord_meeting_url,
-    )
+    return room.render_room_page(record, discord_url=settings.discord_meeting_url)
 
 
 @app.get("/m/{session_id}/state")

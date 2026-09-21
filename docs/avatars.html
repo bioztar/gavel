@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Karen — the chair's tile image — gavel</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #5d6470;
+    --line: #e2e5ea;
+    --accent: #2f5fd0;
+    --warn-bg: #fff6e5;
+    --warn-line: #e0a64a;
+    --ok-bg: #ecf6ed;
+    --ok-line: #4a9c58;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 20px 72px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 "Helvetica Neue", Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--ink);
+    background: #f7f8fa;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 30px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 {
+    font-size: 21px; margin: 44px 0 6px; padding-bottom: 8px;
+    border-bottom: 3px solid var(--accent);
+  }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  .callout {
+    border-left: 4px solid var(--warn-line);
+    background: var(--warn-bg);
+    padding: 14px 18px; margin: 18px 0; border-radius: 0 6px 6px 0;
+  }
+  .callout.ok { border-left-color: var(--ok-line); background: var(--ok-bg); }
+  .callout p { margin: 0 0 8px; }
+  .callout p:last-child { margin-bottom: 0; }
+  .grid {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 22px; margin-top: 20px;
+  }
+  .card {
+    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    overflow: hidden; box-shadow: 0 1px 3px rgba(20,25,40,.07);
+  }
+  .card img { display: block; width: 100%; height: auto; background: #eceef2; }
+  .card .body { padding: 14px 16px 18px; }
+  .card h3 { margin: 0 0 4px; font-size: 17px; }
+  .card code { font-size: 13px; color: var(--muted); }
+  .card p { margin: 8px 0 0; font-size: 15px; color: var(--muted); line-height: 1.5; }
+  .tag {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em;
+    padding: 2px 8px; border-radius: 20px; margin-left: 6px; vertical-align: 2px;
+  }
+  .tag.picked { background: var(--ok-bg); color: #2c6b37; border: 1px solid var(--ok-line); }
+  .tag.rejected { background: #fdecec; color: #9c2a2a; border: 1px solid #d47a7a; }
+  .hero { max-width: 420px; }
+  .checks { margin: 14px 0 0; padding-left: 20px; font-size: 15px; color: var(--muted); }
+  footer { margin-top: 48px; color: var(--muted); font-size: 14px;
+           border-top: 1px solid var(--line); padding-top: 14px; }
+  a { color: var(--accent); }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  @media print {
+    body { background: #fff; color: #000; padding: 0; font-size: 12pt; }
+    .card { box-shadow: none; page-break-inside: avoid; }
+    .grid { gap: 14px; }
+    .callout { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Karen — the chair's tile image</h1>
+  <p class="sub">gavel · HackBarna AI Summit 26 · persona stills in <code>assets/persona/</code></p>
+
+  <div class="callout ok">
+    <p><strong>Decided.</strong> Vitaly picked candidate <code>chair-03</code>. She is
+       <strong>Karen</strong>. It is the still she presents in her participant tile; her live board
+        is a screen share from that tile, so this is the only image of her.</p>
+    <p>Two personas share the face and differ in behaviour:
+       <strong>formal Karen</strong> (precise, a little passive-aggressive, states time and
+       agenda facts) and <strong>funky Karen</strong> (funny, warm, enjoyable). Switch with
+       <code>CHAIR_PERSONA=formal|funky</code>.</p>
+  </div>
+
+  <h2>Formal Karen</h2>
+  <div class="grid">
+    <div class="card hero">
+      <img src="../assets/persona/karen-formal.png" alt="Formal Karen — the chair">
+      <div class="body">
+        <h3>karen-formal<span class="tag picked">picked</span></h3>
+        <code>assets/persona/karen-formal.png</code> · was <code>chair-03</code>
+        <p>fal-ai/flux/schnell, 1024×1024. Front-facing, direct eye contact, neutral
+           background, mouth unobstructed — reads as a person in a small tile.</p>
+      </div>
+    </div>
+  </div>
+
+  <h2>Funky Karen — candidates</h2>
+
+  <div class="callout ok">
+    <p><strong>Batch 2 — the regeneration worked.</strong> Strength raised and the funky
+       elements moved ahead of the identity clause, so the wardrobe and the background now
+       actually change. Batch 1 (three near-identical black blazers) is gone from this page;
+       the failure is recorded in <code>assets/persona/PROMPTS.md</code>.</p>
+    <p><strong>Your pick.</strong> helm's read is below each card — 01 is the only one that
+       clears every gate. Say the number and the service points at it.</p>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <img src="../assets/persona/karen-funky-01.png" alt="Funky Karen candidate 01">
+      <div class="body">
+        <h3>karen-funky-01<span class="tag picked">clears everything</span></h3>
+        <code>floral blazer · orange striped tee · tortoiseshell glasses</code>
+        <p>Same woman as formal Karen, unmistakably a different character. Front-facing,
+           mouth fully visible and unobstructed, plain background, no text. Reads at four
+           metres. The one to use unless you want something louder.</p>
+      </div>
+    </div>
+    <div class="card">
+      <img src="../assets/persona/karen-funky-02.png" alt="Funky Karen candidate 02">
+      <div class="body">
+        <h3>karen-funky-02<span class="tag rejected">render defect</span></h3>
+        <code>sequinned jacket · magenta rim light</code>
+        <p>A red laser streak crosses the eyebrow and hair — a generation artifact, not
+           styling, and it sits across the face. Also a three-quarter turn rather than
+             front-facing.</p>
+      </div>
+    </div>
+    <div class="card">
+      <img src="../assets/persona/karen-funky-03.png" alt="Funky Karen candidate 03">
+      <div class="body">
+        <h3>karen-funky-03<span class="tag rejected">different person</span></h3>
+        <code>mustard cardigan · pencil in bun · sticky-note wall</code>
+        <p>Best styling of the three and the wrong face — different bone structure, not
+           Karen. The sticky-note wall also carries written text, which the checklist rules
+           out.</p>
+      </div>
+    </div>
+  </div>
+
+  <h2>What a funky Karen has to clear</h2>
+  <ul class="checks">
+    <li>A stranger sees <strong>two different characters</strong> in a participant tile.</li>
+    <li>Still recognisably the <strong>same woman</strong> — same face, same hair.</li>
+    <li><strong>Mouth fully visible and unobstructed</strong>, face uncluttered.</li>
+    <li>Front-facing, direct eye contact, head and shoulders.</li>
+    <li>No text, watermark or logo.</li>
+  </ul>
+
+  <footer>
+    Prompts and generation parameters: <code>assets/persona/PROMPTS.md</code>.
+    Board: <a href="index.html">gavel tasks</a>.
+  </footer>
+
+</div>
+</body>
+</html>

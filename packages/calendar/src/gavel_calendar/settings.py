@@ -3,8 +3,7 @@
 Same pattern as `packages/ears-discord/src/ears/settings.py`. Never log a
 setting's value — on a missing/invalid one, raise with its *name* only.
 
-`packages/calendar` is itself sometimes checked out as a git worktree (see
-`packages/chair-video/src/chair_video/settings.py`, same fix): the repo-root
+`packages/calendar` is itself sometimes checked out as a git worktree: the repo-root
 `.env` may then live in a sibling checkout rather than two directories up, so
 both the worktree-relative path and the main checkout's absolute path are
 tried, with `GAVEL_ENV_FILE` as an explicit override.
@@ -67,11 +66,6 @@ class Settings(BaseSettings):
     # address and the console's HTTP auth is left alone. Unreachable is not an
     # error: the room page then shows its banked report, or the agenda.
     brain_state_url: str = "http://localhost:8788/state"
-    # The chair-video stage embedded as Karen's face. Relative by default: on
-    # the deployed host Traefik routes /stage/ to chair-video, so this works
-    # without knowing the domain. Point it at http://localhost:8791/stage/ to
-    # run the two services side by side.
-    chair_video_stage_url: str = "/stage/"
 
     # --- attendee identity seam ------------------------------------------------
     # A calendar invite gives name + email, never a Discord id. Until there is a

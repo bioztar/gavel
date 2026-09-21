@@ -61,8 +61,10 @@ at all; an `ears` package owns one connection and makes no decisions. They meet 
 agent chair a Discord call and a Vonage call, and lets people build in parallel for
 thirteen hours without touching each other's files.
 
-**Discord** is where meetings already happen. Karen has no generated face there — Discord
-does not allow bots to publish video — so her presence in the room is her voice.
+**Discord** is where meetings already happen. Karen's presence in the room is her voice,
+a static persona still in her participant tile (`assets/persona/`), and a live board —
+agenda, talk-time, decisions — that she presents as a screen share from that tile
+(`packages/stage`, built separately).
 
 ## Sponsor stack
 
@@ -81,10 +83,11 @@ uses the ears operator console; the Vonage surface remains planned.
 | Path | Owner | What |
 |---|---|---|
 | `packages/ears-discord` | one person | Discord voice: join, speaking events, STT, audio playback |
-| `packages/ears-vonage` | one person | Vonage session: join as a participant, audio levels, publish voice + face |
+| `packages/ears-vonage` | one person | Vonage session: join as a participant, audio levels, publish voice |
 | `packages/brain` | the other | Meeting lifecycle, talk-time, agenda, moderation, notes, Nebius |
 | `packages/concierge` | whoever is free | Stretch: Discord bot that writes the agenda |
 | `packages/contract` | both | Shared schema and fixtures. Changes need both to agree |
+| `assets/persona` | — | Karen's persona stills — the image in her participant tile (`PROMPTS.md` records how they were made) |
 
 ## Try it
 

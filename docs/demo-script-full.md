@@ -180,8 +180,8 @@ Off slide 1, left to right, one sentence per lane:
 > Deterministic, testable, and it runs every 250 milliseconds. Mastra and Nebius are only
 > asked for the *words* — the decision was already made.
 >
-> **Speak** — text to speech back through SLNG, into the same call. No generated face —
-> her presence in the room is her voice, and the status screen is what you look at.
+> **Speak** — text to speech back through SLNG, into the same call. Her tile holds a still
+> of Karen, and the live board she presents from that tile is what you look at.
 >
 > Five containers behind Traefik. One of them knows what Discord is. That is the whole
 > reason this moves to Teams."

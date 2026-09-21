@@ -111,7 +111,7 @@ that joins the session as an ordinary participant — no headless Chrome, no dep
 |---|---|---|---|---|
 | V1 | Join a session, subscribe to everyone, threshold `audioLevelUpdated` into `speaking.start/end` frames over the wire | 1h | contract |
 | V2 | Publish the chair's voice — `AudioContext` destination as the publisher's `audioSource`, fed by the brain's `speak` frames | 1h | V1 |
-| V3 | Publish the chair's face as a video track | — | — | cut — Karen has no generated face; she shares a live status screen instead |
+| V3 | Publish the chair's face as a video track | — | — | cut — Karen's presence is a static persona still in her tile plus the live board she presents as a screen share (`packages/stage`) |
 | V4 | Depth: `session.signal()` pushes agenda + interventions to every participant's UI; enable archiving | 30m | V1 |
 
 Two things to respect at init, both documented gotchas: never initialise a publisher with
@@ -135,7 +135,7 @@ documented and supported, where Discord's voice receive is neither.
 | B7 | SLNG TTS → `speak` frame over the wire, including exact display text | 1h | B6 | done |
 | B8 | Operator view — agenda, talk-time, Karen's lines, facts, decisions and parking lot | 1.5h | B2, B4 | done in ears console |
 | B11 | Fire drill — hazard heard, host confirms, demo SMS goes out | 1h | E6, V5, B6a | todo |
-| B9 | Generated face/video | — | — | cut — no generated face; Karen shares a live status screen |
+| B9 | Generated face/video | — | — | cut — replaced by the static tile still + the presented live board (`packages/stage`) |
 | B10 | Transcripts, relevance, content-aware lines and structured minutes-lite | 1.5h | E6 | done |
 
 B6 always has a template fallback. A model call inside a live interruption is a latency
@@ -196,7 +196,7 @@ Artem has one to spare. If it slips, it slips — the demo works on one surface.
 Drop in this order:
 
 1. **Concierge** — already parked. The agenda is a prepared file.
-2. **The chair's face (B9, V3)** — cut. Karen has no generated face; the status screen shows the meters.
+2. **The chair's face (B9, V3)** — cut. Karen's presence is her tile still plus the live board she presents as a screen share (`packages/stage`); the board shows the meters.
 3. **Transcript features (E5, E6, B10)** — the whole tier 2. The spine does not need them.
 4. **The second surface** — if Vonage is not working by 21:00, demo Discord alone and
    show the seam in the README. One brain, two ears, is a slide as well as a fact.
@@ -207,7 +207,8 @@ Drop in this order:
 
 - **E1 is the unknown.** One hour, first thing, before anything is built on it.
 - **Discord blocks bot video.** A fact, not a risk — Karen's presence in the call is her
-  voice, and the meeting state goes on a screen-shared status page, never a bot camera.
+  voice, a static still in her tile, and the live board she presents as a screen share —
+  never a bot camera.
   Do not spend an hour rediscovering it.
 - **Latency on the intervention.** Measure TTS round-trip early. Over ~3 seconds and the
   interruption lands after the moment. Pre-warm the TTS and template the common lines.

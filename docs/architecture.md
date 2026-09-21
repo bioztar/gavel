@@ -1,7 +1,9 @@
 # gavel — architecture
 
 An AI chair ("Karen") that sits in a real Discord call: she hears the room, decides when
-someone has had the floor too long, and says so out loud.
+someone has had the floor too long, and says so out loud. Her tile carries a static persona
+still (`assets/persona/`); the live board she presents from it — agenda, talk-time,
+decisions — is a screen share (`packages/stage`, built separately).
 
 Two parts: **the live path** (what runs during a meeting) and **off the live path** (what
 built the code and proved the chair says something sane).
@@ -46,7 +48,7 @@ flowchart LR
 |---|---|---|
 | 1 | **Hear** | `ears-discord` holds the voice connection and knows who is speaking. **SLNG** transcribes each utterance live. Postgres and Redis keep the transcript and the floor clock. |
 | 2 | **Think** | `brain` is Karen. Plain code holds the agenda and fires on facts, not vibes — 60% of the floor, a topic over budget, a must-hear attendee still silent. **Mastra** orchestrates the model calls; **Nebius** writes the one sentence she says: under 20 words, names the person, hands the floor somewhere specific. `calendar` turned a real `.ics` invite into that agenda before the meeting started. |
-| 3 | **Speak** | **SLNG** turns the line into her voice, `ears-discord` plays it back into the live call — the room hears her interrupt. **Vonage Video** restreams the meeting as HLS with an archive for anyone not in the call. |
+| 3 | **Speak** | **SLNG** turns the line into her voice, `ears-discord` plays it back into the live call — the room hears her interrupt. What you look at is her tile still and the live board she presents as a screen share. **Vonage Video** restreams the meeting as HLS with an archive for anyone not in the call. |
 
 Underneath: five containers behind Traefik on one VPS — `ears-discord`, `brain`, `calendar`,
 `stream-vonage`, Postgres/Redis. Every seam is HTTP or a WebSocket, so any one

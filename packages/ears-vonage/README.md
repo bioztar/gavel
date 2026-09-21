@@ -27,7 +27,8 @@ media devices, no deployment. For a hackathon demo that is the whole trick.
   `speaking.end`. Those two timers are the only real tuning in this package.
 - **Custom publisher sources.** `OT.initPublisher()` accepts a `MediaStreamTrack` as
   `audioSource`. Audio comes from an `AudioContext` `MediaStreamDestination` the brain's
-  TTS is played into. Karen publishes no video — she has no generated face.
+  TTS is played into. Karen publishes no camera video — her tile carries a static persona
+  still and she presents her live board as a screen share.
 - **Gotcha to respect at init:** never initialise with `audioSource: false` — a publisher
   created without an audio source can never gain one.
 

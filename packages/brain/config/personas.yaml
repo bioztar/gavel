@@ -9,9 +9,11 @@
 #      invalidates Nebius's cached prompt prefix for a few calls: expected, not a bug.
 #
 # `tone` is folded into the chair's system prompt (the stable prefix), never into the
-# per-call suffix — see src/config.ts. `voice` is an SLNG TTS voice id — left blank because
-# no second voice has been confirmed for either persona yet (models.yaml's single voice is
-# used for both until one is). Never invent a voice id here.
+# per-call suffix — see src/config.ts. `avatar` is the still the chair presents in her
+# participant tile (repo-root assets/persona/); her live board is a screen share from that
+# tile, so the still is the only image of her. `voice` is an SLNG TTS voice id — left blank
+# because no second voice has been confirmed for either persona yet (models.yaml's single
+# voice is used for both until one is). Never invent a voice id here.
 
 active: funky
 
@@ -26,6 +28,7 @@ personas:
         it land, then redirect. Never sarcasm, never a remark about someone's ability or
         character — the fact does the work, you don't have to.
       - Aim under 20 words when the facts allow it; never pad with pleasantries.
+    avatar: assets/persona/karen-formal.png
     voice: "" # not confirmed — see note above
 
   funky:
@@ -40,4 +43,5 @@ personas:
         conversation: one clock joke per meeting, at most. No fresh joke? Skip it.
       - Still brief and still in charge: the joke is a beat, not a monologue.
       - The joke counts toward the 20 words; never pad with pleasantries.
+    avatar: assets/persona/karen-funky-01.png
     voice: "" # not confirmed — see note above

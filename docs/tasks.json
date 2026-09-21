@@ -49,7 +49,7 @@
     },
     {
       "id": "face",
-      "title": "face — the chair's video — cut, Karen has no generated face",
+      "title": "face — the chair's video — cut, replaced by the tile still + presented live board",
       "package": "—"
     },
     {
@@ -770,7 +770,7 @@
       "id": "fal",
       "name": "fal API key — in .env only, never committed",
       "who": "fal mentor on site",
-      "blocks": "B9, V3 — the face. Cut: Karen has no generated face",
+      "blocks": "B9, V3 — the face. Cut: replaced by the tile still + presented live board",
       "status": "cut"
     },
     {
@@ -783,7 +783,7 @@
   ],
   "cutOrder": [
     "Concierge — already parked",
-    "The chair's face (B9, V3, F1–F7) — cut: Karen has no generated face, she shares a live status screen",
+    "The chair's face (B9, V3, F1–F7) — cut: Karen's presence is a static persona still in her tile plus the live board she presents as a screen share (packages/stage)",
     "The fire drill (B11, V5) — cut only if STT and the stage fallback both die",
     "Transcript features (E5, E6, B10)",
     "The second surface — demo one call surface, show the seam in the README",

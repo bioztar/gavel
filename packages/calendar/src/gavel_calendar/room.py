@@ -4,13 +4,13 @@ The invite email already points everyone here ("Agenda and live status"), so
 this page is the meeting's whole public face. It has three states and one URL:
 
     before   the agenda, who is expected, and the Join button
-    live     Karen's face, the topic clock, the floor, and every call she makes
+    live     the topic clock, the floor, and every call Karen makes
     after    the report: what was decided, what is open, who held the floor
 
 **It is built to be screen-shared.** The organizer opens this link and shares
-the tab, and that is also the answer to "a Discord bot cannot publish video":
-the page embeds the chair-video stage, so the room sees Karen's face on the
-shared screen while it reads what she is doing.
+the tab, so the room reads what Karen is doing while it hears her. Karen
+herself is in the call as a participant: a static persona still in her tile,
+and her own live board presented from it.
 
 That is why the default view is a dark, single-screen board — no scrolling, type
 in `vh` so it scales to whatever it is shared on, and nothing on it that has to
@@ -230,7 +230,7 @@ def room_state(
     }
 
 
-def render_room_page(record: InviteRecord, *, stage_url: str, discord_url: str = "") -> str:
+def render_room_page(record: InviteRecord, *, discord_url: str = "") -> str:
     """The shell.
 
     The agenda is server-rendered into it, so the link is worth opening before
@@ -258,7 +258,6 @@ def render_room_page(record: InviteRecord, *, stage_url: str, discord_url: str =
         {
             "sessionId": record.session_id,
             "pollSeconds": POLL_SECONDS,
-            "stageUrl": stage_url,
         }
     )
     return f"""<!doctype html>
@@ -289,9 +288,7 @@ def render_room_page(record: InviteRecord, *, stage_url: str, discord_url: str =
 </div>
 
 <main class="board">
-  <section class="video">
-    <iframe id="stage" class="stage" src="{e(stage_url)}" title="Karen"
-            allow="autoplay; fullscreen" referrerpolicy="no-referrer"></iframe>
+  <section class="lead">
     <div class="block agenda-block">
       <p class="kicker">Agenda</p>
       <ol class="agenda" id="agenda">{agenda_rows}</ol>
@@ -406,11 +403,7 @@ body.share .count { margin-left: 1.2vw; }
 body.detail .count { margin-left: 14px; }
 body.share .board { display: grid; grid-template-columns: 0.82fr 2fr; gap: 1.8vw;
                     min-height: 0; }
-body.share .video { min-height: 0; display: grid;
-                    grid-template-rows: auto minmax(0, 1fr); gap: 1.8vh; }
-body.share .stage { width: 100%; aspect-ratio: 16 / 9; height: auto;
-                    border: 1px solid var(--hair); border-radius: 14px; background: #000;
-                    display: block; }
+body.share .lead { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); }
 body.share .side { display: grid; grid-template-rows: auto minmax(0, 1fr);
                    gap: 1.6vh; min-height: 0; }
 body.share .block { min-height: 0; }
@@ -454,15 +447,13 @@ body.share .record .notes li { font-size: clamp(14px, 2.7vh, 34px); line-height:
                                padding: .6vh 0; border: 0; letter-spacing: -.012em; }
 body.share .record .notes .who { display: block; color: var(--dim); font-size: .7em;
                                  letter-spacing: 0; }
-/* After the meeting the picture is dead air — give the record the whole screen. */
+/* After the meeting the agenda is history — give the record the whole screen. */
 body.share[data-phase="after"] .board { grid-template-columns: 1fr; }
-body.share[data-phase="after"] .video { display: none; }
+body.share[data-phase="after"] .lead { display: none; }
 body.share[data-phase="after"] .record .notes li { font-size: clamp(13px, 2.2vh, 26px); }
 
 /* ---- the same state as a document -------------------------------------- */
 body.detail { padding: 56px 24px 96px; max-width: 1080px; margin: 0 auto; }
-body.detail .stage { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 16px;
-                     background: #000; display: block; }
 body.detail .trail-block { display: none; }
 body.detail .board { display: grid; grid-template-columns: 1.35fr 1fr; gap: 24px;
                      margin: 28px 0; align-items: start; }
@@ -509,7 +500,6 @@ body.detail .feed .line { margin: 6px 0 0; font-size: 17px; line-height: 1.45; }
 @media (max-width: 760px) {
   body.share { height: auto; overflow: auto; }
   body.share .board, body.share .record { grid-template-columns: 1fr; }
-  body.share .stage { aspect-ratio: 16 / 9; height: auto; }
   body.detail .board, body.detail .record { grid-template-columns: 1fr; }
 }
 """

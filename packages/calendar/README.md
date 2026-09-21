@@ -84,10 +84,6 @@ is the only thing that survives a lit room, and a mostly-white screen is what a 
 compression keeps sharpest. Type is sized in `vh` throughout, so the board scales to
 whatever it is shared on rather than to a laptop.
 
-**Karen's face.** The page embeds chair-video's stage (`CHAIR_VIDEO_STAGE_URL`, `/stage/`
-on the deployed host). Discord does not let a bot publish video at all — the shared tab is
-how she gets a face in the call.
-
 **Where the state comes from.** The brain's `/state` (`BRAIN_STATE_URL`), fetched
 server-side — the browser never needs the brain's address, and the ears console's HTTP
 auth is left where it is. Two rules matter:
@@ -223,7 +219,6 @@ meeting.
 | `COMPOSE_DEFAULT_ATTENDEES` | see `.env.example` | `"Name <email>, Name <email>, ..."` — prefills `GET /compose` |
 | `DISCORD_MEETING_URL` | see `.env.example` | the `.ics` `LOCATION`, the success page's Discord link, and the room page's **Join the call** |
 | `BRAIN_STATE_URL` | `http://localhost:8788/state` | the chair's live view, for the meeting room. Unreachable: the room shows the banked report or the agenda |
-| `CHAIR_VIDEO_STAGE_URL` | `/stage/` | Karen's face, embedded in the room. Relative by default — Traefik routes `/stage/` to chair-video on the deployed host |
 | `COMPOSE_TIMEZONE` | `Europe/Madrid` | IANA name — what relative times like "in an hour" resolve against |
 
 Missing/invalid config fails with the setting's name — no value is ever read into a log

@@ -148,13 +148,14 @@ def test_state_route_survives_an_unreachable_brain(httpx_mock: HTTPXMock) -> Non
         assert resp.json()["phase"] == "before"
 
 
-def test_room_page_carries_the_chair_video_stage_and_the_agenda() -> None:
+def test_room_page_carries_the_agenda_and_no_embedded_stage() -> None:
     _save(_record())
     with TestClient(app) as client:
         page = client.get("/m/abc123")
 
     assert page.status_code == 200
-    assert settings.chair_video_stage_url in page.text
+    assert "<iframe" not in page.text
+    assert "stageUrl" not in page.text
     assert "Where we actually are" in page.text
     assert "Join the call" in page.text
     assert "s.chairSpeaking" not in page.text
