@@ -88,4 +88,40 @@ describe("rowsFromDraft", () => {
     expect(rows[1]).toEqual({ title: "Rollout", minutes: "", owner: "Vitaly", mustHear: "Vitaly", type: "presentation" });
     expect(rows[2]).toEqual({ title: "", minutes: "", owner: "", mustHear: "", type: "discussion" });
   });
+
+  it('treats owner: "" like a missing owner — the Python is `t.owner or host_name`', () => {
+    const rows = rowsFromDraft(
+      [{ title: "Rollout", minutes: 15, owner: "", mustHear: [], type: "discussion" }],
+      "Vitaly",
+    );
+    expect(rows[0]).toEqual({ title: "Rollout", minutes: "15", owner: "Vitaly", mustHear: "Vitaly", type: "discussion" });
+    for (const row of rows.slice(0, -1)) {
+      expect(row.owner).not.toBe("");
+      expect(row.mustHear).not.toBe("");
+    }
+  });
+
+  it("never leaves an owner or must-hear blank on a real row, whatever the model omits", () => {
+    const rows = rowsFromDraft(
+      [
+        { title: "A", minutes: null, owner: null, mustHear: [], type: "discussion" },
+        { title: "B", minutes: 5, owner: "", mustHear: [""], type: "discussion" },
+        { title: "C", minutes: 5, owner: "Ana", mustHear: [], type: "presentation" },
+      ],
+      "Vitaly",
+    );
+    expect(rows.slice(0, -1).map((r) => [r.owner, r.mustHear])).toEqual([
+      ["Vitaly", "Vitaly"],
+      ["Vitaly", "Vitaly"],
+      ["Ana", "Ana"],
+    ]);
+  });
+});
+
+describe("rowsFromLines vs rowsFromDraft", () => {
+  it("applies the same owner-and-must-hear rule on the fallback row (deliberate divergence from the Python)", () => {
+    const [fallback] = rowsFromLines("Pricing", "Vitaly");
+    const [parsed] = rowsFromDraft([{ title: "Pricing", minutes: null, owner: null, mustHear: [], type: "discussion" }], "Vitaly");
+    expect(fallback).toEqual(parsed);
+  });
 });

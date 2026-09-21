@@ -6,9 +6,11 @@
 // that clears it is asked inline, and the typed answer is appended to the brief
 // and re-parsed through the *same* path — there is no second-class agenda.
 //
-// The server applies the same rule again on `POST /ext/v1/agendas` (422 on an
-// empty topic list), so a client that skips this file still cannot register a
-// meeting with nothing to decide. This copy is what the host sees and when.
+// This file runs in a content script, which is public code anyone can edit,
+// so on its own it is advisory: it decides what the host sees and when, not
+// what the server accepts. The server MUST reject `POST /ext/v1/agendas` with
+// 422 when `agenda.topics` is empty (spec in packages/extension/README.md);
+// until that endpoint exists there is no enforced gate, only this one.
 
 import type { Draft, DraftTopic, Person, TopicRow } from "./types.js";
 
@@ -53,7 +55,13 @@ export function gate(draft: Draft | null, typed: string, attendees: Person[]): G
 }
 
 /** `compose.py:_rows_from_lines` — one topic per line (or `;`-separated
- *  chunk), bullets stripped, the host as owner. Last resort only. */
+ *  chunk), bullets stripped, the host as owner. Last resort only.
+ *
+ *  Deliberate divergence: the Python leaves `must_hear` blank on these rows
+ *  while `_rows_from_parsed` gives an unassigned topic the host as owner *and*
+ *  must-hear. That is read as an inconsistency in the original, not intent —
+ *  its own docstring says a blank gives the chair nothing to chase — so the
+ *  fallback row follows the same owner-and-must-hear rule as the parsed row. */
 export function rowsFromLines(typed: string, hostName: string): TopicRow[] {
   const rows: TopicRow[] = [];
   for (const line of typed.split("\n")) {
@@ -70,7 +78,8 @@ export function rowsFromLines(typed: string, hostName: string): TopicRow[] {
  *  is one keystroke to fix, a blank gives the chair nothing to chase. */
 export function rowsFromDraft(topics: DraftTopic[], hostName: string): TopicRow[] {
   const rows = topics.map<TopicRow>((t) => {
-    const owner = t.owner ?? hostName;
+    // `t.owner or host_name`: an owner of `""` is absent too.
+    const owner = t.owner || hostName;
     return {
       title: t.title,
       minutes: t.minutes === null ? "" : String(t.minutes),

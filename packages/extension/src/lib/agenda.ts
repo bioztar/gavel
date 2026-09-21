@@ -204,8 +204,9 @@ function uniqueFirstName(attendees: ContractAttendee[], key: string): string | u
   return hits.length === 1 ? hits[0]!.discordId : undefined;
 }
 
-/** What `POST /ext/v1/agendas` refuses with a 422, checked here first so the
- *  panel never gets as far as the network with an empty agenda. */
+/** What `POST /ext/v1/agendas` MUST refuse with a 422 (see README), checked
+ *  here first so the panel never gets as far as the network with an empty
+ *  agenda. Client-side only, so advisory — the server check is the gate. */
 export function isRegistrable(agenda: ContractAgenda): boolean {
   return agenda.topics.length > 0 && agenda.totalSeconds > 0 && agenda.attendees.length > 0;
 }

@@ -255,8 +255,12 @@ Response `201`:
 { "sessionId": "a43cba0b116a", "joinUrl": "https://gavel.example.com/join/a43cba0b116a" }
 ```
 
-`422` when `agenda.topics` is empty or there is no `role: "host"` attendee —
-the server-side copy of the gate. `joinUrl` goes into the invite description.
+**The server MUST answer `422` when `agenda.topics` is empty** (and when there
+is no `role: "host"` attendee). This is the enforced half of the refusal gate,
+not a nicety: `src/lib/gate.ts` runs in a content script, which is public code
+anyone can edit, so until this endpoint rejects empty agendas the gate is
+advisory and a modified client can register a meeting with nothing to decide.
+`joinUrl` goes into the invite description.
 
 ## What is mocked
 
