@@ -428,6 +428,19 @@ services:
       traefik.http.middlewares.cloture-docs-slash.redirectregex.regex: ^(https?://[^/]+)/docs$$
       traefik.http.middlewares.cloture-docs-slash.redirectregex.replacement: $${1}/docs/
       traefik.http.middlewares.cloture-docs-strip.stripprefix.prefixes: /docs
+      # The same decks on their own name, at the root: cloture.pro7ocol.com/pitch.
+      # No stripprefix and no slash redirect — there is no prefix to strip, and the root
+      # already serves index.html, so index.html's relative fetch of tasks.json resolves.
+      # Added 2026-09-22, after the A record for this name was confirmed at the
+      # authoritative nameservers and at 8.8.8.8/1.1.1.1. It must stay that way round:
+      # the resolver is tls-alpn-01, and a router on a name that does not resolve fails
+      # every attempt against a failure budget Let's Encrypt counts per registered
+      # domain — i.e. shared with every other pro7ocol.com service on this Traefik.
+      traefik.http.routers.cloture-root.rule: Host(`${CLOTURE_DOMAIN:-cloture.pro7ocol.com}`)
+      traefik.http.routers.cloture-root.entrypoints: websecure
+      traefik.http.routers.cloture-root.tls: "true"
+      traefik.http.routers.cloture-root.tls.certresolver: mytlschallenge
+      traefik.http.routers.cloture-root.service: cloture-docs
       traefik.http.services.cloture-docs.loadbalancer.server.port: "8799"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8799/healthz"]
