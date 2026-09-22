@@ -12,6 +12,7 @@
     "mock": "node mock/server.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "package": "node scripts/build.mjs && node scripts/audit-bundle.mjs && node scripts/package.mjs",
     "check": "npm run typecheck && npm test && npm run build && node scripts/audit-bundle.mjs"
   },
   "devDependencies": {

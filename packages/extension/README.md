@@ -122,6 +122,8 @@ node scripts/audit-bundle.mjs     # fails on eval / new Function / importScripts
                                   # <all_urls> or *://*/* / weak CSP / undeclared bundles
 node scripts/audit-bundle.mjs --dev   # same on dist-dev/
 npm run check                     # all of the above on dist/
+npm run package                   # build + audit + zip → dist/gavel-extension-<version>.zip
+                                  # (the exact upload for Chrome Web Store / Edge Add-ons)
 ```
 
 ## Building for real
