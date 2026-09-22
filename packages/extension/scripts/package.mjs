@@ -108,7 +108,8 @@ if (!(await stat(dist).catch(() => null))) {
   process.exit(1);
 }
 
-const files = (await walk(dist)).sort();
+// A previous run's zip lives in dist/ — never package it into the next one.
+const files = (await walk(dist)).filter((f) => !f.endsWith(".zip")).sort();
 const entries = await Promise.all(
   files.map(async (file) => ({
     name: path.relative(dist, file).split(path.sep).join("/"),
