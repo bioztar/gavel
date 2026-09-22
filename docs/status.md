@@ -13,8 +13,8 @@
 | `brain` | Decides everything. Agenda, turns, timing. Imports no call SDK. | 🟢 Works | In compose — not running anywhere now |
 | `ears-discord` | Discord call connection. Decides nothing. | 🟢 Works | In compose as `ears` — not running now |
 | `calendar` | Scheduling / booking service. | 🟢 Works | In compose — not running anywhere now |
-| `ears-meet` | Google Meet connection. Chromium + Playwright + PulseAudio. | 🟡 Built, unproven | **No** — no compose service |
-| `stage` | Karen's live board. She screen-shares it; no separate page to visit. | 🟡 Demo mode only | **No** — no compose service |
+| `ears-meet` | Google Meet connection. Chromium + Playwright + PulseAudio. | 🟡 Built, unproven | In compose under the `meet` profile — `scripts/demo-up.sh` |
+| `stage` | Karen's live board. She screen-shares it; no separate page to visit. | 🟡 Demo mode only | In compose under the `meet` profile — `scripts/demo-up.sh` |
 | `extension` | `/compose` as a browser plugin. Signs into the real account. | 🟡 Builds, unpublished | No store listing yet |
 | `contract` | The frozen seam: WebSocket JSON frames + fixtures. | 🟢 Frozen | n/a — shared spec |
 | `concierge` | Bot that interviews the host and writes the agenda. | ⚪ Parked | Deliberately not built |
@@ -74,18 +74,20 @@ MEET_PROFILE_DIR=~/gavel-meet-profile just login    # on a laptop, once
 just live-check --launch --duration 180 --speak-after 20
 ```
 
-### Not testable as a deployment
+### As a deployment
 
-Neither `ears-meet` nor `stage` has a service block in `compose.yaml`. They run from a terminal,
-by hand. Nothing stands up the Meet route as a service yet — and this was never wired, it isn't
-something the merges broke.
+`ears-meet` and `stage` have service blocks in `compose.yaml` under the `meet` profile.
+`scripts/demo-preflight.sh` says whether a box is ready (images, settings present, ports,
+the still, the brain pointed at the right ears); `scripts/demo-up.sh` runs it, brings the
+profile up, waits for health and prints where the board and console are. See
+[EARS-MEET.md § Docker](EARS-MEET.md#docker). Being *up* is not the same as *proven*: the
+first real call is still on the list below.
 
 ## 4 · What needs you
 
 | Item | Why it's stuck | Who |
 |---|---|---|
 | First real Meet call | A root-capable Linux box, a profile signed in on a screen, and a second participant | **You** |
-| Compose blocks for `ears-meet` + `stage` | Never written. Not a merge regression — no commit ever had them | helm |
 | Norma's findings | ~230 findings sit behind a login I don't have. 7 real ones fixed; 10 visible ones judged noise | **You** (login) |
 | Two Devin sessions | Suspended mid-flight — close them or resume | **You** |
 | Plugin store listing | Chrome Web Store / Workspace Marketplace need a publisher account | **You** |

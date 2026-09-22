@@ -160,8 +160,12 @@ services:
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
       LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
       LANGFUSE_TRACING_ENVIRONMENT: ${LANGFUSE_TRACING_ENVIRONMENT:-}
-      EARS_WIRE_URL: ws://ears:8787
-      EARS_HTTP_URL: http://ears:8787
+      # Which ears the brain listens to. Default: the Discord `ears` service. With the
+      # `meet` profile set EARS_WIRE_URL=ws://ears-meet:8787 and
+      # EARS_HTTP_URL=http://ears-meet:8787 in .env (scripts/demo-preflight.sh checks).
+      # A 127.0.0.1/localhost value from a laptop .env would point the brain at itself.
+      EARS_WIRE_URL: ${EARS_WIRE_URL:-ws://ears:8787}
+      EARS_HTTP_URL: ${EARS_HTTP_URL:-http://ears:8787}
       POSTGRES_DSN: postgresql://gavel:gavel@postgres:5432/gavel
       AGENDA_FILE: /app/contract/fixtures/agenda.demo.json
       STAGE_HOST: 0.0.0.0
@@ -261,8 +265,101 @@ services:
       retries: 12
       start_period: 5s
 
+  # --- `meet` profile: the Google Meet surface and the board Karen shares -------
+  # docker compose --profile meet up -d   (scripts/demo-up.sh does this with checks)
+  # The Discord `ears` still starts (wire-only without a token) so brain's depends_on
+  # holds; point the brain at this one via EARS_WIRE_URL / EARS_HTTP_URL above.
+  ears-meet:
+    image: gavel-ears-meet:local
+    build:
+      context: .
+      dockerfile: packages/ears-meet/Dockerfile
+    profiles: [meet]
+    init: true
+    restart: unless-stopped
+    shm_size: 2g # Chromium
+    environment:
+      MEET_URL: ${MEET_URL:-}
+      MEET_BOT_NAME: ${MEET_BOT_NAME:-Karen (gavel)}
+      # The signed-in Chromium profile, mounted from MEET_PROFILE_HOST_DIR. It is the
+      # credential: never in the image, never committed.
+      MEET_PROFILE_DIR: /profile
+      # Fallback only; prefer the profile. Never echoed.
+      MEET_BOT_EMAIL: ${MEET_BOT_EMAIL:-}
+      MEET_BOT_PASSWORD: ${MEET_BOT_PASSWORD:-}
+      MEET_ADMIT_TIMEOUT_S: ${MEET_ADMIT_TIMEOUT_S:-180}
+      MEET_CAPTIONS: ${MEET_CAPTIONS:-true}
+      TRANSCRIPT_SOURCE: ${TRANSCRIPT_SOURCE:-auto}
+      # Karen's camera tile: a still under assets/persona, baked into the image.
+      MEET_FACE_IMAGE: ${MEET_FACE_IMAGE:-assets/persona/karen-formal.png}
+      STAGE_URL: http://stage:8793
+      DISPLAY: ":99"
+      XVFB_MANAGE: "true"
+      PULSE_MANAGE: "true"
+      SLNG_API_KEY: ${SLNG_API_KEY:-}
+      SLNG_BASE_URL: ${SLNG_BASE_URL:-https://eu-west.api.slng.ai}
+      SLNG_STT_MODEL: ${SLNG_STT_MODEL:-deepgram/nova:3}
+      SLNG_STT_LANGUAGE: ${SLNG_STT_LANGUAGE:-en}
+      SLNG_TTS_MODEL: ${SLNG_TTS_MODEL:-deepgram/aura:2}
+      SLNG_TTS_VOICE: ${SLNG_TTS_VOICE:-aura-2-thalia-en}
+      STT_MODE: ${STT_MODE:-stream}
+      WIRE_HOST: 0.0.0.0
+      WIRE_PORT: 8787
+      BRAIN_STATE_URL: http://brain:8788/state
+      FRAMES_FILE: /recordings/live.jsonl
+      LOG_JSON: "true"
+    volumes:
+      - ${MEET_PROFILE_HOST_DIR:-./secrets/meet-profile}:/profile
+      - ears_meet_recordings:/recordings
+    ports:
+      # The Discord ears holds 8787 on the host; this one gets its own loopback port.
+      - "127.0.0.1:${MEET_WIRE_PORT:-8797}:8787"
+    depends_on:
+      stage:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health', timeout=2)",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+
+  stage:
+    image: gavel-stage:local
+    build:
+      context: .
+      dockerfile: packages/stage/Dockerfile
+    profiles: [meet]
+    init: true
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8793
+      BRAIN_STATE_URL: http://brain:8788/state
+    ports:
+      - "127.0.0.1:${BOARD_PORT:-8793}:8793"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8793/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
 volumes:
   postgres_data:
+  ears_meet_recordings:
 
 networks:
   traefik-public:

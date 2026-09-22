@@ -18,3 +18,7 @@ __pycache__/
 *.mp4
 *.mov
 ~$*
+
+# The signed-in Meet profile and live recordings never go in the repo
+secrets/
+recordings/

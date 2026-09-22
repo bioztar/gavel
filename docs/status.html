@@ -67,9 +67,9 @@
     <tr><td class="mono">calendar</td><td>Scheduling / booking service.</td>
         <td class="dot g">● Works</td><td>In compose — not running anywhere now</td></tr>
     <tr><td class="mono">ears-meet</td><td>Google Meet connection. Chromium + Playwright + PulseAudio.</td>
-        <td class="dot a">◐ Built, unproven</td><td><strong>No</strong> — no compose service</td></tr>
+        <td class="dot a">◐ Built, unproven</td><td>In compose under the <code>meet</code> profile — <code>scripts/demo-up.sh</code></td></tr>
     <tr><td class="mono">stage</td><td>Karen's live board. She screen-shares it; no separate page to visit.</td>
-        <td class="dot a">◐ Demo mode only</td><td><strong>No</strong> — no compose service</td></tr>
+        <td class="dot a">◐ Demo mode only</td><td>In compose under the <code>meet</code> profile — <code>scripts/demo-up.sh</code></td></tr>
     <tr><td class="mono">extension</td><td><code>/compose</code> as a browser plugin. Signs into the real account.</td>
         <td class="dot a">◐ Builds, unpublished</td><td>No store listing yet</td></tr>
     <tr><td class="mono">contract</td><td>The frozen seam: WebSocket JSON frames + fixtures.</td>
@@ -140,11 +140,14 @@ MEET_PROFILE_DIR=~/gavel-meet-profile just login   # on a laptop, once
 just live-check --launch --duration 180 --speak-after 20</pre>
 </div>
 
-<div class="card stop">
-  <p class="head" style="margin-bottom:6px">Not testable as a deployment</p>
-  <p style="margin:0">Neither <code>ears-meet</code> nor <code>stage</code> has a service block in
-  <code>compose.yaml</code>. They run from a terminal, by hand. Nothing stands up the Meet route as a
-  service yet — and this was never wired, it isn't something the merges broke.</p>
+<div class="card">
+  <p class="head" style="margin-bottom:6px">As a deployment</p>
+  <p style="margin:0"><code>ears-meet</code> and <code>stage</code> have service blocks in
+  <code>compose.yaml</code> under the <code>meet</code> profile. <code>scripts/demo-preflight.sh</code>
+  says whether a box is ready (images, settings present, ports, the still, the brain pointed at the
+  right ears); <code>scripts/demo-up.sh</code> runs it, brings the profile up, waits for health and
+  prints where the board and console are. Being <em>up</em> is not the same as <em>proven</em>: the
+  first real call is still on the list below.</p>
 </div>
 
 <h2>4 · What needs you</h2>
@@ -153,7 +156,6 @@ just live-check --launch --duration 180 --speak-after 20</pre>
   <thead><tr><th>Item</th><th>Why it's stuck</th><th>Who</th></tr></thead>
   <tbody>
     <tr><td>First real Meet call</td><td>A root-capable Linux box, a profile signed in on a screen, and a second participant</td><td><strong>You</strong></td></tr>
-    <tr><td>Compose blocks for <span class="mono">ears-meet</span> + <span class="mono">stage</span></td><td>Never written. Not a merge regression — no commit ever had them</td><td>helm</td></tr>
     <tr><td>Norma's findings</td><td>~230 findings sit behind a login I don't have. 7 real ones fixed; 10 visible ones judged noise</td><td><strong>You</strong> (login) </td></tr>
     <tr><td>Two Devin sessions</td><td>Suspended mid-flight — close them or resume</td><td><strong>You</strong></td></tr>
     <tr><td>Plugin store listing</td><td>Chrome Web Store / Workspace Marketplace need a publisher account</td><td><strong>You</strong></td></tr>
