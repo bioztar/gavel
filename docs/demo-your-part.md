@@ -1,5 +1,7 @@
 # Your part — what only Vitaly can do for the Meet demo
 
+*Cloture — the motion that cuts off debate.*
+
 Everything else is running without you (four lanes, bottom of this page).
 This is the short list of things an agent cannot do for you.
 

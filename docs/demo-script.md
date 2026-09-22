@@ -1,4 +1,6 @@
-# gavel — my lines
+# Cloture — my lines
+
+*Cloture — the motion that cuts off debate.*
 
 The full run sheet, with cues, failure drills and Karen's and Artem's lines, is in
 [demo-script-full.md](demo-script-full.md).
@@ -9,7 +11,7 @@ The full run sheet, with cues, failure drills and Karen's and Artem's lines, is 
 
 **3.**  A title, a time, a length, and nothing about what the meeting is for. She will not book it. She asks for the agenda instead of just saying no.
 
-**4.**  So I tell her. Karen, set up a meeting with Artem in fifteen minutes, fifteen minutes long, called gavel live demo. Two topics. One, solution and architecture, six minutes, I present it. Two, roadmap, eight minutes, open discussion, and I want both Artem and me heard on it.
+**4.**  So I tell her. Karen, set up a meeting with Artem in fifteen minutes, fifteen minutes long, called Cloture live demo. Two topics. One, solution and architecture, six minutes, I present it. Two, roadmap, eight minutes, open discussion, and I want both Artem and me heard on it.
 
 **5.**  Two topics, each with an owner, its minutes, and who has to be heard on it. I pick how hard she chairs. On high she cuts in mid-sentence. Nobody is exempt, including me.
 
