@@ -4,13 +4,59 @@
 Google Meet. It reaches users through one of two doors, and the manifest is
 written so that the second door stays open.
 
+## Status today
+
+Built and checked in `packages/extension`, no human step needed for any of it:
+
+- `npm run build` → `dist/`, an unpacked-installable extension (`chrome://extensions`
+  → Developer mode → Load unpacked → `dist/`). `npm run build:dev` → `dist-dev/`,
+  the same thing wired to `npm run mock` for local exercise of the `/compose` flow
+  with no Google account.
+- `npm run package` → builds, runs the bundle audit, then zips `dist/` into
+  `dist/gavel-extension-<version>.zip` — the exact file to upload to the Chrome
+  Web Store / Edge Add-ons developer console. One command, deterministic
+  (fixed archive timestamps), zip contents verified to match `dist/` exactly
+  with no sourcemaps and no `node_modules`.
+- `npm run typecheck`, `npm test`, `npm run build`, `node scripts/audit-bundle.mjs`
+  (also `--dev`) all green. `manifest.json` validated: `manifest_version: 3`,
+  name/description/version set, icons at 16/48/128, `permissions` is exactly
+  `["identity", "storage"]`, `host_permissions` is empty in the production
+  build — see the permission table below for why each one is there and why
+  nothing broader is.
+- This package has no `pnpm-lock.yaml` and no root workspace file — it is an
+  `npm` package (`package-lock.json` is committed, `check` invokes `npm run`
+  internally). `pnpm` is not installed in this sandbox and was never this
+  package's manager; every command above is the `npm` equivalent.
+- **Not done here, and it needs a real Chromium with a display**: this sandbox
+  has no GUI, so the "load `dist/` unpacked and confirm zero console errors
+  while running the `/compose` flow against `npm run mock`" step described
+  above under "Load and test it locally" in `packages/extension/README.md`
+  was not exercised end-to-end in a browser this session. Static checks
+  (manifest schema, permission list, zip-vs-dist diff, credential-shaped
+  string scan) all pass; the human doing the developer-console upload should
+  still do the 5-minute manual load once, since that is the only check that
+  catches a runtime-only failure (a bad `chrome.*` call, a CSP violation that
+  only fires at execution, a missing file the manifest references).
+
+What a human does next, in order:
+1. Create the Google Cloud OAuth client (type *Chrome Extension*) — this repo
+   never creates one; see "Building for real" below for the exact env var.
+2. Load `dist/` unpacked once, confirm the console is clean on both the
+   Calendar and Meet fixture pages (`npm run mock`), per the README.
+3. Chrome Web Store developer registration (one-time, small fee) and the Edge
+   equivalent; upload `dist/gavel-extension-<version>.zip` from `npm run package`.
+4. Start Google's OAuth verification for `calendar.events.owned` early — it is
+   the long pole, not the code.
+
 ## Door 1 — self-serve: Chrome Web Store, Edge Add-ons
 
 The user installs it themselves.
 
-- **Chrome Web Store**: one-time developer registration, upload the `dist/` zip
-  (`npm run build`, then zip the folder — nothing else goes in), fill in the
-  listing and the privacy tab, submit for review. Reviews for extensions with
+- **Chrome Web Store**: one-time developer registration, upload the store-ready
+  zip — `cd packages/extension && npm run package` builds `dist/` and writes
+  `dist/gavel-extension-<version>.zip` (nothing else goes in: the script zips
+  exactly what `npm run build` produced, flat, no sourcemaps, no `node_modules`),
+  fill in the listing and the privacy tab, submit for review. Reviews for extensions with
   `identity` and a Google OAuth scope take days, not hours; every added
   permission triggers a re-review. Unlisted visibility is fine for a pilot.
 - **Edge Add-ons**: same package. Edge runs MV3 extensions and
