@@ -97,8 +97,9 @@ standing rules of legislatures and, as it happens, in the published meeting rule
 organisations ([Campbell County, WY: "Meeting Protocol and Rules of
 Decorum"](https://www.campbellcountywy.gov/2052/Meeting-Protocol-and-Rules-of-Decorum)).
 
-**First read.** Formal conduct in a professional setting. Serious, institutional, zero joke
-risk. It says *this meeting will be conducted properly* without saying anything about
+**First read.** Formal conduct in a professional setting — serious, institutional, zero joke
+risk. (With one caveat: a competing "decor" reading is evidenced below, and it is the single
+strongest argument against this name. Read both sections together.) It says *this meeting will be conducted properly* without saying anything about
 software, which is what lets it become a brand rather than a description.
 
 **The easter egg.** The word itself is faintly, deliciously prim — it is the vocabulary of
@@ -112,11 +113,25 @@ owns. Spells itself after one hearing. Travels well: *décorum* (FR, in active u
 *decoro* (ES/IT), *Dekorum* (DE) — no bad reading found in any major market.
 
 **Availability.**
-- *Companies:* No AI, meetings, or enterprise-collaboration incumbent found. The one real
-  software holder is [decorumapp.com](https://decorumapp.com/) — B2B **order management and
-  CRM for manufacturing**, founded 2017, India. Different category, no funding on record,
-  zero reviews on G2 or SoftwareSuggest. Also a *Décorum* board game (Floodgate Games) with a
-  companion app, and a "Decorum CRM" Android app.
+- *Companies:* The one real software holder is [decorum.work /
+  decorumapp.com](https://decorum.work/) — B2B **order management and CRM for manufacturing**,
+  founded 2017, India. Different category, no funding on record, zero reviews on G2 or
+  SoftwareSuggest. Also a *Décorum* board game (Floodgate Games) with a companion app, and a
+  "Decorum CRM" Android app.
+- *Companies — one lead chased down, because it looked bad:* a search surfaced what appeared
+  to be a second "Decorum," described as a **team-collaboration platform with team chat and
+  video conferencing** — which would sit directly in our adjacency and would sink the name.
+  **It does not appear to be a real product.** The claim traces to a single page on the
+  aggregator `apibit.com`; I fetched that page directly and it describes **order management**,
+  lists no vendor or company, has empty Features / Pricing / Screenshots sections, shows
+  "0/5 (0 Reviews)" under a 5-star graphic, and its one outbound link is an affiliate-tagged
+  redirect to `decorum.work` — the manufacturing-order product above. The chat-and-video prose
+  reads as AI-generated SEO filler on a listing farm. No corporate homepage, pricing page or
+  customer base exists for it anywhere. **Stated confidence: probably not real, not certainly
+  not real.** I could not prove a negative, and it is recorded here rather than dropped.
+- *Conclusion on incumbents:* **no verifiable AI, meetings or enterprise-collaboration company
+  holds this name** — with the aggregator listing above as the one unresolved smudge on that
+  claim.
 - *Domains:* `decorum.com` — registered 1999, GoDaddy, nameservers `eftydns.com` → **listed
   for sale on the Efty marketplace**, returns a 301 with no site. Acquirable; price unknown.
   `decorum.ai` — registered 2022-04-07, GoDaddy/Domains By Proxy, expires 2028. **Fetched it:
@@ -127,9 +142,22 @@ owns. Spells itself after one hearing. Travels well: *décorum* (FR, in active u
 - *Trademark (low confidence, proxy only):* Four DECORUM word marks surfaced on Justia
   mirrors — Reg. 1505286, 3422902, 3422900, 1891740 — and **all four are cancelled** under
   Section 8 (failure to file maintenance declarations), the most recent in 2020. Every one was
-  in **home furnishings and retail (classes 20 and 35)**. One newer application, *Decorum
-  Lifestyle, LLC* serial 99536798, status unverified. **Nothing in class 9 or 42 surfaced** —
-  but absence of evidence here is weak evidence of absence. See §0.
+  in **home furnishings and retail** — classes 20 and 35, one of them owned by *Nostalgia
+  Lighting, Inc.* One record (Reg. 1505286, filed 1987) shows **class 042**, which looks
+  alarming until you note it is for *"retail store services in decorative bathroom fixtures"*:
+  before the 2002 reclassification, class 42 was the catch-all miscellaneous-services class
+  that retail sat in. It is not a software mark. *(Moderate confidence on that reclassification
+  point — worth a lawyer confirming, not worth panicking over.)*
+- *Trademark — the one live lead, resolved:* the newer application I flagged, **serial
+  99536798**, is owned by *Decorum Lifestyle, LLC* and the mark is **"DECORUM LIFESTYLE"** —
+  a two-word mark, not bare DECORUM. The 99-series serial means a very recent filing, so no
+  third-party database has ingested the class or goods recitation yet and I could not retrieve
+  it: `uspto.report` sits behind Cloudflare (403), Justia 403s automated fetches, and TSDR
+  needs a browser. **"Lifestyle" points back to the same home/decor space as the four cancelled
+  marks**, but that is inference, not evidence. **Anyone can settle this in thirty seconds** at
+  [tsdr.uspto.gov](https://tsdr.uspto.gov/) with serial 99536798 — do it before signing off.
+- **Nothing in class 9 or 42 surfaced for DECORUM** — but per §0, absence of evidence from a
+  search engine is weak evidence of absence from a register.
 - *Registries:* npm `decorum` taken — an abandoned JS decorator library, v0.1.0, last
   modified 2022-04-28. PyPI taken. `github.com/decorum` taken.
 
@@ -316,7 +344,7 @@ availability picture were different it would rank first, and that is worth recor
 
 | # | Name | Criterion 1: not crowded | 2: say/spell | 3: enterprise read | 4: easter egg | Verdict |
 |---|---|---|---|---|---|---|
-| 1 | **Decorum** | Good — no AI/meetings incumbent; all US marks cancelled, all in home decor | Excellent | Excellent | Strong, and properly buried | **Recommended** |
+| 1 | **Decorum** | Good — no verifiable AI/meetings incumbent; all US word marks cancelled, all in home decor; one live filing is "DECORUM LIFESTYLE", class unretrieved | Excellent | Excellent | Strong, and properly buried | **Recommended** |
 | 2 | **Cloture** | **Best** — `.ai` unregistered, npm + PyPI free, zero tech incumbents | Weak — "closure" trap, split pronunciation | Very good | Strongest procedural fit | Viable if the spelling tax is accepted |
 | 3 | **Escapement** | Fair — no company, but a live 2026 AI-agent project owns npm + GitHub | Good | Good | Good | Viable; watch `escapement.ai` (expires 2026-10-29) |
 | 4 | **Tacet** | Good — npm + PyPI free, `.com` for sale, no software incumbent | **Poor** — reads as a typo of "tacit" | Fair | Best in list, but rarely fires | Long shot |
@@ -404,6 +432,10 @@ loses on the one thing a name has to do in a room.
 
 **Before anyone commits, in this order:**
 
+0. **Thirty-second free check first:** look up serial **99536798** on
+   [tsdr.uspto.gov](https://tsdr.uspto.gov/). It is the only live DECORUM-family filing found
+   and its class is the one fact that could move Decorum off the top of this list. If it is
+   class 20/35 it is decor noise; if it is class 9 or 42, re-rank before spending anything.
 1. **Paid trademark clearance** on the chosen name — Class 9, 42 and 38, US and EU. §0 explains
    why nothing in this document substitutes for it. This is the gate; do not design a logo first.
 2. **Price `decorum.com`** — it is parked on Efty and therefore genuinely for sale. Get the
@@ -421,3 +453,44 @@ loses on the one thing a name has to do in a room.
    seen it written spell it back. That test is what demotes Cloture, and it should be run
    properly rather than assumed.
 
+
+---
+
+## 6 · Decision
+
+**CLOTURE**, chosen by Vitaly on 2026-09-22, after reading the argument against it.
+
+Not Decorum. The "decor" misread was the deciding factor, and Cloture's availability is the
+best in this document by a wide margin — `cloture.ai` unregistered, npm and PyPI both free,
+no technology incumbent anywhere under the name.
+
+What was accepted along with it, eyes open:
+
+- The **"closure" spelling trap**. Every conference badge and sales call pays it.
+- **Split pronunciation** — KLOH-cher vs klo-TYOOR.
+- ***Clôture* is French for fence**, and `cloture.com` is a French fencing shop. Selling into
+  European enterprise, this is the meaning a French speaker reaches first. The saving grace,
+  *clôture de la séance*, is the second meaning, not the first.
+
+The repository stays `gavel`. Container images, PulseAudio sink names, the stage tab title
+and every internal document keep the old name — renaming them buys nothing and costs a
+re-test of a demo that is days away. Cloture is the name on the **decks and the human-facing
+documents**, and nowhere else, until someone decides otherwise.
+
+Karen stays Karen. The product is Cloture; the chair in the room is Karen. That is the
+easter egg working as briefed.
+
+### Perishable — do these today
+
+`cloture.ai` was unregistered and `cloture` was free on npm and PyPI **as of 22 September
+2026**. That was the single strongest argument for the name and it is a race, not a right.
+Also note this document is published on a **public** repository, which means the list of
+free assets is public too.
+
+1. Register `cloture.ai` (~$70/yr). Also worth `cloture.com` — but it is a live French
+   e-commerce site, so expect it to be expensive or unavailable.
+2. Claim `cloture` on npm, PyPI and as a GitHub org. Minutes of work, free.
+3. **Paid trademark clearance, Class 9 + 42 + 38, US and EU.** §0 explains why nothing in
+   this document substitutes for it. This is the gate before any logo goes on anything
+   permanent — the wordmark shipped alongside this decision is deliberately typographic and
+   cheap to redo for exactly that reason.
