@@ -3,47 +3,48 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>gavel — the investor pitch (Karen opens, Karen closes)</title>
+<title>Cloture — the investor pitch (Karen opens, Karen closes)</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxNDE2MWEiLz4KICA8cmVjdCB4PSIxMCIgeT0iMzAuNSIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjMiIHJ4PSIxLjUiIGZpbGw9IiM2YzcyODAiLz4KICA8ZyBmaWxsPSIjYzgxMDJlIj4KICAgIDxyZWN0IHg9IjI4IiB5PSIxNCIgd2lkdGg9IjQuMiIgaGVpZ2h0PSIzNiIgcng9IjIuMSIgdHJhbnNmb3JtPSJyb3RhdGUoMTQgMzAuMSAzMikiLz4KICAgIDxyZWN0IHg9IjM3IiB5PSIxNCIgd2lkdGg9IjQuMiIgaGVpZ2h0PSIzNiIgcng9IjIuMSIgdHJhbnNmb3JtPSJyb3RhdGUoMTQgMzkuMSAzMikiLz4KICA8L2c+Cjwvc3ZnPgo=">
 <style>
-  :root { --ink:#1b1b1f; --mut:#5c5f6b; --line:#e2e4ea; --bg:#f7f8fa;
-          --acc:#2f4fd0; --kar:#8b1fa8; --grn:#1a7f4b; --amb:#a86a00; --red:#b3261e; }
+  :root { --ink:#14161a; --ink-2:#3d434d; --mute:#6c7280; --line:#e4e2de;
+          --paper:#faf9f7; --card:#ffffff; --accent:#c8102e; --accent-soft:#fdf2f3;
+          --info:#1f4fd8; --info-soft:#f1f5fe; }
   * { box-sizing:border-box; }
-  body { margin:0; padding:36px 20px 72px; background:var(--bg); color:var(--ink);
-         font:17px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  body { margin:0; padding:36px 20px 72px; background:var(--paper); color:var(--ink);
+         font:17px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
   main { max-width:860px; margin:0 auto; }
-  h1 { font-size:30px; margin:0 0 4px; letter-spacing:-.02em; }
-  .sub { color:var(--mut); font-size:15px; margin:0 0 26px; }
-  h2 { font-size:20px; margin:36px 0 12px; padding-left:11px; border-left:4px solid var(--acc); }
+  .wordmark { display:block; margin:0 0 32px; }
+  h1 { font-size:30px; font-weight:600; margin:0 0 4px; letter-spacing:-.01em; }
+  .sub { color:var(--mute); font-size:15px; margin:0 0 26px; }
+  h2 { font-size:20px; font-weight:600; margin:36px 0 12px; padding-left:11px; border-left:4px solid var(--accent); }
   p { margin:0 0 12px; }
-  .card { background:#fff; border:1px solid var(--line); border-radius:10px;
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px;
           padding:18px 20px; margin:0 0 16px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
-  .karen { border-left:4px solid var(--kar); background:#faf3fc; }
-  .you   { border-left:4px solid var(--acc); background:#fff; }
-  .warn  { border-left:4px solid var(--amb); background:#fff8ec; }
-  .stop  { border-left:4px solid var(--red); background:#fdf0ef; }
-  .ok    { border-left:4px solid var(--grn); background:#f0f8f3; }
+  .karen { border-left:4px solid var(--ink-2); }
+  .you   { border-left:4px solid var(--line); }
+  .info  { border-left:4px solid var(--info); background:var(--info-soft); }
+  .cut   { border-left:4px solid var(--accent); background:var(--accent-soft); }
   .who { font-size:13px; text-transform:uppercase; letter-spacing:.07em; font-weight:700;
-         color:var(--mut); margin:0 0 8px; }
-  .who .k { color:var(--kar); } .who .v { color:var(--acc); }
+         color:var(--mute); margin:0 0 8px; }
+  .who .k { color:var(--ink); } .who .v { color:var(--ink-2); }
   .say { font-size:18px; line-height:1.55; margin:0 0 10px; }
-  .say b { background:#fff1a8; padding:0 2px; }
-  .note { font-size:14.5px; color:var(--mut); margin:0; }
-  table { width:100%; border-collapse:collapse; font-size:15px; background:#fff;
+  .note { font-size:14.5px; color:var(--mute); margin:0; }
+  table { width:100%; border-collapse:collapse; font-size:15px; background:var(--card);
           border:1px solid var(--line); border-radius:10px; overflow:hidden; }
-  th { text-align:left; background:#eef0f5; font-size:13px; text-transform:uppercase;
-       letter-spacing:.05em; color:var(--mut); padding:9px 12px; }
+  th { text-align:left; background:var(--info-soft); font-size:13px; text-transform:uppercase;
+       letter-spacing:.05em; color:var(--mute); padding:9px 12px; }
   td { padding:10px 12px; border-top:1px solid var(--line); vertical-align:top; }
-  tbody tr:nth-child(even) td { background:#fafbfc; }
+  tbody tr:nth-child(even) td { background:#fbfaf8; }
   ul { margin:0 0 6px; padding-left:20px; } li { margin:0 0 7px; }
   code { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:14px;
-         background:#eef0f5; padding:1px 5px; border-radius:4px; }
-  pre { background:#1b1b1f; color:#eceff4; padding:14px 16px; border-radius:8px;
+         background:var(--info-soft); padding:1px 5px; border-radius:4px; }
+  pre { background:var(--ink); color:var(--paper); padding:14px 16px; border-radius:8px;
         overflow-x:auto; font-size:13.5px; line-height:1.5; margin:8px 0 0; }
   pre code { background:none; color:inherit; padding:0; }
-  .clock { float:right; font-size:13px; color:var(--mut); font-weight:700;
+  .clock { float:right; font-size:13px; color:var(--mute); font-weight:700;
            font-family:ui-monospace,monospace; }
   .lead { font-size:19px; line-height:1.5; }
-  footer { margin-top:44px; color:var(--mut); font-size:13.5px; border-top:1px solid var(--line); padding-top:14px; }
+  footer { margin-top:44px; color:var(--mute); font-size:13.5px; border-top:1px solid var(--line); padding-top:14px; }
   @media print {
     body { background:#fff; padding:0; color:#000; }
     .card, table, pre { box-shadow:none; page-break-inside:avoid; }
@@ -54,10 +55,23 @@
 <body>
 <main>
 
-<h1>gavel — the investor pitch</h1>
-<p class="sub">4 minutes. Karen opens from inside a live Google Meet, you carry, Karen cuts you off to close.</p>
+<svg class="wordmark" width="200" height="36" viewBox="0 0 360 64" role="img" aria-label="Cloture" xmlns="http://www.w3.org/2000/svg">
+  <title>Cloture</title>
+  <rect x="0" y="0" width="64" height="64" rx="12" fill="#14161a"/>
+  <rect x="10" y="30.5" width="44" height="3" rx="1.5" fill="#6c7280"/>
+  <g fill="#c8102e">
+    <rect x="28" y="14" width="4.2" height="36" rx="2.1" transform="rotate(14 30.1 32)"/>
+    <rect x="37" y="14" width="4.2" height="36" rx="2.1" transform="rotate(14 39.1 32)"/>
+  </g>
+  <text x="84" y="43" fill="#14161a"
+        font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="30" font-weight="600" letter-spacing="6.5">CLOTURE</text>
+</svg>
 
-<div class="card ok">
+<h1>Cloture — the investor pitch</h1>
+<p class="sub">Cloture — the motion that cuts off debate. 4 minutes. Karen opens from inside a live Google Meet, you carry, Karen cuts you off to close.</p>
+
+<div class="card">
   <p class="lead" style="margin:0 0 8px"><strong>The one sentence the whole pitch makes:</strong></p>
   <p class="lead" style="margin:0">Karen never writes your agenda. <strong>She refuses to work without one,
   and then she holds you to it — including on the person pitching her.</strong></p>
@@ -70,12 +84,12 @@
 <table>
   <thead><tr><th>Time</th><th>Who</th><th>Beat</th><th>What it proves</th></tr></thead>
   <tbody>
-    <tr><td>0:00–0:30</td><td><strong style="color:var(--kar)">Karen</strong></td><td>Takes the floor before you speak</td><td>She is not a slide</td></tr>
+    <tr><td>0:00–0:30</td><td><strong>Karen</strong></td><td>Takes the floor before you speak</td><td>She is not a slide</td></tr>
     <tr><td>0:30–1:10</td><td>You</td><td>The moment everyone has lived</td><td>The problem is theirs</td></tr>
     <tr><td>1:10–2:00</td><td>You</td><td>What she just did, and why it isn't a wrapper</td><td>Defensible tech</td></tr>
     <tr><td>2:00–2:50</td><td>You</td><td>Wedge, distribution, who pays</td><td>It's a business</td></tr>
     <tr><td>2:50–3:30</td><td>You</td><td>Deliberate drift — keep talking past your point</td><td>Sets the trap</td></tr>
-    <tr><td>3:30–3:55</td><td><strong style="color:var(--kar)">Karen</strong></td><td>Interrupts you mid-sentence, closes, hands back</td><td>The claim, live, on you</td></tr>
+    <tr><td>3:30–3:55</td><td><strong>Karen</strong></td><td>Interrupts you mid-sentence, closes, hands back</td><td>The claim, live, on you</td></tr>
   </tbody>
 </table>
 
@@ -83,9 +97,9 @@
 
 <div class="card karen">
   <p class="who"><span class="k">Karen</span> — cold, before you say a word. Her face and the board are on the shared screen.</p>
-  <p class="say">"Stop. This session has <b>no agenda on file</b>, and I do not let meetings start without one.</p>
+  <p class="say">"Stop. This session has <strong>no agenda on file</strong>, and I do not let meetings start without one.</p>
   <p class="say">I'm Karen. I chair meetings. Vitaly filed one four minutes long, three points, and an ask at
-  the end. <b>He is not exempt from it.</b> I'm holding the clock.</p>
+  the end. <strong>He is not exempt from it.</strong> I'm holding the clock.</p>
   <p class="say">Vitaly — you have three minutes twenty-five. Go."</p>
   <p class="note"><strong>You stay silent.</strong> The silence is the demo. Do not nod, do not smile at the
   screen, do not say "thanks, Karen". Let the room work out that nobody cued her.</p>
@@ -97,18 +111,18 @@
   <p class="who"><span class="v">You</span> — the moment <span class="clock" style="float:none">0:30</span></p>
   <p class="say">"Every one of you was in a meeting this week where the first ten minutes were
   people working out what the meeting was for.</p>
-  <p class="say">Nobody in that room can fix it. Not the most senior person — <b>especially</b> not the
+  <p class="say">Nobody in that room can fix it. Not the most senior person — <strong>especially</strong> not the
   most senior person, because the one who overruns is usually the one who called it.</p>
-  <p class="say">There is <b>no authority in the room</b> whose job is the clock. That's the gap. She's it."</p>
+  <p class="say">There is <strong>no authority in the room</strong> whose job is the clock. That's the gap. She's it."</p>
 </div>
 
 <div class="card you">
   <p class="who"><span class="v">You</span> — why it isn't a wrapper <span class="clock" style="float:none">1:10</span></p>
   <p class="say">"What she just did is the whole product, so let me take the obvious shot at it myself.</p>
-  <p class="say">The decision to cut someone off is <b>not a model call</b>. It's ordinary code, running four
+  <p class="say">The decision to cut someone off is <strong>not a model call</strong>. It's ordinary code, running four
   times a second: who has the floor, how long they've had it, what the agenda promised. Deterministic,
   testable, and it fails the same way twice.</p>
-  <p class="say">The model writes <b>one thing</b> — the sentence she says out loud. That's it. Take the
+  <p class="say">The model writes <strong>one thing</strong> — the sentence she says out loud. That's it. Take the
   model away and she still chairs the meeting; she just does it rudely."</p>
   <p class="note">This is the "it's a system prompt in a trenchcoat" objection, answered before it's asked.
   Land it flat, no flourish.</p>
@@ -116,17 +130,17 @@
 
 <div class="card you">
   <p class="who"><span class="v">You</span> — wedge, distribution, who pays <span class="clock" style="float:none">2:00</span></p>
-  <p class="say">"We are not a notes bot. Notes are what you read <b>after</b> the meeting already went badly.
-  This is <b>time governance</b> — it acts during, and it acts before.</p>
+  <p class="say">"We are not a notes bot. Notes are what you read <strong>after</strong> the meeting already went badly.
+  This is <strong>time governance</strong> — it acts during, and it acts before.</p>
   <p class="say">Before is the important half. The gate isn't in the call, it's at the moment you book: a
-  browser extension on the calendar you already use. <b>No agenda, no invite.</b> The teeth are in the
+  browser extension on the calendar you already use. <strong>No agenda, no invite.</strong> The teeth are in the
   booking flow, which is why this isn't a feature you can bolt on later.</p>
   <p class="say">She joins as a participant, not as a platform integration — Meet today, Zoom and Teams the
-  same way, because the part that decides never imports a call SDK. <b>One brain, thin ears.</b>
+  same way, because the part that decides never imports a call SDK. <strong>One brain, thin ears.</strong>
   Who pays: anyone who pays salaries and buys back the hours."</p>
 </div>
 
-<div class="card warn">
+<div class="card info">
   <p class="who">You — the drift, on purpose <span class="clock" style="float:none">2:50</span></p>
   <p class="say">"...and on the architecture side, once you're running containers per call you end up
   comparing reserved against spot, and I priced three providers last month and their pages don't line up at
@@ -137,12 +151,12 @@
 
 <h2>3 · Karen closes <span class="clock">3:30 – 3:55</span></h2>
 
-<div class="card karen">
+<div class="card cut">
   <p class="who"><span class="k">Karen</span> — cuts in mid-sentence</p>
-  <p class="say">"Vitaly. <b>That's your four minutes, and cloud pricing was not one of your three points.</b></p>
+  <p class="say">"Vitaly. <strong>That's your four minutes, and cloud pricing was not one of your three points.</strong></p>
   <p class="say">I didn't write his agenda. He wrote it, I refused to book the meeting until he did, and
-  then I held him to it — <b>in front of the people he's asking for money.</b></p>
-  <p class="say">The agenda says the last item is the ask. Vitaly — <b>ask.</b>"</p>
+  then I held him to it — <strong>in front of the people he's asking for money.</strong></p>
+  <p class="say">The agenda says the last item is the ask. Vitaly — <strong>ask.</strong>"</p>
   <p class="note">Then you say the ask, in one sentence, and stop talking. Whatever you're raising, what
   it buys, how long it lasts. She hands you the floor; don't waste it re-pitching.</p>
 </div>
@@ -177,7 +191,7 @@ above is in character for a chair who is strict. The recording is the only real 
 
 <h2>6 · What must be true before you walk on</h2>
 
-<div class="card stop">
+<div class="card cut">
   <p class="who">Blocking — Google Meet has never run in a real call</p>
   <ul>
     <li><strong>Only you can do this:</strong> <code>just login</code> on a machine with a screen, signing
@@ -190,7 +204,7 @@ above is in character for a chair who is strict. The recording is the only real 
   </ul>
 </div>
 
-<div class="card warn">
+<div class="card info">
   <p class="who">Rehearse these three, in this order</p>
   <ul>
     <li>She joins and takes the floor <em>cold</em> — no cue from you.</li>
@@ -200,7 +214,7 @@ above is in character for a chair who is strict. The recording is the only real 
 </div>
 
 <footer>
-gavel · <code>bioztar/gavel</code> (public) · this page: <code>docs/pitch-investor.html</code>.<br>
+Cloture · <code>bioztar/gavel</code> (repo, unchanged) · this page: <code>docs/pitch-investor.html</code>.<br>
 Build status: <a href="status.html">status.html</a> · architecture: <a href="blueprint.html">blueprint.html</a> ·
 the older 5-minute HackBarna run sheet: <code>docs/demo-script-full.md</code>.
 </footer>
