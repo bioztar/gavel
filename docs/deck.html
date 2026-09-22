@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cloture — investor deck</title>
+<style>
+  :root{
+    --ink:#14161a; --ink-2:#3d434d; --mute:#6c7280; --line:#e4e2de;
+    --paper:#faf9f7; --card:#fff; --accent:#c8102e; --accent-soft:#fdf2f3;
+    --info:#1f4fd8; --info-soft:#f1f5fe; --ok:#1a7f4b; --warn:#9a6700;
+    --pad:56px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--paper); color:var(--ink);
+    font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- chrome ---------- */
+  .bar{
+    position:fixed; top:0; left:0; right:0; height:46px; z-index:50;
+    display:flex; align-items:center; gap:14px; padding:0 18px;
+    background:rgba(250,249,247,.92); backdrop-filter:saturate(1.6) blur(8px);
+    border-bottom:1px solid var(--line); font-size:13px; color:var(--mute);
+  }
+  .bar .wm{font-weight:700; letter-spacing:.26em; color:var(--ink); font-size:12px}
+  .bar .spacer{flex:1}
+  .bar button{
+    font:inherit; font-size:12.5px; color:var(--ink-2); background:var(--card);
+    border:1px solid var(--line); border-radius:6px; padding:5px 11px; cursor:pointer;
+  }
+  .bar button:hover{border-color:var(--ink-2)}
+  .bar kbd{
+    font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace; background:#fff;
+    border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:3px 5px;
+  }
+
+  /* ---------- deck ---------- */
+  .deck{max-width:960px; margin:0 auto; padding:78px 22px 90px}
+  .slide{
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:var(--pad); margin:0 0 26px; position:relative;
+    box-shadow:0 1px 2px rgba(20,22,26,.04), 0 8px 26px rgba(20,22,26,.05);
+  }
+  .slide::after{
+    content:attr(data-n); position:absolute; right:20px; bottom:14px;
+    font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace; color:#c3c0ba; letter-spacing:.08em;
+  }
+  .eyebrow{
+    font-size:11.5px; letter-spacing:.17em; text-transform:uppercase;
+    color:var(--accent); font-weight:700; margin:0 0 14px;
+  }
+  .slide h2{font-size:30px; line-height:1.18; letter-spacing:-.02em; margin:0 0 16px; font-weight:680}
+  .slide h3{font-size:16px; margin:26px 0 9px; letter-spacing:.01em}
+  .lead{font-size:20px; line-height:1.5; color:var(--ink-2); margin:0 0 18px}
+  p{margin:0 0 14px}
+  ul,ol{margin:0 0 14px; padding-left:22px}
+  li{margin-bottom:8px}
+  strong{font-weight:640}
+  .quiet{color:var(--mute)}
+  .big{font-size:44px; line-height:1.1; letter-spacing:-.03em; font-weight:700; margin:0 0 18px}
+
+  /* title slide */
+  .title{text-align:center; padding:84px var(--pad)}
+  .title .wordmark{
+    font-size:46px; font-weight:700; letter-spacing:.3em; margin:0 0 6px;
+    padding-left:.3em; /* optical: trailing letterspace */
+  }
+  .title .gloss{color:var(--mute); font-size:17px; margin:0 0 40px}
+  .title .claim{
+    font-size:26px; line-height:1.45; max-width:22em; margin:0 auto 34px; color:var(--ink);
+  }
+  .title .meta{font-size:14px; color:var(--mute)}
+  .rule{width:54px; height:3px; background:var(--accent); border-radius:2px; margin:0 auto 34px}
+
+  /* components */
+  table{border-collapse:collapse; width:100%; margin:0 0 16px; font-size:15.5px}
+  th,td{text-align:left; padding:10px 13px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{background:var(--paper); font-weight:640; font-size:13px; letter-spacing:.03em;
+     text-transform:uppercase; color:var(--ink-2)}
+  tbody tr:nth-child(even){background:#fcfbfa}
+  td.num{font-variant-numeric:tabular-nums; white-space:nowrap}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:16px; margin:0 0 16px}
+  .cell{background:var(--paper); border:1px solid var(--line); border-radius:9px; padding:16px 18px}
+  .cell h4{margin:0 0 7px; font-size:14.5px; letter-spacing:.01em}
+  .cell p{margin:0; font-size:15px; color:var(--ink-2)}
+
+  .beats{list-style:none; padding:0; margin:0 0 16px}
+  .beats li{display:flex; gap:16px; padding:11px 0; border-bottom:1px solid var(--line); margin:0}
+  .beats li:last-child{border-bottom:0}
+  .beats .t{
+    flex:0 0 74px; font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;
+    color:var(--accent); font-weight:600; padding-top:1px;
+  }
+  .beats .w{flex:0 0 58px; font-size:13.5px; color:var(--mute); padding-top:1px}
+
+  .callout{
+    border-left:4px solid var(--accent); background:var(--accent-soft);
+    padding:16px 20px; border-radius:0 8px 8px 0; margin:0 0 18px;
+  }
+  .callout.info{border-left-color:var(--info); background:var(--info-soft)}
+  .callout p:last-child{margin-bottom:0}
+  .callout .lbl{
+    display:block; font-size:11.5px; letter-spacing:.14em; text-transform:uppercase;
+    font-weight:700; color:var(--accent); margin-bottom:7px;
+  }
+  .callout.info .lbl{color:var(--info)}
+
+  .said{
+    font-size:19px; line-height:1.5; border-left:3px solid var(--line);
+    padding:2px 0 2px 20px; margin:0 0 16px; color:var(--ink);
+  }
+  .said .who{
+    display:block; font-size:12px; letter-spacing:.13em; text-transform:uppercase;
+    color:var(--mute); font-weight:700; margin-bottom:8px;
+  }
+
+  .stat{display:flex; gap:34px; flex-wrap:wrap; margin:0 0 18px}
+  .stat div{min-width:118px}
+  .stat .k{font-size:34px; font-weight:700; letter-spacing:-.02em; line-height:1.1}
+  .stat .v{font-size:13.5px; color:var(--mute); margin-top:3px}
+
+  .pill{
+    display:inline-block; font-size:11.5px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; padding:3px 9px; border-radius:20px; white-space:nowrap;
+  }
+  .pill.live{background:#e8f5ee; color:var(--ok)}
+  .pill.hard{background:#fdf3e2; color:var(--warn)}
+  .pill.next{background:#eef0f4; color:var(--mute)}
+
+  /* presenter notes — visible in the read version, hidden when projected */
+  .note{
+    margin:18px 0 0; padding:13px 16px; border:1px dashed var(--line); border-radius:8px;
+    font-size:14.5px; color:var(--mute); background:#fcfbfa;
+  }
+  .note b{color:var(--ink-2); font-weight:640}
+
+  /* ---------- present mode ---------- */
+  body.present{background:#0e0f12; overflow:hidden}
+  body.present .deck{max-width:none; margin:0; padding:0}
+  body.present .note{display:none}
+  body.present .slide{
+    display:none; margin:0; border:0; border-radius:0; box-shadow:none;
+    position:fixed; inset:46px 0 0; overflow-y:auto;
+    padding:5vh max(7vw,40px); background:var(--card);
+  }
+  body.present .slide.on{display:block; animation:in .18s ease-out}
+  @keyframes in{from{opacity:0; transform:translateY(6px)}to{opacity:1; transform:none}}
+  body.present .slide::after{right:28px; bottom:20px}
+  body.present .slide h2{font-size:clamp(30px,4.2vw,50px)}
+  body.present .lead{font-size:clamp(19px,2.1vw,26px)}
+  body.present .slide p,body.present .slide li{font-size:clamp(16px,1.42vw,21px)}
+  body.present table{font-size:clamp(14px,1.25vw,19px)}
+  body.present .said{font-size:clamp(19px,1.9vw,26px)}
+  body.present .title{display:flex; flex-direction:column; justify-content:center; text-align:center}
+  body.present .title .wordmark{font-size:clamp(46px,7vw,92px)}
+  body.present .bar{background:#0e0f12; border-bottom-color:#26282e; color:#8b9099}
+  body.present .bar .wm{color:#f2f3f5}
+  body.present .bar button{background:#1b1d22; border-color:#2e3138; color:#d6d9de}
+  body.present .bar kbd{background:#1b1d22; border-color:#2e3138; color:#d6d9de}
+
+  @media (max-width:640px){
+    :root{--pad:26px}
+    .slide h2{font-size:25px}
+    .lead{font-size:18px}
+    .big{font-size:32px}
+    .title{padding:52px var(--pad)}
+    .title .wordmark{font-size:31px; letter-spacing:.22em}
+    .beats li{flex-wrap:wrap; gap:6px}
+    .beats .t,.beats .w{flex:0 0 auto}
+    .stat{gap:22px}
+  }
+
+  @media print{
+    .bar{display:none}
+    body{background:#fff}
+    .deck{padding:0; max-width:none}
+    .slide{
+      box-shadow:none; border:0; border-radius:0; margin:0;
+      padding:24mm 18mm; page-break-after:always; page-break-inside:avoid;
+    }
+    .note{page-break-inside:avoid}
+    .cell,.callout,table{page-break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <span class="wm">CLOTURE</span>
+  <span class="quiet" id="pos"></span>
+  <span class="spacer"></span>
+  <span class="quiet">press <kbd>P</kbd> to present · <kbd>←</kbd><kbd>→</kbd> to move</span>
+  <button id="toggle">Present</button>
+</div>
+
+<div class="deck" id="deck">
+
+<!-- 1 -->
+<section class="slide title" data-n="01">
+  <p class="wordmark">CLOTURE</p>
+  <p class="gloss">the motion that cuts off debate</p>
+  <div class="rule"></div>
+  <p class="claim">She never writes your agenda. She refuses to work without one — and then she
+  holds you to it.</p>
+  <p class="meta">A neutral chair for meetings that overrun · September 2026</p>
+</section>
+
+<!-- 2 -->
+<section class="slide" data-n="02">
+  <p class="eyebrow">The problem</p>
+  <h2>Every one of you was in a meeting this week where the first ten minutes were people working out what the meeting was for.</h2>
+  <p class="lead">And then it ran long, and the thing it was called to decide got four minutes at
+  the end, or moved to another meeting.</p>
+  <div class="stat">
+    <div><div class="k">~10 min</div><div class="v">spent establishing purpose</div></div>
+    <div><div class="k">The last item</div><div class="v">is the decision, and it is the one that gets cut</div></div>
+    <div><div class="k">Everyone</div><div class="v">in the room already knows this</div></div>
+  </div>
+  <div class="note"><b>Opening line, said flat.</b> Do not sell it — the room supplies the
+  evidence from their own week. Pause after it.</div>
+</section>
+
+<!-- 3 -->
+<section class="slide" data-n="03">
+  <p class="eyebrow">Why it never gets fixed</p>
+  <h2>Nobody in the room can fix it. Especially not the most senior person.</h2>
+  <p class="lead">The person who overruns is usually the person who called the meeting. There is
+  no authority in the room whose job is the clock.</p>
+  <ul>
+    <li><strong>A junior can't</strong> interrupt a director to say the agenda has moved on.</li>
+    <li><strong>A peer won't</strong> — the social cost lands on them, the benefit is spread across everyone.</li>
+    <li><strong>The chair is the problem</strong> when the chair is the one talking.</li>
+    <li><strong>Notes tools arrive too late.</strong> A summary tells you the meeting went badly. It was already over.</li>
+  </ul>
+  <div class="callout">
+    <span class="lbl">The gap</span>
+    <p>Meetings have no neutral party whose only interest is the agenda and the clock.
+    That role has to come from outside the room's hierarchy, or it doesn't work at all.</p>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="slide" data-n="04">
+  <p class="eyebrow">What Cloture is</p>
+  <h2>A chair that joins the call, holds the floor, and puts the question.</h2>
+  <p class="lead">Karen is the chair. She takes the floor before anyone speaks, states the agenda
+  the host filed, times each item, and cuts people off when their time is spent — including
+  the person who booked the meeting.</p>
+  <div class="grid">
+    <div class="cell"><h4>She does not write the agenda</h4><p>The host does. She refuses to book a
+    meeting that has none. That refusal is the product.</p></div>
+    <div class="cell"><h4>She holds everyone to it</h4><p>Rank does not buy extra time.
+    A neutral party can say that; a person in the room cannot.</p></div>
+    <div class="cell"><h4>She acts during, not after</h4><p>The intervention happens while the
+    meeting can still be saved, not in a recap nobody reads.</p></div>
+  </div>
+  <div class="callout info">
+    <span class="lbl">The vocabulary is deliberate</span>
+    <p>Cloture is the parliamentary motion that ends debate and forces the question. A judge
+    decides <em>for</em> you. A chair makes <em>you</em> decide. Cloture is a chair.</p>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="slide" data-n="05">
+  <p class="eyebrow">The demo</p>
+  <h2>Four minutes. She opens, I carry, she cuts me off to close.</h2>
+  <ul class="beats">
+    <li><span class="t">0:00</span><span class="w">Karen</span><span>Takes the floor before I speak. Nobody cues her.</span></li>
+    <li><span class="t">0:30</span><span class="w">Me</span><span>The problem, the gap, why the room can't fix it.</span></li>
+    <li><span class="t">1:10</span><span class="w">Me</span><span>What she just did, and why it isn't a wrapper.</span></li>
+    <li><span class="t">2:00</span><span class="w">Me</span><span>Wedge, distribution, who pays.</span></li>
+    <li><span class="t">2:50</span><span class="w">Me</span><span>I drift off the agenda. On purpose. I keep talking.</span></li>
+    <li><span class="t">3:30</span><span class="w">Karen</span><span>Interrupts me mid-sentence and closes.</span></li>
+  </ul>
+  <div class="said">
+    <span class="who">Karen, at 3:30</span>
+    "Vitaly. That's your four minutes, and cloud pricing was not one of your three points.
+    I didn't write his agenda. He wrote it, I refused to book the meeting until he did, and then
+    I held him to it — in front of the people he's asking for money. The agenda says the last
+    item is the ask. Vitaly — ask."
+  </div>
+  <div class="note"><b>The claim is demonstrated on me, live.</b> The strongest version of this
+  product is the one where it costs the person selling it. Full run sheet:
+  <code>pitch-investor.html</code>.</div>
+</section>
+
+<!-- 6 -->
+<section class="slide" data-n="06">
+  <p class="eyebrow">Why it isn't a wrapper</p>
+  <h2>The decision to cut someone off is not a model call.</h2>
+  <p class="lead">It is ordinary code, running four times a second: who holds the floor, how long
+  they have held it, what the agenda promised. Deterministic, testable, and it fails the same way
+  twice.</p>
+  <table>
+    <thead><tr><th style="width:42%">Layer</th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td><strong>The chairing engine</strong></td><td>Plain code. Floor state, timers, agenda
+      structure, interrupt policy. No model in the loop. 93 tests.</td></tr>
+      <tr><td><strong>The model</strong></td><td>Writes one thing — the sentence she says out loud.
+      Replaceable, deliberately.</td></tr>
+      <tr><td><strong>The ears</strong></td><td>Thin per-platform adapters. They decide nothing.</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <span class="lbl">Take the model away</span>
+    <p>She still chairs the meeting. She just does it rudely. That is the whole defensibility
+    argument, and it is the opposite of a prompt in a trenchcoat.</p>
+  </div>
+  <div class="note"><b>Land this flat, no flourish.</b> It answers the sharpest objection in the
+  room before anyone raises it.</div>
+</section>
+
+<!-- 7 -->
+<section class="slide" data-n="07">
+  <p class="eyebrow">The wedge</p>
+  <h2>The teeth are in the booking flow, not the call.</h2>
+  <p class="lead">A browser extension on the calendar people already use. No agenda, no invite.
+  By the time the meeting starts, the hard part has already happened.</p>
+  <div class="grid">
+    <div class="cell"><h4>Before</h4><p>The gate at booking. The host writes three points and an
+    ask, or the invite doesn't go out.</p></div>
+    <div class="cell"><h4>During</h4><p>She chairs. Floor, clock, interrupts, the question put at
+    the end.</p></div>
+    <div class="cell"><h4>After</h4><p>The minute — what was decided, by whom, against which item.
+    A by-product, not the product.</p></div>
+  </div>
+  <p>This is why it is not a feature that can be bolted on later, and why it is not a notes tool.
+  Notes are what you read after the meeting already went badly.</p>
+  <div class="callout info">
+    <span class="lbl">Distribution</span>
+    <p>The extension installs against Google Calendar with no admin purchase decision. One person
+    on a team can adopt it, and the rest of the team meets the product as a participant in a call
+    rather than as software they were told to install.</p>
+  </div>
+</section>
+
+<!-- 8 -->
+<section class="slide" data-n="08">
+  <p class="eyebrow">Architecture</p>
+  <h2>One brain, thin ears.</h2>
+  <p class="lead">She joins as a participant, not as a platform integration. The part that decides
+  never imports a call SDK — so Zoom and Teams are adapters, not rebuilds.</p>
+  <table>
+    <thead><tr><th style="width:30%">Component</th><th>Role</th><th style="width:22%">State</th></tr></thead>
+    <tbody>
+      <tr><td><code>brain</code></td><td>Decides everything. Agenda, floor, timing, interrupts.</td><td><span class="pill live">Working</span></td></tr>
+      <tr><td><code>ears-meet</code></td><td>Google Meet. Joins, hears, speaks, shares the board.</td><td><span class="pill live">Live</span> <span class="pill hard">hardening</span></td></tr>
+      <tr><td><code>ears-discord</code></td><td>Discord. End-to-end today.</td><td><span class="pill live">Working</span></td></tr>
+      <tr><td><code>calendar</code> + extension</td><td>The booking gate.</td><td><span class="pill live">Working</span></td></tr>
+      <tr><td><code>stage</code></td><td>Her board — shared on screen, visible to everyone.</td><td><span class="pill live">Working</span></td></tr>
+      <tr><td>Zoom, Teams</td><td>The same adapter shape.</td><td><span class="pill next">Next</span></td></tr>
+    </tbody>
+  </table>
+  <p class="quiet">Nothing generates video. Her face is a still published as a real camera track;
+  her presence is the board. That is a deliberate cost decision, not a limitation.</p>
+</section>
+
+<!-- 9 -->
+<section class="slide" data-n="09">
+  <p class="eyebrow">Where it is today</p>
+  <h2>Built, running, and hardening.</h2>
+  <div class="stat">
+    <div><div class="k">2</div><div class="v">platforms running — Discord end-to-end, Meet live</div></div>
+    <div><div class="k">93</div><div class="v">tests green on the chairing engine</div></div>
+    <div><div class="k">1</div><div class="v">booking extension, built and working</div></div>
+  </div>
+  <ul>
+    <li><strong>Discord</strong> — end-to-end. She joins, chairs, interrupts, closes.</li>
+    <li><strong>Google Meet</strong> — integration live; hardening in progress against real calls.</li>
+    <li><strong>The booking extension</strong> — built and working; store listing is a submission, not a build.</li>
+    <li><strong>The chairing engine</strong> — frozen contract between brain and ears, so a new
+    platform is an adapter against fixtures.</li>
+  </ul>
+  <div class="note"><b>Ask-me-straight answer, if pushed:</b> the Meet path has not yet run in a
+  live call with a real signed-in account — that is the current hardening item, and it needs a
+  rehearsal with a second participant. §5 of the run sheet has the honest version if it comes up
+  in the room.</div>
+</section>
+
+<!-- 10 -->
+<section class="slide" data-n="10">
+  <p class="eyebrow">Who pays</p>
+  <h2>Anyone who pays salaries and wants the hours back.</h2>
+  <p class="lead">This is time governance, and it is bought the way calendar and meeting tools are
+  bought — per seat, by the person whose week is being eaten.</p>
+  <table>
+    <thead><tr><th style="width:26%">Segment</th><th>Why they buy</th><th style="width:20%">Motion</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Scale-ups, 50–500</strong></td><td>Meeting load has outgrown the informal
+      norms that used to hold. No process function yet.</td><td>Bottom-up, per seat</td></tr>
+      <tr><td><strong>Agencies &amp; consultancies</strong></td><td>Meetings are billable.
+      Overrun is margin.</td><td>Team, then firm</td></tr>
+      <tr><td><strong>Distributed teams</strong></td><td>Every meeting is a call; no corridor to
+      finish the conversation in.</td><td>Bottom-up</td></tr>
+      <tr><td><strong>Boards &amp; formal bodies</strong></td><td>Already run on standing orders.
+      Cloture is the software version of a rule they already keep.</td><td>Top-down</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <span class="lbl">Sizing — to be substantiated</span>
+    <p>Market sizing is not yet built on primary research and no number here should be quoted as
+    one. The first 90 days of the raise include pricing interviews with the segments above.</p>
+  </div>
+</section>
+
+<!-- 11 -->
+<section class="slide" data-n="11">
+  <p class="eyebrow">The objections</p>
+  <h2>The four questions, answered.</h2>
+  <table>
+    <thead><tr><th style="width:38%">They ask</th><th>The answer</th></tr></thead>
+    <tbody>
+      <tr><td>"Why isn't this a Google or Zoom feature in a year?"</td>
+        <td>They ship notes, not authority. The gate is at booking, in the calendar — and
+        neutrality is the point. A platform cannot chair against its own customer's boss.</td></tr>
+      <tr><td>"What's the moat?"</td>
+        <td>The boring half: a deterministic chairing engine behind a frozen seam, with adapters
+        per platform. Not the prompt — the prompt is the replaceable part, on purpose.</td></tr>
+      <tr><td>"Will people accept being interrupted?"</td>
+        <td>They accept it from the agenda they wrote themselves. That is exactly why she never
+        writes it. Strictness is a dial, set per meeting.</td></tr>
+      <tr><td>"Isn't it voice detection plus a timer plus text-to-speech?"</td>
+        <td>Yes. That is the claim. The deterministic part is the product; the generated phrasing
+        is the surface.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 12 -->
+<section class="slide" data-n="12">
+  <p class="eyebrow">What the money buys</p>
+  <h2>Twelve to eighteen months, to a paid, multi-platform product.</h2>
+  <table>
+    <thead><tr><th style="width:34%">Workstream</th><th>Outcome</th><th style="width:16%">Share</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Engineering</strong> — 2 hires</td><td>Meet hardened at volume, Zoom and
+      Teams adapters, the minute, reliability.</td><td class="num">~55%</td></tr>
+      <tr><td><strong>Distribution</strong></td><td>Store listings and their review cycles,
+      onboarding, self-serve billing, first paying teams.</td><td class="num">~20%</td></tr>
+      <tr><td><strong>Design &amp; product</strong></td><td>The booking gate that people choose
+      rather than tolerate. Pricing research.</td><td class="num">~15%</td></tr>
+      <tr><td><strong>Infrastructure</strong></td><td>A container per call is the cost model.
+      Reserved vs. spot, egress, per-meeting unit economics.</td><td class="num">~10%</td></tr>
+    </tbody>
+  </table>
+  <div class="callout info">
+    <span class="lbl">Milestones the round is judged on</span>
+    <p><strong>M3</strong> — Meet at volume, first paying teams. <strong>M6</strong> — Zoom
+    shipped, store listings live. <strong>M12</strong> — three platforms, repeatable per-seat
+    motion, unit economics proven per meeting.</p>
+  </div>
+  <div class="note"><b>Allocation is a draft.</b> Change the split before this goes to anyone —
+  it should follow whichever of the three risks you most want retired first.</div>
+</section>
+
+<!-- 13 -->
+<section class="slide" data-n="13">
+  <p class="eyebrow">The ask</p>
+  <p class="big">$500,000</p>
+  <p class="lead">To take a working chair from two platforms to three, through the store review
+  cycles, and into the hands of teams who pay per seat.</p>
+  <div class="grid">
+    <div class="cell"><h4>Buys</h4><p>Two engineers, distribution, and the infrastructure work to
+    make a container per call economic.</p></div>
+    <div class="cell"><h4>Lasts</h4><p>12–18 months, to the M12 milestones on the previous slide.</p></div>
+    <div class="cell"><h4>Retires</h4><p>Platform risk, distribution risk, and per-meeting unit
+    cost — in that order.</p></div>
+  </div>
+  <div class="note"><b>Say it in one sentence and stop talking.</b> In the live demo Karen hands
+  you the floor for exactly this. Don't re-pitch into it.</div>
+</section>
+
+<!-- 14 -->
+<section class="slide title" data-n="14">
+  <p class="wordmark">CLOTURE</p>
+  <div class="rule"></div>
+  <p class="claim">She never writes your agenda. She refuses to work without one — and then she
+  holds you to it, including on the person pitching her.</p>
+  <p class="meta">cloture.pro7ocol.com · the live run sheet: /pitch · build status: /status ·
+  architecture: /blueprint</p>
+</section>
+
+</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var pos = document.getElementById('pos');
+  var toggle = document.getElementById('toggle');
+  var i = 0, presenting = false;
+
+  function render(){
+    if(!presenting){ pos.textContent = slides.length + ' slides'; return; }
+    slides.forEach(function(s,n){ s.classList.toggle('on', n === i); });
+    pos.textContent = (i+1) + ' / ' + slides.length;
+    if(location.hash !== '#' + (i+1)) history.replaceState(null,'','#'+(i+1));
+  }
+  function go(n){ i = Math.max(0, Math.min(slides.length-1, n)); render(); }
+
+  function setPresent(on){
+    presenting = on;
+    document.body.classList.toggle('present', on);
+    toggle.textContent = on ? 'Exit' : 'Present';
+    if(on && !/^#\d+$/.test(location.hash)) i = 0;
+    render();
+    if(!on) slides[i] && slides[i].scrollIntoView({block:'start'});
+  }
+
+  toggle.addEventListener('click', function(){ setPresent(!presenting); });
+
+  document.addEventListener('keydown', function(e){
+    if(e.metaKey || e.ctrlKey || e.altKey) return;
+    var k = e.key;
+    if(k === 'p' || k === 'P'){ setPresent(!presenting); e.preventDefault(); return; }
+    if(k === 'Escape' && presenting){ setPresent(false); e.preventDefault(); return; }
+    if(!presenting) return;
+    if(k === 'ArrowRight' || k === 'ArrowDown' || k === ' ' || k === 'PageDown'){ go(i+1); e.preventDefault(); }
+    else if(k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp'){ go(i-1); e.preventDefault(); }
+    else if(k === 'Home'){ go(0); e.preventDefault(); }
+    else if(k === 'End'){ go(slides.length-1); e.preventDefault(); }
+  });
+
+  // Tap right half to advance, left half to go back — for presenting from a phone.
+  document.addEventListener('click', function(e){
+    if(!presenting || e.target.closest('.bar')) return;
+    go(e.clientX > window.innerWidth/2 ? i+1 : i-1);
+  });
+
+  if(/^#\d+$/.test(location.hash)){ i = parseInt(location.hash.slice(1),10)-1; setPresent(true); }
+  else render();
+})();
+</script>
+</body>
+</html>
