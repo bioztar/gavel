@@ -81,28 +81,7 @@ with sync_playwright() as p:
     page.route("**/*", handler)
     page.goto("http://gavel.local/m/demo", wait_until="load")
     page.wait_for_timeout(2500)
-    # the stage iframe is Karen's video; bake the still in, and hand assemble.py the
-    # panel's rectangle so a lip-synced clip can be dropped into the same place
-    import base64
-    still = base64.b64encode(
-        pathlib.Path("/Users/alex/DEV/gavel/packages/chair-video/avatars/karen-formal.png")
-        .read_bytes()).decode()
-    box = page.locator("#stage").bounding_box()
-    (OUT / "room-stage.json").write_text(json.dumps(
-        {k: int(round(v)) for k, v in box.items()}, indent=2))
-    page.evaluate("""(src) => {
-        const f = document.getElementById('stage');
-        const img = document.createElement('img');
-        img.src = src;
-        img.style.cssText = getComputedStyle(f).cssText;
-        img.className = f.className;
-        img.style.objectFit = 'cover';
-        img.style.width = f.getBoundingClientRect().width + 'px';
-        img.style.height = f.getBoundingClientRect().height + 'px';
-        f.replaceWith(img);
-    }""", f"data:image/png;base64,{still}")
-    page.wait_for_timeout(500)
-    page.screenshot(path=str(OUT / "room-live.png")); print("shot room-live", box)
+    page.screenshot(path=str(OUT / "room-live.png")); print("shot room-live")
     page.evaluate("document.getElementById('sheet') && (document.getElementById('sheet').hidden = false)")
     page.wait_for_timeout(400)
     page.screenshot(path=str(OUT / "room-links.png")); print("shot room-links")

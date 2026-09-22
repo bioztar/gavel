@@ -58,16 +58,6 @@ Silver sponsor, Token Factory.
 - Their track wants Token Factory used "meaningfully, contributing to core
   functionality" — generating what the chair says qualifies; make sure the README says so.
 
-## 4. fal.ai — blocks the chair having a face
-
-Silver sponsor.
-
-- **API key** → `FAL_KEY`
-- Their own track is an *infinite livestream* challenge using **MiniMax H3 Max
-  Director** — ask the mentor whether a continuously generated talking presence counts,
-  because that decides whether the face is worth building for the track or only for the
-  demo.
-
 ## 5. GitHub — blocks Artem — ✅ done
 
 - His **GitHub handle**, so he gets collaborator access on `bioztar/gavel`.

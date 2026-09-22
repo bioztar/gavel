@@ -40,7 +40,7 @@ What worked: strength 0.9, specific colours/materials instead of vague words
 ("loud patterned" -> "red-and-orange floral-print"), and a short identity clause
 instead of a long one. funky-02 alone needed a third pass at strength=0.82 because
 the 0.9 version turned her head away from the camera, breaking the front-facing/
-direct-eye-contact requirement the lip-sync model needs.
+direct-eye-contact requirement a talking-head render needs.
 
 ### karen-funky-01.png
 

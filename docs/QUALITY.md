@@ -40,8 +40,9 @@ the documentation fixes are the ones worth chasing on a hackathon clock:
       READMEs document the remaining optional settings and defaults.
 - [x] Root README reflects the actual `packages/brain` and `packages/ears-discord` layout
       and separates implemented sponsor integrations from planned ones.
-- [x] Planned packages that do not exist (`chair-video`, `calendar`) are no longer described
-      as implemented endpoints. fal is consistently marked planned.
+- [x] Only packages that exist are described as implemented endpoints; Karen's presence is
+      a static tile still plus a presented live board, so no video-generation service is
+      documented anywhere.
 - [x] `HANDOVER.md`, `PLAN.md`, and `tasks.json` now reflect the implemented brain and UI.
 
 **Local quality gate:** brain has 26 passing Vitest tests plus `tsc --noEmit`; ears has

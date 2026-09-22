@@ -24,7 +24,6 @@ Seven containers from `compose.yaml`, one of which is a run-once migration job.
 | `gavel-ears-1` | `gavel-ears:local` | 1.67 GB | `127.0.0.1:8787` | healthy | Discord voice connection, STT/TTS, the wire, the REST API. Artem's package |
 | `gavel-brain-1` | `gavel-brain:local` | 807 MB | `127.0.0.1:8788` | healthy | All chair decisions — talk-time, interruptions, agenda budget. Imports no call SDK |
 | `gavel-calendar-1` | `gavel-calendar:local` | 385 MB | `127.0.0.1:8790` | healthy | Invite board, `.ics` feed poller, scheduler. **The only public service** |
-| `gavel-chair-video-1` | `gavel-chair-video:local` | 387 MB | `127.0.0.1:8791` | healthy | Karen's face — fal lip-sync, idle loop |
 | `gavel-postgres-1` | `postgres:17-alpine` | 424 MB | `127.0.0.1:5432` | healthy | Meetings, sessions, transcripts, memories, LLM cost log |
 | `gavel-redis-1` | `redis:7-alpine` | 57.8 MB | `127.0.0.1:6379` | healthy | Ephemeral only (`--save "" --appendonly no`) |
 | `gavel-migrate-1` | `gavel-ears:local` | — | — | `Exited (0)` | `alembic upgrade head`, runs once per `up`, gates `ears` |
@@ -35,7 +34,6 @@ them from outside the box.
 ### Boot order
 
 `postgres` (healthy) → `migrate` (exit 0) → `ears` (healthy) → `brain`, `calendar`.
-`chair-video` has no dependencies — it only talks to fal.
 
 ```
                     Traefik (shared, not ours)
@@ -47,7 +45,6 @@ them from outside the box.
                                                 │ ws://ears:8787
                                          brain :8788
                                                 │
-                                        chair-video :8791 ──► fal.ai
         postgres :5432 ◄── ears, brain          │
         redis :6379    ◄── ears                 ▼
                                           Nebius Token Factory
@@ -106,7 +103,7 @@ The whole host routes to `calendar`. What answers on it:
 | `https://gavel.pro7ocol.com/console` | 404 | Correct — the operator console is deliberately not exposed |
 | `http://gavel.pro7ocol.com/board` | 301 → `https://…/board` | HTTP is redirected, not served |
 
-`ears`, `brain` and `chair-video` have **no** Traefik labels and are unreachable from the
+`ears` and `brain` have **no** Traefik labels and are unreachable from the
 internet. They are reached only over the compose network by service name, or from the box
 over loopback.
 
@@ -147,13 +144,6 @@ GET    /api/brain-state
 GET /state     full chair state — phase, topic, people, persona
 ```
 
-**chair-video** (`:8791`, internal)
-```
-POST /speak-video    audio → lip-synced Karen clip
-GET  /idle           the between-interventions loop
-GET  /healthz
-```
-
 ---
 
 ## Configuration
@@ -168,7 +158,6 @@ read, printed or logged:
 | `NEBIUS_API_KEY` | set | brain — all LLM calls |
 | `NEBIUS_BASE_URL` | set | brain |
 | `SLNG_API_KEY` | set | ears — STT (`deepgram/nova:3`) + TTS (`deepgram/aura:2`, Karen's voice) |
-| `FAL_KEY` | set | chair-video — lip-sync + avatars |
 | `EARS_WIRE_URL` | set | — |
 | `CONCIERGE_WEBHOOK_URL` | set | — |
 | `WIRE_PORT`, `STAGE_PORT` | set | port overrides |
@@ -187,7 +176,6 @@ read, printed or logged:
 | `RESEND_API_KEY` + `COMPOSE_FROM_EMAIL` | the compose lane's email leg (branch not merged yet) |
 
 Defaults that matter, all in `compose.yaml`: `CHAIR_PERSONA=funky`, `STT_MODE=stream`,
-`LIPSYNC_MODEL=veed/lipsync/v2`, `AVATAR_MODEL=fal-ai/flux/schnell`,
 `SCHEDULER_POLL_SECONDS=30`, `CALENDAR_FEED_WINDOW_HOURS=24`, `DISCORD_LEAVE_GRACE_SECONDS=10`.
 
 ### One fix was needed before this would start
@@ -252,7 +240,7 @@ git pull --ff-only
 docker compose up --build -d --wait
 
 docker compose ps
-docker compose logs -f ears brain calendar chair-video
+docker compose logs -f ears brain calendar
 docker compose restart calendar          # one service
 docker compose down                      # stop; volume survives
 ```
@@ -272,7 +260,6 @@ Behaviour, not just "it's up":
 ```
 brain        Up 45 minutes (healthy)
 calendar     Up 45 minutes (healthy)
-chair-video  Up 45 minutes (healthy)
 ears         Up 45 minutes (healthy)
 postgres     Up 45 minutes (healthy)
 redis        Up 45 minutes (healthy)
@@ -286,7 +273,6 @@ cert     Let's Encrypt YR1, expires Dec 18 2026
 127.0.0.1:8787/health    200
 127.0.0.1:8788/state     200   {"chairName":"Karen","phase":"idle","persona":{"id":"funky","displayName":"Funky Karen"}}
 127.0.0.1:8790/health    200
-127.0.0.1:8791/healthz   200   {"falConfigured":true,"falReachable":true,"lipsyncModel":"veed/lipsync/v2"}
 ```
 
 Karen is actually logged into Discord:
@@ -301,8 +287,6 @@ Brain is connected to the wire:
 15:10:22.424 info  brain.ready {"state":"http://0.0.0.0:8788/state","ears":"ws://ears:8787"}
 15:10:22.449 info  wire.connected {"url":"ws://ears:8787"}
 ```
-
-`chair-video` reports `falReachable: true` — that is a live call to fal, not a config check.
 
 ---
 

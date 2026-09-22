@@ -56,7 +56,7 @@ with a shared token is how two agents end up fighting over one gateway connectio
 
 **This repo is public** — the sponsor tracks want a public repo with a README. `.env` is
 gitignored and stays that way; `.env.example` holds names with empty values. Check the
-diff for anything key-shaped before every push. A leaked Nebius or fal key on a
+diff for anything key-shaped before every push. A leaked Nebius or SLNG key on a
 hackathon weekend is a boring way to lose a morning.
 
 ## Talking to each other

@@ -1,7 +1,9 @@
 # gavel — architecture
 
 An AI chair ("Karen") that sits in a real Discord call: she hears the room, decides when
-someone has had the floor too long, and says so out loud — with a face on the projector.
+someone has had the floor too long, and says so out loud. Her tile carries a static persona
+still (`assets/persona/`); the live board she presents from it — agenda, talk-time,
+decisions — is a screen share (`packages/stage`, built separately).
 
 Two parts: **the live path** (what runs during a meeting) and **off the live path** (what
 built the code and proved the chair says something sane).
@@ -29,7 +31,6 @@ flowchart LR
 
   subgraph SPEAK["3 — Speak"]
     SLNG2["SLNG · TTS<br/>her voice"]
-    FAL["fal<br/>lip-synced avatar, WebRTC stage"]
   end
 
   ROOM --> EARS --> SLNG1 --> DB --> BRAIN
@@ -37,7 +38,6 @@ flowchart LR
   BRAIN --> MASTRA --> NEBIUS --> SLNG2
   SLNG2 --> EARS
   EARS -->|"she interrupts, out loud"| ROOM
-  SLNG2 --> FAL
 ```
 
 **The three moves**
@@ -46,14 +46,13 @@ flowchart LR
 |---|---|---|
 | 1 | **Hear** | `ears-discord` holds the voice connection and knows who is speaking. **SLNG** transcribes each utterance live. Postgres and Redis keep the transcript and the floor clock. |
 | 2 | **Think** | `brain` is Karen. Plain code holds the agenda and fires on facts, not vibes — 60% of the floor, a topic over budget, a must-hear attendee still silent. **Mastra** orchestrates the model calls; **Nebius** writes the one sentence she says: under 20 words, names the person, hands the floor somewhere specific. `calendar` turned a real `.ics` invite into that agenda before the meeting started. |
-| 3 | **Speak** | **SLNG** turns the line into her voice, `ears-discord` plays it back into the live call — the room hears her interrupt. The same audio drives **fal**, which lip-syncs an avatar into a live WebRTC stage feed, so Karen has a face on the projector. |
+| 3 | **Speak** | **SLNG** turns the line into her voice, `ears-discord` plays it back into the live call — the room hears her interrupt. What you look at is her camera tile — a static persona still published as her video track — and the live board she presents as a screen share. |
 
-Underneath: five containers behind Traefik on one VPS — `ears-discord`, `brain`, `calendar`,
-`chair-video`, Postgres/Redis. Every seam is HTTP or a WebSocket, so any one of them can be
-swapped without touching the others.
+Underneath: four containers behind Traefik on one VPS — `ears-discord`, `brain`, `calendar`,
+Postgres/Redis. Every seam is HTTP or a WebSocket, so any one of them can be swapped without
+touching the others.
 
-**Sponsors in the live path:** SLNG (speech), Nebius (inference), Mastra (orchestration),
-fal (avatar).
+**Sponsors in the live path:** SLNG (speech), Nebius (inference), Mastra (orchestration).
 
 ---
 
@@ -101,7 +100,7 @@ The projector version of this page is `docs/architecture.html` — three full-sc
 **Discord was the harness, not the product.** We built on it because it puts a bot into a live
 voice call in an afternoon. Nothing about the chair depends on it: `ears-discord` is the only
 container that knows what a voice call is, and everything else talks HTTP. Swapping the platform
-means one new adapter against the same wire — agenda, floor clock, triggers, voice and avatar
+means one new adapter against the same wire — agenda, floor clock, triggers and voice
 untouched.
 
 **The target is the enterprise meeting stack**, as an add-on inside the suite people already buy:
@@ -126,6 +125,6 @@ decided, whether the hour was worth its payroll cost — live, while it can stil
 
 | Phase | What | Detail |
 |---|---|---|
-| **Now — demo** | Discord, one room | Live chair, real interruptions, a face on the projector. Proves the loop closes end to end. |
+| **Now — demo** | Discord, one room | Live chair, real interruptions. Proves the loop closes end to end. |
 | **Next — wedge** | Meet & Zoom adapters | Same brain, new ears. Land with teams whose standups and reviews already overrun, priced per room. |
 | **Then — suite** | Teams add-on, org-wide | Chairing plus scheduling and agenda hygiene across the org, with the time data to show what it saved. |

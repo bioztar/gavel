@@ -17,7 +17,7 @@ The full run sheet, with cues, failure drills and Karen's and Artem's lines, is 
 
 **7.**  The room is the page you put on the shared screen. Karen and the agenda on the left. On the right, the topic running now, how much of its time it has used, and who is talking. Along the bottom, what got decided and what is still open.
 
-**8.**  Nobody typed start. She opened it herself. Three parts. She sits in the Discord call the way a person does, and the audio goes out to speech to text. Then the decision to interrupt, which is ordinary code. It looks at who has held the floor and for how long, against the minutes on the agenda, and it runs four times a second. The model only writes the sentence she says. Her speech goes back into the same call, and fal moves her face.
+**8.**  Nobody typed start. She opened it herself. Three parts. She sits in the Discord call the way a person does, and the audio goes out to speech to text. Then the decision to interrupt, which is ordinary code. It looks at who has held the floor and for how long, against the minutes on the agenda, and it runs four times a second. The model only writes the sentence she says. Her speech goes back into the same call.
 
 **9.**  And the interesting part is really the cost, because once you are running six containers you start looking at reserved instances against spot, and I compared three providers last month, and their pricing pages are impossible to line up, and then there are egress fees on top...
 

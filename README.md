@@ -62,9 +62,11 @@ agent chair a call on any platform, and lets people build in parallel without to
 each other's files. `ears-discord` is the one surface built; a second ears package is one
 adapter away, and the brain would not notice the swap.
 
-**Discord** is where meetings already happen. A surface that lets a participant publish
-an arbitrary video track is where the chair would get a face in-call — Discord does not
-allow bots to publish video at all.
+**Discord** is where meetings already happen. Karen's presence in the room is her voice,
+a static persona still published as her camera track (`assets/persona/`), and a live board —
+agenda, talk-time, decisions — that she presents as a screen share from that tile
+(`packages/stage`, built separately). Discord does not allow bots to publish video at all,
+which is why the face arrives on the browser surfaces (Meet first) and not on Discord.
 
 ## Sponsor stack
 
@@ -73,10 +75,10 @@ allow bots to publish video at all.
 | **SLNG** | Speech-to-text per speaker and Karen's text-to-speech voice | implemented |
 | **Nebius** | Token Factory inference for relevance, meeting notes, and Karen's spoken lines | implemented |
 | **Mastra** | Agents and the traced intervention workflow | implemented |
-| **fal.ai** | Planned generated face/video for the stage | planned |
 
 Discord blocks video publishing from bots. The implemented Discord experience therefore
-uses the ears operator console; the generated-video surface remains planned.
+uses the ears operator console; Karen's camera still and her presented board arrive on the
+browser surfaces, Google Meet first.
 
 ## Layout
 
@@ -86,6 +88,7 @@ uses the ears operator console; the generated-video surface remains planned.
 | `packages/brain` | the other | Meeting lifecycle, talk-time, agenda, moderation, notes, Nebius |
 | `packages/concierge` | whoever is free | Stretch: Discord bot that writes the agenda |
 | `packages/contract` | both | Shared schema and fixtures. Changes need both to agree |
+| `assets/persona` | — | Karen's persona stills — the image in her participant tile (`PROMPTS.md` records how they were made) |
 
 ## Try it
 
@@ -103,13 +106,13 @@ first. Nothing on a wall clock ever starts it.
 ## Run everything with Docker Compose
 
 The root [`compose.yaml`](compose.yaml) runs the complete deployment: Postgres, Redis,
-schema migrations, Discord ears, brain, calendar ingestion, and chair-video. Docker is
+schema migrations, Discord ears, brain, and calendar ingestion. Docker is
 the only host dependency; the VPS's existing `traefik-public` network provides HTTPS for
 the calendar join page.
 
 ```bash
 cp .env.example .env             # first run only; fill DISCORD_EARS_TOKEN,
-                                 # SLNG_API_KEY, NEBIUS_API_KEY and FAL_KEY
+                                 # SLNG_API_KEY and NEBIUS_API_KEY
 docker compose up --build -d --wait
 docker compose ps
 ```

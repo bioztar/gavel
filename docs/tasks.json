@@ -49,8 +49,8 @@
     },
     {
       "id": "face",
-      "title": "face — the chair's video (fal)",
-      "package": "packages/chair-video"
+      "title": "face — the chair's video — cut, replaced by the tile still + presented live board",
+      "package": "—"
     },
     {
       "id": "calendar",
@@ -60,20 +60,20 @@
     {
       "id": "persona",
       "title": "persona — formal Karen and funky Karen",
-      "package": "packages/brain/config + chair-video"
+      "package": "packages/brain/config"
     }
   ],
   "tasks": [
     {
       "id": "S1",
       "lane": "shared",
-      "title": "Collect sponsor keys — Vonage, SLNG, Nebius, fal",
+      "title": "Collect sponsor keys — Vonage, SLNG, Nebius",
       "owner": "vitaly",
       "effort": "45m",
       "deps": [],
       "status": "doing",
       "spine": true,
-      "note": "SLNG and fal keys in hand; Vonage in progress. Mentors are on site today only."
+      "note": "SLNG key in hand; Vonage in progress. Mentors are on site today only."
     },
     {
       "id": "S2",
@@ -371,7 +371,7 @@
         "B6a",
         "B7"
       ],
-      "status": "todo",
+      "status": "cut",
       "spine": false,
       "note": "Director = infinite livestream, steerable, no latency at the interrupt, fits the H3 Max track. First question to the mentor: is the output playable in a browser <video>? If yes the stage and Vonage both get it via canvas. Decide within 30m of the key working; still portrait if neither lands."
     },
@@ -511,7 +511,7 @@
       "deps": [
         "S1"
       ],
-      "status": "doing",
+      "status": "cut",
       "spine": false,
       "note": "Vitaly picked chair-03 — she is Karen. Formal is her as generated; three funky variants in flight."
     },
@@ -524,7 +524,7 @@
       "deps": [
         "S1"
       ],
-      "status": "doing",
+      "status": "cut",
       "spine": false,
       "note": "Auth header 'Authorization: Key <FAL_KEY>'. Key loaded from .env, never logged."
     },
@@ -538,7 +538,7 @@
         "F1",
         "F2"
       ],
-      "status": "todo",
+      "status": "cut",
       "spine": false,
       "note": "Returns {videoUrl, durationMs, latencyMs}. Audio never waits for video."
     },
@@ -551,7 +551,7 @@
       "deps": [
         "F3"
       ],
-      "status": "todo",
+      "status": "cut",
       "spine": false,
       "note": "sync-lipsync/v2, veed/lipsync/v2, kling lipsync, longcat avatar. Measured, not guessed — this picks the model."
     },
@@ -564,7 +564,7 @@
       "deps": [
         "F1"
       ],
-      "status": "todo",
+      "status": "cut",
       "spine": false,
       "note": "Chair has a face between utterances."
     },
@@ -577,7 +577,7 @@
       "deps": [
         "F4"
       ],
-      "status": "todo",
+      "status": "cut",
       "spine": false,
       "note": "Gated on one question: is the output playable in a browser <video> (HLS/WebRTC)? If yes, <video> → canvas → captureStream() feeds stage and Vonage publisher. If no, lip-sync wins."
     },
@@ -718,7 +718,7 @@
         "F5",
         "P1"
       ],
-      "status": "todo",
+      "status": "cut",
       "spine": false,
       "note": "Unknown persona falls back to formal — a typo on stage must never silence the chair."
     }
@@ -770,8 +770,8 @@
       "id": "fal",
       "name": "fal API key — in .env only, never committed",
       "who": "fal mentor on site",
-      "blocks": "B9, V3 — the face. Confirm the exact lip-sync model id with the mentor",
-      "status": "done"
+      "blocks": "B9, V3 — the face. Cut: replaced by the tile still + presented live board",
+      "status": "cut"
     },
     {
       "id": "github",
@@ -783,7 +783,7 @@
   ],
   "cutOrder": [
     "Concierge — already parked",
-    "The chair's face (B9, V3)",
+    "The chair's face (B9, V3, F1–F7) — cut: Karen's presence is a static persona still in her tile plus the live board she presents as a screen share (packages/stage)",
     "The fire drill (B11, V5) — cut only if STT and the stage fallback both die",
     "Transcript features (E5, E6, B10)",
     "The second surface — demo one call surface, show the seam in the README",
