@@ -1,4 +1,6 @@
-# gavel — demo script (HackBarna, 20 Sep 2026)
+# Cloture — demo script (HackBarna, 20 Sep 2026)
+
+*Cloture — the motion that cuts off debate.*
 
 Styled version, readable on a phone on stage: <https://gavel.pro7ocol.com/demo-script>
 
@@ -158,7 +160,7 @@ It names everything the parser needs — start, duration, topics, minutes, owner
 and which are presentations:
 
 > "Karen, set up a meeting with Artem in fifteen minutes, fifteen minutes long, called
-> gavel live demo. Three topics. One: solution and architecture, five minutes, I present
+> Cloture live demo. Three topics. One: solution and architecture, five minutes, I present
 > it. Two: open discussion, six minutes — I want both Artem and me heard on it. Three:
 > roadmap, four minutes, I present it."
 

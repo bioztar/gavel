@@ -3,19 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>gavel — build board</title>
+<title>Cloture — build board</title>
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxNDE2MWEiLz4KICA8cmVjdCB4PSIxMCIgeT0iMzAuNSIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjMiIHJ4PSIxLjUiIGZpbGw9IiM2YzcyODAiLz4KICA8ZyBmaWxsPSIjYzgxMDJlIj4KICAgIDxyZWN0IHg9IjI4IiB5PSIxNCIgd2lkdGg9IjQuMiIgaGVpZ2h0PSIzNiIgcng9IjIuMSIgdHJhbnNmb3JtPSJyb3RhdGUoMTQgMzAuMSAzMikiLz4KICAgIDxyZWN0IHg9IjM3IiB5PSIxNCIgd2lkdGg9IjQuMiIgaGVpZ2h0PSIzNiIgcng9IjIuMSIgdHJhbnNmb3JtPSJyb3RhdGUoMTQgMzkuMSAzMikiLz4KICA8L2c+Cjwvc3ZnPgo=">
 <style>
   :root{
-    --ink:#111827; --muted:#6b7280; --line:#e5e7eb; --bg:#f7f7f5; --card:#fff;
-    --blue:#2563eb; --violet:#7c3aed; --green:#15803d; --amber:#b45309; --red:#b91c1c; --grey:#6b7280;
+    --ink:#14161a; --muted:#6c7280; --line:#e4e2de; --bg:#faf9f7; --card:#fff;
+    --blue:#c8102e; --violet:#7c3aed; --green:#15803d; --amber:#b45309; --red:#b91c1c; --grey:#6c7280;
   }
+  .brand{margin:0 0 22px}
+  .brand svg{display:block;width:190px;height:auto}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
     font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     -webkit-font-smoothing:antialiased}
   .wrap{max-width:980px;margin:0 auto;padding:28px 20px 80px}
-  h1{font-size:30px;margin:0 0 4px;letter-spacing:-.02em}
-  h2{font-size:19px;margin:34px 0 12px;letter-spacing:-.01em;
+  h1{font-size:30px;margin:0 0 4px;letter-spacing:-.02em;font-weight:600}
+  h2{font-size:19px;margin:34px 0 12px;letter-spacing:-.01em;font-weight:600;
      border-left:4px solid var(--blue);padding-left:10px}
   .sub{color:var(--muted);margin:0 0 20px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
@@ -75,9 +78,25 @@
 <body>
 <div class="wrap">
 
-<h1>gavel — build board</h1>
-<p class="sub">The AI chair that runs the meeting. HackBarna AI Summit 26, Barcelona.
-Edit <code>docs/tasks.json</code>, push, refresh — this page reads it live.</p>
+<div class="brand" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 64" role="img" aria-label="Cloture">
+  <title>Cloture</title>
+  <rect x="0" y="0" width="64" height="64" rx="12" fill="#14161a"/>
+  <rect x="10" y="30.5" width="44" height="3" rx="1.5" fill="#6c7280"/>
+  <g fill="#c8102e">
+    <rect x="28" y="14" width="4.2" height="36" rx="2.1" transform="rotate(14 30.1 32)"/>
+    <rect x="37" y="14" width="4.2" height="36" rx="2.1" transform="rotate(14 39.1 32)"/>
+  </g>
+  <text x="84" y="43" fill="#14161a"
+        font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="30" font-weight="600" letter-spacing="6.5">CLOTURE</text>
+</svg>
+</div>
+
+<h1>Build board</h1>
+<p class="sub">Cloture — the motion that cuts off debate. The AI chair that runs the meeting.
+HackBarna AI Summit 26, Barcelona. Edit <code>docs/tasks.json</code>, push, refresh — this page
+reads it live.</p>
 
 <p class="sub" style="padding:10px 14px;border-left:4px solid #2f4fd0;background:#eef1fb;border-radius:6px">
 <strong>Looking for build status?</strong> This page is the demo-prep board.
