@@ -261,8 +261,109 @@ services:
       retries: 12
       start_period: 5s
 
+  # The live meeting board Karen presents into the call (docs/STAGE.md). Zero runtime
+  # deps; reads the brain's /state and serves a page titled exactly `gavel-stage`,
+  # which is how ears-meet's Chromium picks the tab to share.
+  stage:
+    image: gavel-stage:local
+    build:
+      context: .
+      dockerfile: packages/stage/Dockerfile
+    init: true
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8793
+      BRAIN_STATE_URL: http://brain:8788/state
+    ports:
+      - "127.0.0.1:${STAGE_BOARD_PORT:-8793}:8793"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8793/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  # The Google Meet ears (docs/EARS-MEET.md): a headful Chromium on Xvfb with PulseAudio
+  # null sinks, inside the container. Behind the `meet` profile because it owns the same
+  # wire port as the Discord `ears` — run one or the other, and point brain's
+  # EARS_WIRE_URL / EARS_HTTP_URL at ears-meet:8787 when this one is up.
+  #
+  # With MEET_URL empty the service comes up in *standby*: Xvfb, PulseAudio, the wire and
+  # the browser (with the stage tab open) all run, nothing is joined and no sign-in is
+  # attempted. `just smoke-compose` in packages/ears-meet proves that state.
+  ears-meet:
+    profiles: ["meet"]
+    image: gavel-ears-meet:local
+    build:
+      context: .
+      dockerfile: packages/ears-meet/Dockerfile
+    init: true
+    restart: unless-stopped
+    shm_size: 2g # Chromium
+    environment:
+      MEET_URL: ${MEET_URL:-}
+      MEET_BOT_NAME: ${MEET_BOT_NAME:-Karen (gavel)}
+      # The pre-authenticated Chromium profile (see docs/EARS-MEET.md). It is the
+      # credential: mounted, never baked into the image.
+      MEET_PROFILE_DIR: /profile
+      # Fallback only; prefer the profile. Never echoed.
+      MEET_BOT_EMAIL: ${MEET_BOT_EMAIL:-}
+      MEET_BOT_PASSWORD: ${MEET_BOT_PASSWORD:-}
+      MEET_ADMIT_TIMEOUT_S: ${MEET_ADMIT_TIMEOUT_S:-180}
+      MEET_CAPTIONS: ${MEET_CAPTIONS:-true}
+      TRANSCRIPT_SOURCE: ${TRANSCRIPT_SOURCE:-auto}
+      STAGE_URL: http://stage:8793/
+      DISPLAY: ":99"
+      XVFB_MANAGE: "true"
+      PULSE_MANAGE: "true"
+      SLNG_API_KEY: ${SLNG_API_KEY:-}
+      SLNG_BASE_URL: ${SLNG_BASE_URL:-https://eu-west.api.slng.ai}
+      SLNG_STT_MODEL: ${SLNG_STT_MODEL:-deepgram/nova:3}
+      SLNG_STT_LANGUAGE: ${SLNG_STT_LANGUAGE:-en}
+      SLNG_TTS_MODEL: ${SLNG_TTS_MODEL:-deepgram/aura:2}
+      SLNG_TTS_VOICE: ${SLNG_TTS_VOICE:-aura-2-thalia-en}
+      STT_MODE: ${STT_MODE:-stream}
+      WIRE_HOST: 0.0.0.0
+      WIRE_PORT: 8787
+      BRAIN_STATE_URL: http://brain:8788/state
+      AGENDA_FILE: ${AGENDA_FILE:-}
+      FRAMES_FILE: /recordings/live.jsonl
+      LOG_JSON: "true"
+    volumes:
+      # A host path to the signed-in profile directory; unset, an empty named volume
+      # (standby, or the scripted sign-in fallback).
+      - ${MEET_PROFILE_HOST_DIR:-ears-meet-profile}:/profile
+      - ears-meet-recordings:/recordings
+    ports:
+      # A different host port from the Discord ears so both can be up at once.
+      - "127.0.0.1:${MEET_WIRE_PORT:-8797}:8787"
+    depends_on:
+      stage:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8787/health', timeout=2)",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 15s
+
 volumes:
   postgres_data:
+  ears-meet-profile:
+  ears-meet-recordings:
 
 networks:
   traefik-public:

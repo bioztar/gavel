@@ -13,7 +13,7 @@ import pytest
 from fastapi import WebSocketDisconnect
 from fastapi.testclient import TestClient
 
-from conftest import Harness
+from conftest import Harness, make_settings
 from ears_meet.wire import Hub, create_api
 
 
@@ -82,6 +82,28 @@ def test_selfcheck_outside_a_call_is_503(harness: Harness) -> None:
     client = TestClient(create_api(harness.ears))
     assert client.get("/api/selfcheck").status_code == 503
     assert client.get("/health").json()["status"] == "joining"
+
+
+def test_without_a_meet_url_the_wire_reports_standby(harness: Harness) -> None:
+    standby = Harness(make_settings(meet_url=""))
+    assert standby.ears.standby is True and harness.ears.standby is False
+    client = TestClient(create_api(standby.ears))
+    health = client.get("/health").json()
+    assert health["status"] == "standby" and health["inCall"] is False
+    assert client.get("/api/status").json()["mode"] == "standby"
+    assert client.get("/api/selfcheck").status_code == 503
+
+
+def test_browser_pages_name_the_stage_tab_by_its_exact_title(harness: Harness) -> None:
+    client = TestClient(create_api(harness.ears))
+    out = client.get("/api/browser").json()
+    assert out["launched"] is True
+    assert out["stageTab"] == {"url": "http://stage:8793/", "title": "gavel-stage"}
+    harness.surface.stage_ok = False
+    out = client.get("/api/browser").json()
+    assert out["launched"] is True and out["stageTab"] is None
+    harness.ears.surface = None
+    assert client.get("/api/browser").json() == {"launched": False, "pages": [], "stageTab": None}
 
 
 def test_sessions_and_stop_and_present(joined: Harness) -> None:

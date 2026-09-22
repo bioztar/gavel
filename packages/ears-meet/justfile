@@ -27,6 +27,11 @@ live-check *args:
 stub-brain *args:
     uv run python scripts/stub_brain.py {{args}}
 
+# Compose smoke: `--profile meet up` stage + ears-meet with no MEET_URL (no Google account), then
+# prove Xvfb :99, PulseAudio sinks, wire /health and the `gavel-stage` Chromium tab from inside
+smoke-compose *args:
+    uv run python scripts/compose_smoke.py {{args}}
+
 # Re-record the Meet conformance fixtures from the Discord ones (deterministic, no browser)
 record-fixtures:
     rm -f tests/conformance/fixtures/*.jsonl

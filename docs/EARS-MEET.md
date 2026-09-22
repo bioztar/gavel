@@ -148,7 +148,8 @@ without it that assertion skips with a message and the recording assertions stil
    before tuning `SPEAKING_*_MS`.
 7. **Camera stays off.** The stage share is the face.
 8. **Dockerfile builds on the Playwright base image** (`mcr.microsoft.com/playwright/python:v1.63.0-noble`
-   + xvfb + pulseaudio); it has been written, not yet built in CI.
+   + xvfb + pulseaudio); it builds and runs under `docker compose --profile meet up` (see
+   the Docker section below and `just smoke-compose`), not yet built in CI.
 
 ### Stage share — status split in two, measured 2026-09-21
 
@@ -240,9 +241,23 @@ Only one `ears` may own port 8787: stop the Discord `ears` service first.
 docker build -f packages/ears-meet/Dockerfile -t gavel-ears-meet:local .
 ```
 
-The compose service block is in the PR body (it is not added to `compose.yaml` here). It
-mounts the profile directory read-write at `/profile`, needs `shm_size: 2g` for
-Chromium, and publishes 8787 on loopback exactly like the Discord ears.
+`compose.yaml` has the `stage` service and, behind the `meet` profile, `ears-meet`. It
+mounts a named volume read-write at `/profile` (or the host directory `MEET_PROFILE_HOST_DIR`
+names, when set), gives
+Chromium `shm_size: 2g`, starts only after `stage` is healthy, and publishes its wire on
+loopback at `MEET_WIRE_PORT` (default 8797, so it can coexist with the Discord ears on 8787).
+
+```
+docker compose --profile meet up          # MEET_URL unset → standby, see below
+cd packages/ears-meet && just smoke-compose
+```
+
+**Standby.** With `MEET_URL` empty, ears-meet does not need a Google account: it starts
+Xvfb, PulseAudio (`gavel_in`/`gavel_out`), the wire, and a headful Chromium with the
+`gavel-stage` tab open, then waits. `/health` reports `"status": "standby"`; `/api/browser`
+lists the open tabs and which one is the stage. Nothing is joined and no sign-in is
+attempted. `just smoke-compose` brings the two services up this way and asserts all four
+from inside the container in one command.
 
 ## 7. When Meet changes
 
