@@ -697,7 +697,10 @@ class Ears:
                 await self._surface_health(now)
 
     async def _surface_health(self, now: float) -> None:
-        assert self.surface is not None
+        # The caller already checked; this is a guard, not an assert, because `python -O`
+        # strips asserts and the next line would raise AttributeError on None instead.
+        if self.surface is None:
+            return
         if self.channel_id is None:
             return
         if not await self.surface.is_in_call():

@@ -72,6 +72,18 @@ class Settings(BaseSettings):
     window_width: int = 1280
     window_height: int = 720
 
+    # --- karen's face (the camera tile) ------------------------------------
+    # A still image published as the bot's camera track — no video is generated anywhere.
+    # ffmpeg letterboxes it to the size below (aspect kept, padded not squashed) and
+    # face.js draws it onto a canvas whose captureStream() is what Meet receives.
+    # Empty, missing, or no ffmpeg: the bot joins with its camera off and a name badge.
+    meet_face_image: str = "assets/persona/karen-formal.png"
+    meet_face_width: int = 640
+    meet_face_height: int = 480
+    # The still never changes; this is only the rate the canvas is redrawn at, which is what
+    # keeps the track live rather than frozen. Low on purpose.
+    meet_face_fps: int = 5
+
     # --- stage (screen share) ----------------------------------------------
     # packages/stage's live status page; presented into the call from a second tab when
     # reachable. Empty or unreachable: join anyway, present nothing.

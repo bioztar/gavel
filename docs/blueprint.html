@@ -180,7 +180,7 @@
 <div class="callout green" style="margin-top:26px">
 <h4>Decided since this document was first published — 21 September</h4>
 <p><strong>The avatar is cut, completely.</strong> No live video generation anywhere in the live path. <code>chair-video</code>, fal Director and the projector page all come out. Decision 2 below is settled.</p>
-<p><strong>Karen's presence becomes a screen share, not a face.</strong> The live meeting board — agenda, talk-time bars, decisions — is presented from Karen's own participant tile. Nobody navigates to a second page; the thing that makes the time-governance claim visible is simply on screen inside the meeting. See §5.</p>
+<p><strong>Karen's presence becomes a screen share plus a still, not a generated face.</strong> The live meeting board — agenda, talk-time bars, decisions — is presented from Karen's own participant tile. Nobody navigates to a second page; the thing that makes the time-governance claim visible is simply on screen inside the meeting. See §5.</p>
 <p style="margin-bottom:0"><strong>We build <code>ears-meet</code> rather than buying bot infrastructure.</strong> Decision 1 below is settled. All five autonomous build lanes are reviewed and accepted — see §10.</p>
 </div>
 
@@ -343,7 +343,7 @@
 <p style="margin-bottom:0">With the avatar gone, inference is not the scale driver — <strong>the browser is</strong>. Every concurrent meeting on Meet needs its own headless Chromium: roughly 1 vCPU and 0.5–1 GB RAM, for the duration of the call. That is the number that decides whether gavel is priced per room, per seat, or per meeting-hour, and it is the number a managed bot vendor is quoting you when they charge per bot-hour.</p>
 </div>
 
-<h2>5 · Karen&rsquo;s presence — a shared screen, not a face</h2>
+<h2>5 · Karen&rsquo;s presence — a shared screen, and a still rather than a generated face</h2>
 
 <div class="callout green">
 <h4>The demo moment survives the cut, and gets better</h4>
@@ -620,7 +620,7 @@
 <footer>
 <p><strong>gavel</strong> — architecture reset and platform plan · 21 September 2026 · working document, not a contract.<br>
 Companion documents: <a href="architecture.html">architecture</a> · <a href="index.html">build board</a> · <a href="https://github.com/bioztar/gavel/blob/main/docs/CONTRACT.md">the frozen contract</a> · <a href="blueprint.md">Markdown twin</a></p>
-<p>Verified in this document: <code>brain</code> contains zero call-SDK imports; Meet Media API offers are receive-only with a three-stream audio cap; fal Director list price is $0.08/s at 768p with a $1.20 session minimum. Verified since first publication, by measurement on 21 September: Chromium auto-selects the <code>gavel-stage</code> tab for Karen&rsquo;s screen share with no picker dialog &mdash; real headful Chromium on Xvfb, a track at 1280&times;720 and <span class="mono">displaySurface: "browser"</span>. Desktop capture on the same virtual display fails outright, so tab capture is the only route and the &ldquo;A tab&rdquo; menu item is load-bearing. Still unverified, and to be proven by a live call rather than by this document: Zoom Meeting SDK raw-audio injection, and the two Meet DOM selectors behind the present menu.</p>
+<p>Verified in this document: <code>brain</code> contains zero call-SDK imports; Meet Media API offers are receive-only with a three-stream audio cap; fal Director list price is $0.08/s at 768p with a $1.20 session minimum. Verified since first publication, by measurement on 21 September: Chromium auto-selects the <code>gavel-stage</code> tab for Karen&rsquo;s screen share with no picker dialog &mdash; real headful Chromium on Xvfb, a track at 1280&times;720 and <span class="mono">displaySurface: "browser"</span>. Desktop capture on the same virtual display fails outright, so tab capture is the only route and the &ldquo;A tab&rdquo; menu item is load-bearing. Measured 22 September: Chromium&rsquo;s own fake-camera flags are unusable here &mdash; <span class="mono">--use-fake-device-for-media-stream</span> also replaces the audio manager, leaving only &ldquo;Fake Audio Input&rdquo; devices where the PulseAudio monitors have to be, and <span class="mono">--use-file-for-fake-video-capture</span> alone is inert. Karen&rsquo;s still is therefore published by patching <code>getUserMedia</code> with a canvas track; the frame the page received was compared pixel-by-pixel against the source image and matched exactly. Still unverified, and to be proven by a live call rather than by this document: Zoom Meeting SDK raw-audio injection, and the two Meet DOM selectors behind the present menu.</p>
 </footer>
 
 </div>

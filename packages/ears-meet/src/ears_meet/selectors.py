@@ -82,7 +82,7 @@ CAMERA_TOGGLE = Selector(
     ),
     required=False,
     where="any",
-    note="The bot has no face; the camera is turned off in the lobby.",
+    note="Turned on in the lobby when a persona still is available, off when it is not.",
 )
 
 # Meet shows one of these while a request to join is pending, or when it is refused.

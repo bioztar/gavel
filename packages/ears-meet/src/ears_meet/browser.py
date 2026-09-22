@@ -42,6 +42,7 @@ from playwright.async_api import (
 from playwright.async_api import Error as PlaywrightError
 
 from . import selectors as sel
+from .face import build_script as build_face_script
 from .logging import get_logger
 from .settings import MissingSetting, Settings
 
@@ -108,6 +109,7 @@ class Browser:
         self.page: Page | None = None
         self.stage_page: Page | None = None
         self.presenting = False
+        self.camera_on = False
         self.joined_at: float | None = None
 
     # --- lifecycle ---------------------------------------------------------------------
@@ -137,6 +139,12 @@ class Browser:
             "--no-default-browser-check",
             "--disable-infobars",
             "--disable-session-crashed-bubble",
+            # Karen's camera is a canvas redrawn on a timer (face.js). The Meet tab sits
+            # behind the stage tab for the whole call, and a background tab's timers are
+            # throttled to about one tick a minute — which would stall the camera track.
+            "--disable-background-timer-throttling",
+            "--disable-backgrounding-occluded-windows",
+            "--disable-renderer-backgrounding",
             "--hide-crash-restore-bubble",
             "--lang=en-US",
             # The stage share: pick the TAB by title, no picker dialog. Tab capture is the
@@ -161,6 +169,12 @@ class Browser:
         await self.context.grant_permissions(
             ["microphone", "camera"], origin="https://meet.google.com"
         )
+        # The face, if there is one to publish. Installed before any navigation so the patched
+        # getUserMedia is in place by the time Meet's own scripts first ask for a camera.
+        face_js = await build_face_script(s)
+        self.camera_on = face_js is not None
+        if face_js is not None:
+            await self.context.add_init_script(face_js)
         self.page = self.context.pages[0] if self.context.pages else await self.context.new_page()
         await self.page.expose_binding("__gavelPost", self._on_post)
         self.page.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
@@ -241,8 +255,9 @@ class Browser:
         name_box = await self._first(sel.LOBBY_NAME_INPUT, wait_ms=500)
         if name_box is not None:
             await name_box.fill(s.meet_bot_name)
-        # Camera off (no face), microphone ON — the chair has to be heard.
-        await self._set_toggle(sel.CAMERA_TOGGLE, muted=True)
+        # Camera on when there is a still to publish (face.js serves it as a real video
+        # track), off when there is not. Microphone ON either way — the chair has to be heard.
+        await self._set_toggle(sel.CAMERA_TOGGLE, muted=not self.camera_on)
         await self._set_toggle(sel.MIC_TOGGLE, muted=False)
         await join.click()
         logger.info("meet.join_clicked")

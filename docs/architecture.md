@@ -46,7 +46,7 @@ flowchart LR
 |---|---|---|
 | 1 | **Hear** | `ears-discord` holds the voice connection and knows who is speaking. **SLNG** transcribes each utterance live. Postgres and Redis keep the transcript and the floor clock. |
 | 2 | **Think** | `brain` is Karen. Plain code holds the agenda and fires on facts, not vibes — 60% of the floor, a topic over budget, a must-hear attendee still silent. **Mastra** orchestrates the model calls; **Nebius** writes the one sentence she says: under 20 words, names the person, hands the floor somewhere specific. `calendar` turned a real `.ics` invite into that agenda before the meeting started. |
-| 3 | **Speak** | **SLNG** turns the line into her voice, `ears-discord` plays it back into the live call — the room hears her interrupt. What you look at is her camera tile — a static persona still published as her video track — and the live board she presents as a screen share. |
+| 3 | **Speak** | **SLNG** turns the line into her voice, `ears-discord` plays it back into the live call — the room hears her interrupt. What you look at is the live board she presents as a screen share; on the browser surfaces (`ears-meet`) her tile also carries a static persona still, published as a real camera track. Discord allows bots no video at all. |
 
 Underneath: four containers behind Traefik on one VPS — `ears-discord`, `brain`, `calendar`,
 Postgres/Redis. Every seam is HTTP or a WebSocket, so any one of them can be swapped without

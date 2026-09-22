@@ -29,7 +29,8 @@ model: one sentence, under 20 words.
 
 - **The avatar is cut, completely.** No live video generation anywhere in the live path.
   `chair-video`, fal Director and the projector page all come out. Decision 2 below is settled.
-- **Karen's presence becomes a screen share, not a face.** The live meeting board — agenda,
+- **Karen's presence becomes a screen share plus a still, not a generated face.** The live
+  meeting board — agenda,
   talk-time bars, decisions — is presented from Karen's own participant tile. Nobody navigates
   to a second page; the thing that makes the time-governance claim visible is simply on screen
   inside the meeting. See section 5.
@@ -146,7 +147,7 @@ plus one headless browser per concurrent meeting. Removed: `stream-vonage`, `cha
 
 ---
 
-## 5. Karen's presence — a shared screen, not a face
+## 5. Karen's presence — a shared screen, and a still rather than a generated face
 
 **The demo moment survives the cut, and gets better.** The avatar answered a question nobody
 was asking: *what does Karen look like?* The question a room actually asks is *am I talking too
@@ -334,8 +335,10 @@ legitimate option and may be the efficient answer for reaching a first customer.
 
 ### 2 · Does Karen keep a face? — **settled**
 
-**Decided 21 September: no.** Cut entirely, not flagged off. Replaced by the shared screen in
-section 5.
+**Decided 21 September: no generated face.** The video pipeline is cut entirely, not flagged
+off. **Amended 22 September:** the *static* still is not just configured, it is published — the
+bot joins Meet with its camera on and a real video track carrying `karen-formal.png`. The face
+is a picture, not a render; §5's shared screen is still what carries the argument.
 
 $216 per 45-minute call, ~7,500 lines, the most fragile subsystem in the repo — against a demo
 moment that genuinely lands in a room.
@@ -412,6 +415,6 @@ receive-only with a three-stream audio cap; fal Director list price is $0.08/s a
 $1.20 session minimum. Verified since first publication, by measurement on 21 September: Chromium auto-selects the
 `gavel-stage` tab for Karen's screen share with no picker dialog — real headful Chromium on Xvfb,
 a track at 1280x720 and `displaySurface: "browser"`. Desktop capture on the same virtual display
-fails outright, so tab capture is the only route and the "A tab" menu item is load-bearing. Still
+fails outright, so tab capture is the only route and the "A tab" menu item is load-bearing. Measured 22 September: Chromium's own fake-camera flags are unusable here — `--use-fake-device-for-media-stream` also replaces the audio manager, leaving only "Fake Audio Input" devices where the PulseAudio monitors have to be, and `--use-file-for-fake-video-capture` alone is inert. Karen's still is therefore published by patching `getUserMedia` with a canvas track; the frame the page received was compared pixel-by-pixel against the source image and matched exactly. Still
 unverified, and to be proven by a live call rather than by this document: Zoom Meeting SDK
 raw-audio injection, and the two Meet DOM selectors behind the present menu.*

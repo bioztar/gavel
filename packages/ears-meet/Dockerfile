@@ -30,6 +30,8 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY packages/ears-meet/src ./src
 COPY packages/ears-meet/scripts ./scripts
+# Karen's camera tile (MEET_FACE_IMAGE); ffmpeg letterboxes it at startup.
+COPY assets/persona ./assets/persona
 RUN uv sync --frozen --no-dev \
     && playwright install chromium \
     && mkdir -p /profile /recordings \

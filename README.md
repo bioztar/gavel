@@ -62,11 +62,11 @@ agent chair a call on any platform, and lets people build in parallel without to
 each other's files. `ears-discord` is the one surface built; a second ears package is one
 adapter away, and the brain would not notice the swap.
 
-**Discord** is where meetings already happen. Karen's presence in the room is her voice,
-a static persona still published as her camera track (`assets/persona/`), and a live board —
-agenda, talk-time, decisions — that she presents as a screen share from that tile
-(`packages/stage`, built separately). Discord does not allow bots to publish video at all,
-which is why the face arrives on the browser surfaces (Meet first) and not on Discord.
+**Discord** is where meetings already happen. Karen's presence in the room is her voice and a
+live board — agenda, talk-time, decisions — that she presents as a screen share from her tile
+(`packages/stage`, built separately). Discord does not allow bots to publish video at all, so
+her face arrives only on the browser surfaces: in `ears-meet` a static persona still
+(`assets/persona/`) is published as a real camera track. Nothing anywhere generates video.
 
 ## Sponsor stack
 

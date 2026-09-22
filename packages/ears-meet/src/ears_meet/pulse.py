@@ -148,6 +148,18 @@ class Pulse:
         return PulsePlayer(self.sink_in)
 
 
+def _pacat_stdin(pacat: asyncio.subprocess.Process) -> asyncio.StreamWriter:
+    """pacat's stdin, or a clear failure naming it.
+
+    Deliberately not `assert`: `python -O` strips assert statements, and the next line would
+    then raise `AttributeError: 'NoneType' object has no attribute 'write'` several frames
+    away from the cause. This raises the same way whether or not optimisations are on.
+    """
+    if pacat.stdin is None:
+        raise PulseError("pacat started without a stdin to write the chair's audio into")
+    return pacat.stdin
+
+
 def _source_outputs_on(pactl_text: str, source_name: str) -> int:
     """Count `pactl list source-outputs` entries whose Source is `source_name`.
 
@@ -195,7 +207,10 @@ class Recorder:
         logger.info("pulse.recording", source=self.source)
 
     async def _pump(self) -> None:
-        assert self._proc is not None and self._proc.stdout is not None
+        # Not `assert`: `python -O` strips those, and a missing pipe would then surface as an
+        # AttributeError on None instead of naming what did not start.
+        if self._proc is None or self._proc.stdout is None:
+            raise PulseError("parec was not started (no stdout to read the room from)")
         stdout = self._proc.stdout
         while True:
             try:
@@ -360,28 +375,29 @@ class PulsePlayer:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        assert self._ffmpeg.stdin is not None and self._ffmpeg.stdout is not None
         ffmpeg = self._ffmpeg
+        if ffmpeg.stdin is None or ffmpeg.stdout is None:
+            raise PulseError("ffmpeg started without the pipes needed to decode the clip")
+        ffmpeg_in, ffmpeg_out = ffmpeg.stdin, ffmpeg.stdout
 
         async def feed() -> None:
-            assert ffmpeg.stdin is not None
             with contextlib.suppress(BrokenPipeError, ConnectionResetError):
-                ffmpeg.stdin.write(audio)
-                await ffmpeg.stdin.drain()
-                ffmpeg.stdin.close()
+                ffmpeg_in.write(audio)
+                await ffmpeg_in.drain()
+                ffmpeg_in.close()
 
         feeder = asyncio.get_running_loop().create_task(feed())
         pacat = await self._open_pacat()
-        assert pacat.stdin is not None and ffmpeg.stdout is not None
+        pacat_in = _pacat_stdin(pacat)
         total = 0
         try:
             while True:
-                chunk = await ffmpeg.stdout.read(BYTES_PER_MS * 100)
+                chunk = await ffmpeg_out.read(BYTES_PER_MS * 100)
                 if not chunk:
                     break
                 total += len(chunk)
-                pacat.stdin.write(chunk)
-                await pacat.stdin.drain()
+                pacat_in.write(chunk)
+                await pacat_in.drain()
         except (BrokenPipeError, ConnectionResetError) as exc:
             if not self._stopped:
                 raise PulseError("pacat closed the pipe") from exc
@@ -396,7 +412,7 @@ class PulsePlayer:
 
     async def _play_source(self, source: PcmSource) -> None:
         pacat = await self._open_pacat()
-        assert pacat.stdin is not None
+        pacat_in = _pacat_stdin(pacat)
         frame = 20 * BYTES_PER_MS
         started = time.monotonic()
         sent = 0
@@ -405,8 +421,8 @@ class PulsePlayer:
                 chunk = source.read(frame)
                 if not chunk:
                     break
-                pacat.stdin.write(chunk)
-                await pacat.stdin.drain()
+                pacat_in.write(chunk)
+                await pacat_in.drain()
                 sent += len(chunk)
                 # Pace at real time so an underrun is padded with silence, not a stall.
                 due = started + sent / (BYTES_PER_MS * 1000)
@@ -420,9 +436,9 @@ class PulsePlayer:
             await self._drain_pacat(pacat)
 
     async def _drain_pacat(self, pacat: asyncio.subprocess.Process) -> None:
-        assert pacat.stdin is not None
+        stdin = _pacat_stdin(pacat)
         with contextlib.suppress(BrokenPipeError, ConnectionResetError):
-            pacat.stdin.close()
+            stdin.close()
         with contextlib.suppress(asyncio.TimeoutError):
             await asyncio.wait_for(pacat.wait(), 5)
 
