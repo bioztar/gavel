@@ -35,11 +35,14 @@ COPY assets/persona ./assets/persona
 RUN uv sync --frozen --no-dev \
     && playwright install chromium \
     && mkdir -p /profile /recordings \
-    && chown -R pwuser:pwuser /app /profile /recordings /home/pwuser
+    && chown -R pwuser:pwuser /app /profile /recordings /home/pwuser \
+    && chmod +x ./scripts/docker-entrypoint.sh
 
 # The signed-in Chromium profile is mounted here (MEET_PROFILE_DIR=/profile); it is
 # never part of the image.
 VOLUME ["/profile", "/recordings"]
-USER pwuser
 
+# Starts as root so the entrypoint can hand freshly-created (root-owned) bind mounts to
+# pwuser, then drops to pwuser before anything else runs. See scripts/docker-entrypoint.sh.
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
 CMD ["python", "-m", "ears_meet"]

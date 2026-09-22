@@ -43,12 +43,16 @@ def sh(*args: str, check: bool = True) -> str:
     return proc.stdout
 
 
-def compose(*args: str) -> str:
-    return sh("docker", "compose", "--profile", "meet", *args)
+def compose(*args: str, check: bool = True) -> str:
+    return sh("docker", "compose", "--profile", "meet", *args, check=check)
+
+
+# As pwuser: that is who runs Xvfb, PulseAudio and Chromium (pactl finds nothing as root).
+EXEC = ["docker", "compose", "--profile", "meet", "exec", "-T", "--user", "pwuser", "ears-meet"]
 
 
 def in_meet(*args: str) -> str:
-    return sh("docker", "compose", "--profile", "meet", "exec", "-T", "ears-meet", *args)
+    return sh(*EXEC, *args)
 
 
 def expect(cond: bool, what: str) -> None:
@@ -61,21 +65,7 @@ def wait_for_health(timeout: float = 180) -> dict[str, object]:
     deadline = time.monotonic() + timeout
     while True:
         proc = subprocess.run(
-            [
-                "docker",
-                "compose",
-                "--profile",
-                "meet",
-                "exec",
-                "-T",
-                "ears-meet",
-                "curl",
-                "-fsS",
-                f"{WIRE}/health",
-            ],
-            cwd=REPO,
-            capture_output=True,
-            text=True,
+            [*EXEC, "curl", "-fsS", f"{WIRE}/health"], cwd=REPO, capture_output=True, text=True
         )
         if proc.returncode == 0:
             print(f"$ curl -fsS {WIRE}/health\n{proc.stdout.strip()}")
@@ -102,7 +92,12 @@ def main() -> None:
             up = ["up", "-d", "--wait", "--wait-timeout", "300"]
             if args.build:
                 up.append("--build")
-            compose(*up, *SERVICES)
+            try:
+                compose(*up, *SERVICES)
+            except SystemExit:
+                print("\n== ears-meet logs (last 40 lines) ==")
+                compose("logs", "--no-color", "--tail", "40", "ears-meet", check=False)
+                raise
             print()
 
         print("== (a) Xvfb on DISPLAY=:99 ==")

@@ -242,10 +242,13 @@ docker build -f packages/ears-meet/Dockerfile -t gavel-ears-meet:local .
 ```
 
 `compose.yaml` has the `stage` service and, behind the `meet` profile, `ears-meet`. It
-mounts a named volume read-write at `/profile` (or the host directory `MEET_PROFILE_HOST_DIR`
-names, when set), gives
-Chromium `shm_size: 2g`, starts only after `stage` is healthy, and publishes its wire on
-loopback at `MEET_WIRE_PORT` (default 8797, so it can coexist with the Discord ears on 8787).
+bind-mounts `./secrets/meet-profile` (or `MEET_PROFILE_HOST_DIR`) at `/profile` and
+`./recordings` at `/recordings`, gives Chromium `shm_size: 2gb`, starts only after `stage`
+is healthy, and publishes its wire on loopback at `MEET_WIRE_PORT` (default 8797, so it can
+coexist with the Discord ears on 8787). When those host directories do not exist yet, Docker
+creates them root-owned; the image's entrypoint (`scripts/docker-entrypoint.sh`) starts as
+root, chowns the two mounts to `pwuser`, and drops to `pwuser` before `python -m ears_meet`
+— otherwise Chromium cannot write its profile and never launches.
 
 ```
 docker compose --profile meet up          # MEET_URL unset → standby, see below
