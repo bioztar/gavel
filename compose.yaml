@@ -396,6 +396,9 @@ services:
       - ./docker/docs/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./docs/index.html:/srv/docs/index.html:ro
       - ./docs/pitch-investor.html:/srv/docs/pitch-investor.html:ro
+      # The deck's file is pitch-investor.html, so /docs/pitch would 404 on the
+      # $uri.html rule. Mounted twice so the short path people are actually given works.
+      - ./docs/pitch-investor.html:/srv/docs/pitch.html:ro
       - ./docs/architecture.html:/srv/docs/architecture.html:ro
       - ./docs/blueprint.html:/srv/docs/blueprint.html:ro
       - ./docs/status.html:/srv/docs/status.html:ro
