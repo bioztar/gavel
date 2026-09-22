@@ -1,4 +1,6 @@
-# gavel — architecture
+# Cloture — architecture
+
+**Cloture** — the motion that cuts off debate.
 
 An AI chair ("Karen") that sits in a real Discord call: she hears the room, decides when
 someone has had the floor too long, and says so out loud. Her tile carries a static persona
@@ -25,7 +27,7 @@ flowchart LR
   subgraph THINK["2 — Think"]
     BRAIN["brain — Karen<br/>agenda + floor triggers, plain code"]
     MASTRA["Mastra<br/>agent / workflow orchestration"]
-    NEBIUS["Nebius<br/>inference: writes the one sentence"]
+    NEBIUS["Nebius<br/>inference: writes the one line"]
     CAL["calendar<br/>.ics invite → the agenda"]
   end
 
@@ -45,7 +47,7 @@ flowchart LR
 | # | Move | What happens |
 |---|---|---|
 | 1 | **Hear** | `ears-discord` holds the voice connection and knows who is speaking. **SLNG** transcribes each utterance live. Postgres and Redis keep the transcript and the floor clock. |
-| 2 | **Think** | `brain` is Karen. Plain code holds the agenda and fires on facts, not vibes — 60% of the floor, a topic over budget, a must-hear attendee still silent. **Mastra** orchestrates the model calls; **Nebius** writes the one sentence she says: under 20 words, names the person, hands the floor somewhere specific. `calendar` turned a real `.ics` invite into that agenda before the meeting started. |
+| 2 | **Think** | `brain` is Karen. Plain code holds the agenda and fires on facts, not vibes — 60% of the floor, a topic over budget, a must-hear attendee still silent. **Mastra** orchestrates the model calls; **Nebius** writes the one line she says: under 20 words, names the person, hands the floor somewhere specific. `calendar` turned a real `.ics` invite into that agenda before the meeting started. |
 | 3 | **Speak** | **SLNG** turns the line into her voice, `ears-discord` plays it back into the live call — the room hears her interrupt. What you look at is the live board she presents as a screen share; on the browser surfaces (`ears-meet`) her tile also carries a static persona still, published as a real camera track. Discord allows bots no video at all. |
 
 Underneath: four containers behind Traefik on one VPS — `ears-discord`, `brain`, `calendar`,
@@ -63,8 +65,8 @@ None of these run during a meeting.
 | Service | Role | Outcome |
 |---|---|---|
 | **Devin** | Autonomous build lanes, working in parallel with us | Ran its own branches and opened PRs like a teammate. **3 PRs merged into main** — shipped code, not a demo. |
-| **Quality Clouds ("Norma")** | AI code-quality analysis over the repository | Scanned gavel, returned concrete findings. **Findings fixed in the codebase** before freeze — the scan changed the code. |
-| **Galtea** | Evals of the one model-shaped output: the sentence she says | Ten frozen cases (floor hog at 62% and 81%, topic over budget, a silent must-hear attendee, 15s of dead air). Traces sent up and scored on: names the right person, under 20 words, hands the floor somewhere real, polite enough to survive a real meeting, invents nothing it never heard. **Scored runs, not guesses.** |
+| **Quality Clouds ("Norma")** | AI code-quality analysis over the repository | Scanned the codebase, returned concrete findings. **Findings fixed in the codebase** before freeze — the scan changed the code. |
+| **Galtea** | Evals of the one model-shaped output: the line she says | Ten frozen cases (floor hog at 62% and 81%, topic over budget, a silent must-hear attendee, 15s of dead air). Traces sent up and scored on: names the right person, under 20 words, hands the floor somewhere real, polite enough to survive a real meeting, invents nothing it never heard. **Scored runs, not guesses.** |
 | **Langfuse** | Observability on every model call, via Mastra's exporter | One trace session per meeting — a bad interruption can be read back to the exact prompt and state that produced it. **The chair is debuggable.** Wired in `brain`, on when the keys are set. |
 
 **The split that matters:** *whether* to interrupt is plain code, unit-tested against a
@@ -91,7 +93,9 @@ a must-be-heard list exist before anybody joins.
 
 ---
 
-The projector version of this page is `docs/architecture.html` — three full-screen slides, served at `/architecture`. Arrow keys, space, click or swipe to move.
+The visual companion to this page is `docs/architecture.html`, served at `/architecture` — the
+same three parts (Hear → Think → Speak, what got built and checked off the live path, where
+this goes), laid out for the screen and for printing.
 
 ---
 

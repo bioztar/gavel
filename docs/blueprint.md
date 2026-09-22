@@ -1,4 +1,6 @@
-# gavel — architecture reset & platform plan
+# Cloture — architecture reset & platform plan
+
+**Cloture** — the motion that cuts off debate.
 
 Strip the hackathon scaffolding. Keep the chair. Google Meet first, then Zoom, then Teams.
 
@@ -12,9 +14,9 @@ Visual version: **https://bioztar.github.io/gavel/blueprint.html**
 The chair's core costs nothing to run. Everything expensive in the repo today is optional,
 and most of it exists because of a 36-hour hackathon, not because of the product.
 
-gavel decides **whether** to interrupt from two events and a clock — `speaking.start`,
+Cloture decides **whether** to interrupt from two events and a clock — `speaking.start`,
 `speaking.end`. No audio decoding, no model call, no vendor. Only **what she says** hits a
-model: one sentence, under 20 words.
+model: one line, under 20 words.
 
 | | |
 |---|---|
@@ -49,7 +51,7 @@ Discord reference returns nothing but the `discordId` field name carried on the 
   ├ owns one call connection            ⇄      ├ agenda + topic clock
   ├ who is in the call                         ├ talk-time per person
   ├ who is speaking, right now          WS     ├ interrupt policy (plain code)
-  ├ transcribes utterances            frozen   ├ the one sentence (model)
+  ├ transcribes utterances            frozen   ├ the one line (model)
   └ plays her audio into the room     contract └ notes, decisions, parking lot
 
   ears-discord │ ears-meet │ ears-zoom │ ears-teams       5,265 lines, untouched
@@ -64,8 +66,8 @@ triggers, voice, notes, evals and console all stay as they are.
 
 | Tier | What | Cost |
 |---|---|---|
-| **0** | **Floor governance — the judged moment.** Talk-time share, monologue detection, topic over budget, silent must-hear attendee, dead air. Runs on `speaking.start`/`speaking.end` plus a clock. Plain code, unit-tested against a scripted replay. | **free** (CPU only) |
-| **1** | **The sentence she says.** One model call per intervention, capped under 20 words. Nebius, OpenAI-compatible, driven by `config/models.yaml`. | ~$0.001 / intervention |
+| **0** | **Floor governance — the moment she cuts in.** Talk-time share, monologue detection, topic over budget, silent must-hear attendee, dead air. Runs on `speaking.start`/`speaking.end` plus a clock. Plain code, unit-tested against a scripted replay. | **free** (CPU only) |
+| **1** | **The line she says.** One model call per intervention, capped under 20 words. Nebius, OpenAI-compatible, driven by `config/models.yaml`. | ~$0.001 / intervention |
 | **2** | **Understanding the room.** Continuous STT. Buys wake-word, notes, decisions, tangent detection, the record with numbers. Degradable — switch it off and Tier 0 still chairs the meeting. | metered / audio-minute |
 | **3** | ~~**Lip-synced live avatar.**~~ **Cut.** fal `minimax/h3-max/director` at $0.08/s / 768p, $1.20 session minimum, ~15 min session cap forcing mid-meeting rotation, billed on wall-clock. Replaced by a shared screen that costs nothing to render. | **$0** (was $216 / call) |
 
@@ -132,7 +134,7 @@ artifacts and dev tooling — leave them.
 2. **Hear** — `ears-<platform>`: joins the call, emits who is speaking and when, transcribes,
    plays her audio back into the room.
 3. **Think** — `brain`: floor clock and triggers in plain code, one model call writes the
-   sentence, notes/decisions/open items/parking lot. Postgres + Redis behind it.
+   line, notes/decisions/open items/parking lot. Postgres + Redis behind it.
 4. **Show** — console + record: live transcript, agenda progress, her exact words, and the
    number that sells it — floor time per person, per topic, per meeting.
 
@@ -141,7 +143,7 @@ plus one headless browser per concurrent meeting. Removed: `stream-vonage`, `cha
 
 > **The unit cost moves.** With the avatar gone, inference is not the scale driver — the
 > browser is. Every concurrent meeting on Meet needs its own headless Chromium: roughly 1 vCPU
-> and 0.5–1 GB RAM for the duration of the call. That number decides whether gavel is priced
+> and 0.5–1 GB RAM for the duration of the call. That number decides whether Cloture is priced
 > per room, per seat, or per meeting-hour — and it is the number a managed bot vendor is
 > quoting you when they charge per bot-hour.
 
@@ -234,7 +236,7 @@ over WebSocket. Cheaper to reach, less raw control.
 It is the obvious first answer and fails on three independent counts, any one of which is fatal:
 
 1. **It cannot speak.** The client's SDP offer must contain *receive-only* media descriptions —
-   `a=recvonly` from the client, `a=sendonly` from Meet. gavel's entire product is a chair who
+   `a=recvonly` from the client, `a=sendonly` from Meet. Cloture's entire product is a chair who
    interrupts out loud.
 2. **It cannot count the floor.** The cap is exactly three virtual audio streams, allocated to
    the most relevant speakers and reassigned as the conversation moves. Talk-time share per
@@ -267,7 +269,7 @@ it is currently a page nobody visits, in a product whose users already live in a
   `agenda.json` against the meeting id.
 - Shows the refusal inline when the brief has no decidable topics — the gate moves to the point
   of creation instead of a separate page.
-- Invites the bot account to the event, which is how gavel gets into the call.
+- Invites the bot account to the event, which is how Cloture gets into the call.
 
 **How sign-in works**
 
@@ -355,7 +357,7 @@ moment that genuinely lands in a room.
 - **Managed by us** — one click to install, then a fight with every Workspace that blocks
   external participants.
 
-A go-to-market decision wearing a technical costume: it decides whether gavel is self-serve or
+A go-to-market decision wearing a technical costume: it decides whether Cloture is self-serve or
 sales-led.
 
 ### 4 · Mastra: keep or unwind?
