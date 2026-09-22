@@ -86,6 +86,7 @@ class Surface(Protocol):
     async def ensure_unmuted(self) -> bool: ...
     async def self_check(self) -> sel.SelfCheckResult: ...
     async def present_stage(self) -> bool: ...
+    async def pages(self) -> list[dict[str, str]]: ...
     async def observer_alive(self) -> bool: ...
     async def install_observer(self) -> None: ...
     async def is_in_call(self) -> bool: ...
@@ -175,6 +176,8 @@ class Ears:
         self._tasks: set[asyncio.Task[Any]] = set()
         self._surface_checked_at = 0.0
         self.on_leave: Callable[[], Coroutine[Any, Any, None]] | None = None
+        # No MEET_URL: the wire, PulseAudio, Xvfb and the browser run, but nothing is joined.
+        self.standby = not settings.meet_url
 
     # --- fan-out ------------------------------------------------------------------
 
@@ -208,6 +211,7 @@ class Ears:
     def status(self) -> dict[str, Any]:
         check = self.self_check_result
         return {
+            "mode": "standby" if self.standby else "call",
             "inCall": self.channel_id is not None,
             "channelId": self.channel_id,
             "sessionId": self.session_id,
@@ -670,6 +674,11 @@ class Ears:
         self.stage_presenting = await self.surface.present_stage()
         self.debug("stage.presenting", presenting=self.stage_presenting)
         return self.stage_presenting
+
+    async def browser_pages(self) -> list[dict[str, str]]:
+        if self.surface is None:
+            return []
+        return await self.surface.pages()
 
     # --- the clock -----------------------------------------------------------------
 

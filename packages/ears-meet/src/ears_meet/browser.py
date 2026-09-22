@@ -406,13 +406,13 @@ class Browser:
 
     # --- the stage share -----------------------------------------------------------------
 
-    async def present_stage(self) -> bool:
-        """Open STAGE_URL in a second tab and present it. False, never an exception, when
-        the stage is unreachable or Meet's present menu is not where we expect it."""
+    async def open_stage(self) -> Page | None:
+        """Open STAGE_URL in its own tab and wait for it to carry the title tab capture
+        selects by. None, never an exception, when the stage is unreachable or mistitled."""
         s = self.settings
         if not s.stage_url or self.context is None:
-            return False
-        page = self._page()
+            return None
+        stage: Page | None = None
         try:
             stage = await self.context.new_page()
             await stage.goto(
@@ -429,8 +429,26 @@ class Browser:
                     "stage.title_mismatch", expected=s.stage_tab_title, got=await stage.title()
                 )
                 await stage.close()
-                return False
+                return None
             self.stage_page = stage
+            logger.info("stage.opened", url=s.stage_url, title=s.stage_tab_title)
+            return stage
+        except PlaywrightError as exc:
+            logger.warning("stage.unreachable", error=str(exc).splitlines()[0][:200])
+            if stage is not None and not stage.is_closed():
+                await stage.close()
+            self.stage_page = None
+            return None
+
+    async def present_stage(self) -> bool:
+        """Open STAGE_URL in a second tab and present it. False, never an exception, when
+        the stage is unreachable or Meet's present menu is not where we expect it."""
+        if self.context is None:
+            return False
+        page = self._page()
+        try:
+            if await self.open_stage() is None:
+                return False
             await page.bring_to_front()
             if not await self._click(sel.PRESENT_BUTTON, wait_ms=5000):
                 logger.warning("stage.no_present_button", selector=sel.PRESENT_BUTTON.name)
@@ -455,6 +473,18 @@ class Browser:
                 await self.stage_page.close()
             self.stage_page = None
             return False
+
+    async def pages(self) -> list[dict[str, str]]:
+        """Every open tab as `{url, title}` — what `/api/browser` reports."""
+        if self.context is None:
+            return []
+        out: list[dict[str, str]] = []
+        for page in self.context.pages:
+            try:
+                out.append({"url": page.url, "title": await page.title()})
+            except PlaywrightError:
+                out.append({"url": page.url, "title": ""})
+        return out
 
     # --- helpers -------------------------------------------------------------------------
 

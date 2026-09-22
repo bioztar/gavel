@@ -69,6 +69,13 @@ class FakeSurface:
         self.calls.append("present_stage")
         return self.stage_ok
 
+    async def pages(self) -> list[dict[str, str]]:
+        self.calls.append("pages")
+        pages = [{"url": "https://meet.google.com/abc-defg-hij", "title": "Meet"}]
+        if self.stage_ok:
+            pages.append({"url": "http://stage:8793/", "title": "gavel-stage"})
+        return pages
+
     async def observer_alive(self) -> bool:
         self.calls.append("observer_alive")
         return self.observer_ok
