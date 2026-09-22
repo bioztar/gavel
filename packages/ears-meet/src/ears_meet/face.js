@@ -47,18 +47,31 @@
   // stream must not stop the shared canvas source.
   const faceTrack = () => canvasStream().getVideoTracks()[0].clone();
 
+  const requestedId = (video) => {
+    const want = video && video.deviceId;
+    return want && typeof want === "object" ? want.exact || want.ideal : want;
+  };
+
   const wantsFace = (video) => {
     if (!video) return false;
-    const want = video.deviceId;
-    const id = want && typeof want === "object" ? want.exact || want.ideal : want;
     // An explicit request for some other device is not ours to answer.
+    const id = requestedId(video);
     return typeof id !== "string" || !id || id === DEVICE_ID;
   };
 
   const originalGetUserMedia = md.getUserMedia.bind(md);
   md.getUserMedia = async (constraints) => {
     const wanted = constraints || {};
-    if (!wantsFace(wanted.video)) return originalGetUserMedia(wanted);
+    if (!wantsFace(wanted.video)) {
+      // There is no real camera on this machine, so a pass-through is about to fail with
+      // NotFoundError and the tile will go black with nothing saying why. A device id cached
+      // in MEET_PROFILE_DIR from an earlier session is the likely reason; name it.
+      if (wanted.video) {
+        console.warn("[gavel] camera requested by deviceId", requestedId(wanted.video),
+          "- not the gavel still, passing through to a machine with no real camera");
+      }
+      return originalGetUserMedia(wanted);
+    }
     const stream = new MediaStream();
     stream.addTrack(faceTrack());
     if (wanted.audio) {
