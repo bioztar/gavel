@@ -1,0 +1,25 @@
+{
+  "name": "@gavel/extension",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:dev": "node scripts/build.mjs --dev",
+    "watch": "node scripts/build.mjs --dev --watch",
+    "mock": "node mock/server.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm test && npm run build && node scripts/audit-bundle.mjs"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.2.9",
+    "@types/node": "24.13.5",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2",
+    "vite": "8.2.2",
+    "vitest": "5.0.0"
+  }
+}

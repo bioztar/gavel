@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>gavel extension — fixtures</title>
+    <link rel="stylesheet" href="/fixtures/fixtures.css" />
+  </head>
+  <body class="index">
+    <h1>gavel extension — fixtures</h1>
+    <p>
+      Static pages shaped like the two Google surfaces the extension injects into, served by <code>mock/server.mjs</code>. Load the
+      <strong>dev</strong> build (<code>dist-dev/</code>) as an unpacked extension and open one of these; the "Chair this meeting" control
+      appears next to the Save / Join button.
+    </p>
+    <ul id="links">
+      <li><a href="/fixtures/calendar.html">Calendar editor — new, unsaved event</a> (agenda is written into the page's description field)</li>
+      <li><a id="existing" href="/fixtures/calendar.html">Calendar editor — existing event</a> (agenda is written through the mock Calendar API)</li>
+      <li><a id="meet" href="/fixtures/meet.html">Meet pre-join screen</a> (event found by Meet code, written through the mock Calendar API)</li>
+      <li><a href="/mock/agendas">Registered agendas</a> (JSON)</li>
+    </ul>
+    <p>
+      Briefs to try: <em>"Weekly sync with the team"</em> gets the refusal gate. <em>"Decide whether we ship Thursday. Pricing — Ana, 10
+      min. Rollout — Artem, 15 min."</em> gets an agenda.
+    </p>
+    <script src="/fixtures/fixtures.js"></script>
+  </body>
+</html>
