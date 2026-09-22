@@ -19,9 +19,22 @@ model: one sentence, under 20 words.
 | | |
 |---|---|
 | Call-SDK imports in `brain` | **0** |
-| Lines deletable now | **~8,300** |
-| Avatar cost per 45-min call | **$216** |
+| Lines being deleted now | **~15,800** |
+| Avatar cost removed per 45-min call | **$216** |
 | New packages per platform | **1** |
+
+---
+
+## Decided since this document was first published — 21 September
+
+- **The avatar is cut, completely.** No live video generation anywhere in the live path.
+  `chair-video`, fal Director and the projector page all come out. Decision 2 below is settled.
+- **Karen's presence becomes a screen share, not a face.** The live meeting board — agenda,
+  talk-time bars, decisions — is presented from Karen's own participant tile. Nobody navigates
+  to a second page; the thing that makes the time-governance claim visible is simply on screen
+  inside the meeting. See section 5.
+- **We build `ears-meet` rather than buying bot infrastructure.** Decision 1 below is settled.
+  All five autonomous build lanes are reviewed and accepted — see section 10.
 
 ---
 
@@ -53,7 +66,7 @@ triggers, voice, notes, evals and console all stay as they are.
 | **0** | **Floor governance — the judged moment.** Talk-time share, monologue detection, topic over budget, silent must-hear attendee, dead air. Runs on `speaking.start`/`speaking.end` plus a clock. Plain code, unit-tested against a scripted replay. | **free** (CPU only) |
 | **1** | **The sentence she says.** One model call per intervention, capped under 20 words. Nebius, OpenAI-compatible, driven by `config/models.yaml`. | ~$0.001 / intervention |
 | **2** | **Understanding the room.** Continuous STT. Buys wake-word, notes, decisions, tangent detection, the record with numbers. Degradable — switch it off and Tier 0 still chairs the meeting. | metered / audio-minute |
-| **3** | ~~**Lip-synced live avatar.**~~ fal `minimax/h3-max/director`. $0.08/s at 768p, $1.20 session minimum, ~15 min session cap forcing mid-meeting rotation. Billed on wall-clock, not per utterance. | **$216 / 45-min call** |
+| **3** | ~~**Lip-synced live avatar.**~~ **Cut.** fal `minimax/h3-max/director` at $0.08/s / 768p, $1.20 session minimum, ~15 min session cap forcing mid-meeting rotation, billed on wall-clock. Replaced by a shared screen that costs nothing to render. | **$0** (was $216 / call) |
 
 ### The avatar is the largest cost and the most fragile machinery in the repo
 
@@ -66,8 +79,9 @@ SSE command channel, a heartbeat that by the author's own note *"cannot billing-
 anything"*, a token-gated fal proxy, and a committed esbuild bundle. 7,487 lines of the most
 failure-prone code in the system, serving a feature no buyer asked for.
 
-**Recommendation:** cut Director from the live path for v1 on every platform. Keep the persona
-artwork. Revisit only if a customer pays for a face.
+**Decided, 21 September:** Director is cut from the live path on every platform, and the
+package is deleted rather than flagged off. The persona artwork stays. What replaces her
+presence in the room is a shared screen — see section 5.
 
 ---
 
@@ -85,7 +99,7 @@ artwork. Revisit only if a customer pays for a face.
 
 | Thing | Position |
 |---|---|
-| fal / `chair-video` (7,487 lines) | Cut from the live path. A decision for the call, not a unilateral deletion — it is the visual identity of the demo. |
+| ~~fal / `chair-video`~~ | **Settled: delete.** 7,487 lines out; a Devin lane is doing it now on `chore/cut-avatar`. The audio path is untouched — only the side-call that produced video goes. |
 | Mastra | Removable behind an interface that already exists (`chair/llm.ts` vs `chair/mastraLlm.ts`). Cost of removal: the Langfuse exporter rides Mastra's tracing (`@mastra/langfuse` in `mastra/index.ts`), so losing one loses the other. Not urgent. Not free. |
 | SLNG | Keep the *capability*, name the *adapter*. STT in ears, TTS in brain, both adapter-shaped. Note the cross-project coupling — the Karen chat site reuses this same TTS. |
 | Nebius | Keep. OpenAI-compatible endpoint already driven by config. Not lock-in. |
@@ -98,8 +112,8 @@ artwork. Revisit only if a customer pays for a face.
 | `ears-vonage` | 0 | A README describing a package that was never written. Credentials never arrived. |
 | plus | — | the compose service, `scripts/set-vonage-key.sh`, the `VONAGE_*` settings, ~15 documents that still name it. |
 
-**In flight:** a Devin lane (ultra mode) is preparing this as branch `chore/excise-vonage` and a
-PR right now. It will **not** be merged before the review.
+**Reviewed:** [PR #4](https://github.com/bioztar/gavel/pull/4) — 40 files, branch
+`chore/excise-vonage`, verified and open. It will **not** be merged before the review.
 
 ### Off the live path — no action
 
@@ -132,7 +146,55 @@ plus one headless browser per concurrent meeting. Removed: `stream-vonage`, `cha
 
 ---
 
-## 5. Platform onboarding
+## 5. Karen's presence — a shared screen, not a face
+
+**The demo moment survives the cut, and gets better.** The avatar answered a question nobody
+was asking: *what does Karen look like?* The question a room actually asks is *am I talking too
+much?* — and a face cannot answer it. A live board can, and it is the only artefact that makes
+an invisible claim about time visible while there is still time to act on it.
+
+So Karen joins with a static persona image in her tile, and **presents**. What the room sees is
+the meeting's own state, updating as they speak.
+
+### What is on the screen
+
+- **Talk-time per person** — a bar each, updating continuously. The dominant element on the
+  page. Someone holding 60% of the floor is obvious from across a room, without Karen saying a
+  word.
+- **The agenda** — every topic, its owner, its budget, which is live, which is done, which will
+  not be reached. Over-budget is unmistakable.
+- **The clock** — time on this topic against its budget, and time left in the meeting.
+- **Karen's last line**, verbatim, so the room can read what she just said.
+- **Decisions, open items and the parking lot** as they accumulate — the minutes, written live,
+  in front of the people who can correct them.
+
+### How it gets into the call
+
+The bot already runs a real browser to be in the meeting at all. A second tab holds the board;
+the bot presents that tab. No extra infrastructure, no second vendor, no per-minute meter.
+
+- New package `packages/stage` serves the board and pushes state over SSE.
+- Its `document.title` is pinned to `gavel-stage` — that exact string is how the bot selects
+  which surface to present.
+- Chromium auto-selects the capture source rather than showing a picker dialog, so no human is
+  in the loop.
+- If the board is unreachable, Karen joins and chairs the meeting anyway. **The share is an
+  enhancement, never a precondition.**
+
+### Design constraints, because this is video and not a dashboard
+
+It will be seen as a compressed stream at roughly 720p, in a small window, on someone else's
+laptop. That rules out most of what a dashboard normally does. Big type, high contrast, nothing
+small. **It never scrolls and never overflows** — everything visible at once, content
+truncating gracefully rather than pushing anything off screen. No navigation, no controls, no
+hover states: nobody can click a video. Motion carries the meaning, because compression
+destroys small moving text — a bar that jumps reads where a ticking number does not. And every
+failure mode needs a legible fallback, because a blank screen here is being broadcast into a
+customer's meeting.
+
+---
+
+## 6. Platform onboarding
 
 | | Audio **out** of the call | Her voice **into** the call | Per-speaker timing | Gatekeeper | Effort |
 |---|---|---|---|---|---|
@@ -187,7 +249,7 @@ chair anyway — and works across every platform with the same playbook.
 
 ---
 
-## 6. `/compose` becomes a browser extension
+## 7. `/compose` becomes a browser extension
 
 Today `/compose` is a page on our server: the host types a brief into one box, a model turns it
 into a purpose, topics, owners, minutes and a must-hear list, and it refuses to send an invite
@@ -228,7 +290,7 @@ no rewrite.
 
 ---
 
-## 7. Sequence and effort
+## 8. Sequence and effort
 
 | Workstream | Owner | Effort | Starts |
 |---|---|---|---|
@@ -249,9 +311,12 @@ path for no reason. Teams is deliberately not scheduled — it needs the .NET de
 
 ---
 
-## 8. What needs deciding, with Artem
+## 9. What needs deciding, with Artem
 
-### 1 · Build `ears-meet`, or buy bot infrastructure?
+### 1 · Build `ears-meet`, or buy bot infrastructure? — **settled**
+
+**Decided 21 September: build.** Recorded here with the reasoning intact so the trade can be
+revisited if Meet's DOM churn turns out worse than expected.
 
 Managed meeting-bot vendors (Recall.ai, MeetStream, Meeting BaaS) run the Chromium fleet,
 handle joining, speaker attribution and transcripts across all three platforms behind one
@@ -267,7 +332,10 @@ Worth stating plainly: *"no sponsor-specific solutions"* means dropping vendors 
 hackathon prize eligibility. It does not mean refusing all third parties. A bot vendor is a
 legitimate option and may be the efficient answer for reaching a first customer.
 
-### 2 · Does Karen keep a face?
+### 2 · Does Karen keep a face? — **settled**
+
+**Decided 21 September: no.** Cut entirely, not flagged off. Replaced by the shared screen in
+section 5.
 
 $216 per 45-minute call, ~7,500 lines, the most fragile subsystem in the repo — against a demo
 moment that genuinely lands in a room.
@@ -305,17 +373,45 @@ given to anyone. Google Meet and Teams egress are both settled — virtual mic a
 
 ---
 
-## 9. What is already moving
+### 5. What does the chair actually know?
+
+Building the shared screen surfaced two gaps in the chair's own view model. Neither blocked the
+board, both change what it can honestly display, and neither should be patched without a decision.
+
+- **Topic owners** — the agenda carries a budget per topic but no owner, so the board's owner
+  column is blank in a live meeting. Either the chair starts tracking who owns each item (which
+  makes "Marc, this one is yours and you have four minutes" possible) or the column comes out and
+  the board never claims to know.
+- **Wall-clock vs plan** — there is no meeting start time in the view, so "time left" is the sum of
+  the remaining budgets, not real minutes against a 45-minute booking. Those diverge the moment a
+  topic overruns. A start timestamp is a one-line addition and turns the clock into the thing
+  people assume it already is.
+
+Both are small. They are here because the board is the first surface that made the chair's blind
+spots visible to a room, and a screen shared into a customer's meeting should not display a field
+it cannot fill.
+
+## 10. What is already moving
 
 | Item | Owner | State |
 |---|---|---|
-| Vonage excision — branch `chore/excise-vonage`, PR only | Devin (ultra) | **In flight.** Will not be merged before the review. |
+| Vonage excision — `chore/excise-vonage` | Devin (ultra) | **Reviewed.** [PR #4](https://github.com/bioztar/gavel/pull/4) — 40 files, verified, open and unmerged. |
+| Avatar cut — `chore/cut-avatar` | Devin (ultra) | **Reviewed.** [PR #5](https://github.com/bioztar/gavel/pull/5) — 10,760 deletions; persona stills proven byte-identical after a correction. |
+| `ears-meet` — `feat/ears-meet` | Devin (ultra) | **Reviewed.** [PR #8](https://github.com/bioztar/gavel/pull/8) — 91 tests; brain reaches identical decisions from Meet frames as from Discord. |
+| Karen's screen — `feat/karen-screen` | Devin (ultra) | **Reviewed.** [PR #6](https://github.com/bioztar/gavel/pull/6) — no clipped text at 720p or 1080p, re-verified in the pixels. |
+| Compose extension — `feat/compose-extension` | Devin (ultra) | **Reviewed.** [PR #7](https://github.com/bioztar/gavel/pull/7) — 56 tests; no provider key in the bundle; server endpoints specified, not built. |
 | gavel containers on the VPS | helm | **Stopped.** Database dumped first, volume intact, one command to revive. |
 | This document | helm | **Published.** Committed and served from GitHub Pages. |
-| Meet egress spike, `ears-meet`, extension | — | **Held.** Awaiting the four decisions above. |
+| Zoom raw-audio injection spike | — | **Held.** Half a day; must precede any Zoom commitment. |
+| Teams / .NET hosting decision | — | **Held.** No engineering until it is made. |
 
 ---
 
 *Verified in this document: `brain` contains zero call-SDK imports; Meet Media API offers are
 receive-only with a three-stream audio cap; fal Director list price is $0.08/s at 768p with a
-$1.20 session minimum. Marked as unverified: Zoom Meeting SDK raw-audio injection.*
+$1.20 session minimum. Verified since first publication, by measurement on 21 September: Chromium auto-selects the
+`gavel-stage` tab for Karen's screen share with no picker dialog — real headful Chromium on Xvfb,
+a track at 1280x720 and `displaySurface: "browser"`. Desktop capture on the same virtual display
+fails outright, so tab capture is the only route and the "A tab" menu item is load-bearing. Still
+unverified, and to be proven by a live call rather than by this document: Zoom Meeting SDK
+raw-audio injection, and the two Meet DOM selectors behind the present menu.*

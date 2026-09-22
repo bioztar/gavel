@@ -171,10 +171,17 @@
   <p>That means the judged moment — <em>"Vitaly, you've had eight of the last ten minutes — Ana, you had a point on this"</em> — runs for approximately zero marginal cost. The expensive parts (avatar video, continuous STT, restreaming) are all removable without touching it.</p>
   <div class="kpis">
     <div class="kpi"><div class="n">0</div><div class="l">Call-SDK imports in brain</div></div>
-    <div class="kpi"><div class="n">~8,300</div><div class="l">Lines deletable now</div></div>
-    <div class="kpi"><div class="n">$216</div><div class="l">Avatar cost / 45-min call</div></div>
+    <div class="kpi"><div class="n">~15,800</div><div class="l">Lines being deleted now</div></div>
+    <div class="kpi"><div class="n">$216</div><div class="l">Avatar cost removed / 45-min call</div></div>
     <div class="kpi"><div class="n">1</div><div class="l">New package per platform</div></div>
   </div>
+</div>
+
+<div class="callout green" style="margin-top:26px">
+<h4>Decided since this document was first published — 21 September</h4>
+<p><strong>The avatar is cut, completely.</strong> No live video generation anywhere in the live path. <code>chair-video</code>, fal Director and the projector page all come out. Decision 2 below is settled.</p>
+<p><strong>Karen's presence becomes a screen share, not a face.</strong> The live meeting board — agenda, talk-time bars, decisions — is presented from Karen's own participant tile. Nobody navigates to a second page; the thing that makes the time-governance claim visible is simply on screen inside the meeting. See §5.</p>
+<p style="margin-bottom:0"><strong>We build <code>ears-meet</code> rather than buying bot infrastructure.</strong> Decision 1 below is settled. All five autonomous build lanes are reviewed and accepted — see §10.</p>
 </div>
 
 <h2>1 · The seam that makes all of this possible</h2>
@@ -248,8 +255,8 @@
   <div class="rung">
     <div class="tier t3">Tier 3</div>
     <div class="what"><b class="strike">Lip-synced live avatar</b>
-      <span>fal <code>minimax/h3-max/director</code>. $0.08/s at 768p, $1.20 session minimum, ~15 min session cap forcing mid-meeting rotation. Billed on wall-clock, not per utterance.</span></div>
-    <div class="cost" style="color:var(--red)">$216<small>per 45-min call</small></div>
+      <span><strong>Cut.</strong> fal <code>minimax/h3-max/director</code> at $0.08/s / 768p, $1.20 session minimum, ~15 min session cap forcing mid-meeting rotation, billed on wall-clock. Replaced by a shared screen that costs nothing to render.</span></div>
+    <div class="cost" style="color:var(--green)">$0<small>was $216 / call</small></div>
   </div>
 </div>
 
@@ -257,7 +264,7 @@
 <h4>The avatar is the single largest cost and the most fragile machinery in the repo</h4>
 <p>It exists for one reason: <strong>Discord blocks bot video outright</strong>, so the chair needed a face on a separate projector page. That constraint does not exist on Meet, Zoom or Teams — a bot participant has its own tile and a static image fills it for $0.</p>
 <p>What comes out with it: a browser that owns the <code>RTCPeerConnection</code> because Python cannot, an SSE command channel, a heartbeat that by the author's own note <em>"cannot billing-stop anything"</em>, a token-gated fal proxy, and a committed esbuild bundle. That is 7,487 lines of the most failure-prone code in the system, serving a feature no buyer asked for.</p>
-<p style="margin-bottom:0"><strong>Recommendation:</strong> cut Director from the live path for v1 on every platform. Keep the persona artwork. Revisit only if a customer pays for a face.</p>
+<p style="margin-bottom:0"><strong>Decided, 21 September:</strong> Director is cut from the live path on every platform, and the package is deleted rather than flagged off. The persona artwork stays. What replaces her presence in the room is a shared screen — §5.</p>
 </div>
 </div>
 
@@ -276,8 +283,8 @@
 
   <div class="card" style="border-top:4px solid var(--amber)">
     <p style="margin:0 0 10px"><span class="pill p-defer">Decide</span></p>
-    <h4 style="margin-top:0">fal / <code>chair-video</code> · 7,487 lines</h4>
-    <p style="font-size:14.3px;color:var(--slate);margin:2px 0 14px">Cut from the live path — see above. This is a decision for the call, not a unilateral deletion, because it is the visual identity of the demo.</p>
+    <h4 style="margin-top:0"><s>fal / <code>chair-video</code></s> · <span style="color:var(--red)">decided: delete</span></h4>
+    <p style="font-size:14.3px;color:var(--slate);margin:2px 0 14px">No longer a question. 7,487 lines out, and a Devin lane is doing it now on <span class="mono">chore/cut-avatar</span>. The audio path is untouched — only the side-call that produced video goes.</p>
     <h4>Mastra</h4>
     <p style="font-size:14.3px;color:var(--slate);margin:2px 0 14px">Removable behind an interface that already exists — <code>chair/llm.ts</code> and <code>chair/mastraLlm.ts</code> are two implementations of one seam. Cost of removal: the Langfuse exporter rides Mastra's tracing (<code>@mastra/langfuse</code> in <code>mastra/index.ts</code>), so losing one loses the other. Not urgent. Not free either.</p>
     <h4>SLNG</h4>
@@ -291,8 +298,8 @@
     <h4><code>ears-vonage</code> · 0 lines</h4>
     <p style="font-size:14.3px;color:var(--slate);margin:2px 0 14px">A README describing a package that was never written. Credentials never arrived; it was blocked from the start.</p>
     <p style="font-size:14.3px;color:var(--slate);margin:2px 0 14px">Also going: the compose service, <code>scripts/set-vonage-key.sh</code>, the <code>VONAGE_*</code> settings, and ~15 documents that still name it.</p>
-    <div class="callout blue" style="margin:0">
-      <p style="margin:0;font-size:14px"><strong>In flight.</strong> A Devin lane is preparing this as a branch and a PR right now — <span class="mono">chore/excise-vonage</span>. It will <strong>not</strong> be merged before the review.</p>
+    <div class="callout green" style="margin:0">
+      <p style="margin:0;font-size:14px"><strong>Reviewed.</strong> <a href="https://github.com/bioztar/gavel/pull/4">PR #4</a> — 40 files on <span class="mono">chore/excise-vonage</span>, verified and open. It will <strong>not</strong> be merged before the review.</p>
     </div>
   </div>
 </div>
@@ -336,7 +343,43 @@
 <p style="margin-bottom:0">With the avatar gone, inference is not the scale driver — <strong>the browser is</strong>. Every concurrent meeting on Meet needs its own headless Chromium: roughly 1 vCPU and 0.5–1 GB RAM, for the duration of the call. That is the number that decides whether gavel is priced per room, per seat, or per meeting-hour, and it is the number a managed bot vendor is quoting you when they charge per bot-hour.</p>
 </div>
 
-<h2>5 · Platform onboarding — the decision matrix</h2>
+<h2>5 · Karen&rsquo;s presence — a shared screen, not a face</h2>
+
+<div class="callout green">
+<h4>The demo moment survives the cut, and gets better</h4>
+<p>The avatar answered a question nobody was asking: <em>what does Karen look like?</em> The question a room actually asks is <em>am I talking too much?</em> — and a face cannot answer it. A live board can, and it is the only artefact that makes an invisible claim about time visible while there is still time to act on it.</p>
+<p style="margin-bottom:0">So Karen joins with a static persona image in her tile, and <strong>presents</strong>. What the room sees is the meeting&rsquo;s own state, updating as they speak.</p>
+</div>
+
+<div class="grid g2">
+  <div class="card">
+    <h4 style="margin-top:0">What is on the screen</h4>
+    <ul>
+      <li><strong>Talk-time per person</strong> — a bar each, updating continuously. The dominant element on the page. Someone holding 60% of the floor is obvious from across a room, without Karen saying a word.</li>
+      <li><strong>The agenda</strong> — every topic, its owner, its budget, which is live, which is done, which will not be reached. Over-budget is unmistakable.</li>
+      <li><strong>The clock</strong> — time on this topic against its budget, and time left in the meeting.</li>
+      <li><strong>Karen&rsquo;s last line</strong>, verbatim, so the room can read what she just said.</li>
+      <li><strong>Decisions, open items and the parking lot</strong> as they accumulate — the minutes, written live, in front of the people who can correct them.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4 style="margin-top:0">How it gets into the call</h4>
+    <p style="font-size:14.5px;color:var(--slate);margin:4px 0 12px">The bot already runs a real browser to be in the meeting at all. A second tab holds the board; the bot presents that tab. No extra infrastructure, no second vendor, no per-minute meter.</p>
+    <ul>
+      <li>New package <code>packages/stage</code> serves the board and pushes state over SSE.</li>
+      <li>Its <code>document.title</code> is pinned to <span class="mono">gavel-stage</span> — that exact string is how the bot selects which surface to present.</li>
+      <li>Chromium auto-selects the capture source rather than showing a picker dialog, so no human is in the loop.</li>
+      <li>If the board is unreachable, Karen joins and chairs the meeting anyway. <strong>The share is an enhancement, never a precondition.</strong></li>
+    </ul>
+  </div>
+</div>
+
+<div class="card">
+<h4 style="margin-top:0">Design constraints, because this is video and not a dashboard</h4>
+<p style="margin:4px 0 0;font-size:14.5px;color:var(--slate)">It will be seen as a compressed stream at roughly 720p, in a small window, on someone else&rsquo;s laptop. That rules out most of what a dashboard normally does. Big type, high contrast, nothing small. <strong>It never scrolls and never overflows</strong> — everything visible at once, content truncating gracefully rather than pushing anything off screen. No navigation, no controls, no hover states: nobody can click a video. Motion carries the meaning, because compression destroys small moving text — a bar that jumps reads where a ticking number does not. And every failure mode needs a legible fallback, because a blank screen here is being broadcast into a customer&rsquo;s meeting.</p>
+</div>
+
+<h2>6 · Platform onboarding — the decision matrix</h2>
 
 <div class="card">
 <div class="tw">
@@ -426,7 +469,7 @@
 <p style="margin-bottom:0">A headless browser bot is visible in the participant list — which is the honest behaviour for an AI chair anyway — and works across every platform with the same playbook.</p>
 </div>
 
-<h2>6 · <code>/compose</code> becomes a browser extension</h2>
+<h2>7 · <code>/compose</code> becomes a browser extension</h2>
 
 <div class="card">
 <p style="margin-top:0">Today <code>/compose</code> is a page on our server: the host types a brief into one box, a model turns it into a purpose, topics, owners, minutes and a must-hear list, and it refuses to send an invite that has no topics. That gate is the reason the in-call triggers have anything to enforce — and it is currently a page nobody visits, in a product whose users already live in a calendar tab.</p>
@@ -461,7 +504,7 @@
 </div>
 </div>
 
-<h2>7 · Sequence and effort</h2>
+<h2>8 · Sequence and effort</h2>
 
 <div class="card">
 <div class="scale" style="margin-bottom:10px">
@@ -506,11 +549,12 @@
 <p style="margin:18px 0 0;font-size:14.5px;color:var(--slate)"><strong>Dependencies that actually bind:</strong> the Meet egress spike blocks <code>ears-meet</code> (if she cannot speak, nothing else matters). The contract conformance suite depends on <code>ears-meet</code> reaching first frames, not on it being finished. Zoom's app review is a wall-clock queue with no engineering on it — <strong>start it the week Meet ships, not the week Zoom work starts</strong>, or it becomes the critical path for no reason. Teams is deliberately not on this chart; it needs the .NET decision first.</p>
 </div>
 
-<h2>8 · What needs deciding — with Artem, on the call</h2>
+<h2>9 · What needs deciding — with Artem, on the call</h2>
 
 <div class="grid g2">
   <div class="card dec">
-    <h4>1 · Build <code>ears-meet</code>, or buy bot infrastructure?</h4>
+    <h4><span class="pill p-keep">Settled</span> 1 · Build <code>ears-meet</code>, or buy bot infrastructure?</h4>
+    <p style="font-size:14.5px;margin:8px 0 0"><strong>Decided 21 September: build.</strong> Recorded here with the reasoning intact so the trade can be revisited if Meet&rsquo;s DOM churn turns out worse than expected.</p>
     <p style="font-size:14.5px;color:var(--slate);margin:4px 0 0">Managed meeting-bot vendors (Recall.ai, MeetStream, Meeting BaaS) run the Chromium fleet, handle joining, speaker attribution and transcripts across all three platforms behind one integration — priced per bot-hour.</p>
     <div class="opt"><b>Buy</b>Days instead of weeks, all three platforms at once, someone else owns the breakage when Meet changes its DOM. Costs per meeting-hour forever, and the speaking-event granularity we need for Tier 0 has to be verified against their API before committing.</div>
     <div class="opt"><b>Build</b>Owns the margin, owns the data, no per-hour floor under the pricing. Weeks of work per platform and we own every UI change Google ships.</div>
@@ -518,7 +562,8 @@
   </div>
 
   <div class="card dec">
-    <h4>2 · Does Karen keep a face?</h4>
+    <h4><span class="pill p-keep">Settled</span> 2 · Does Karen keep a face?</h4>
+    <p style="font-size:14.5px;margin:8px 0 0"><strong>Decided 21 September: no.</strong> Cut entirely, not flagged off. Replaced by the shared screen in §5.</p>
     <p style="font-size:14.5px;color:var(--slate);margin:4px 0 0">$216 per 45-minute call, ~7,500 lines, the most fragile subsystem in the repo — against a demo moment that genuinely lands in a room.</p>
     <div class="opt"><b>Cut for v1</b>Recommended. Static persona image in the bot's tile. Reversible: the package stays in git history and the audio path is unchanged.</div>
     <div class="opt"><b>Keep for sales demos only</b>Behind a flag, off by default, never on a customer meeting. Costs the maintenance but keeps the wow for a pitch.</div>
@@ -538,6 +583,14 @@
     <div class="opt"><b>Keep</b>Langfuse tracing comes free through its exporter, and "the chair is debuggable" is a real claim we make. Cost is one more framework in the dependency tree.</div>
     <div class="opt"><b>Unwind</b><code>chair/llm.ts</code> already defines the interface; direct calls are a small change. Then Langfuse needs wiring directly, or we lose per-meeting traces.</div>
   </div>
+
+  <div class="card dec">
+    <h4>5 &middot; What does the chair actually know?</h4>
+    <p style="font-size:14.5px;color:var(--slate);margin:4px 0 0">Building the shared screen surfaced two gaps in the chair&rsquo;s own view model. Neither blocked the board, both change what it can honestly display, and neither should be patched without a decision.</p>
+    <div class="opt"><b>Topic owners</b>The agenda carries a budget per topic but no owner, so the board&rsquo;s owner column is blank in a live meeting. Either the chair starts tracking who owns each item &mdash; which makes &ldquo;Marc, this one is yours and you have four minutes&rdquo; possible &mdash; or the column comes out and the board never claims to know.</div>
+    <div class="opt"><b>Wall-clock vs plan</b>There is no meeting start time in the view, so &ldquo;time left&rdquo; is the sum of the remaining budgets, not real minutes against a 45-minute booking. Those diverge the moment a topic overruns. A start timestamp is a one-line addition and turns the clock into the thing people assume it already is.</div>
+    <p style="font-size:14px;margin:10px 0 0">Both are small. They are here because the board is the first surface that made the chair&rsquo;s blind spots visible to a room, and a screen shared into a customer&rsquo;s meeting should not display a field it cannot fill.</p>
+  </div>
 </div>
 
 <div class="callout">
@@ -545,16 +598,21 @@
 <p style="margin-bottom:0"><strong>Can a Zoom Meeting SDK bot on Linux send raw audio into the meeting?</strong> Capture is thoroughly documented; injection is not. Zoom's Video SDK has full raw media control but is a different product with a different compliance profile. This is a half-day spike and it should happen before any Zoom date is given to anyone. Google Meet and Teams egress are both settled — virtual mic and native <code>sendrecv</code> respectively.</p>
 </div>
 
-<h2>9 · What is already moving</h2>
+<h2>10 · What is already moving</h2>
 
 <div class="card">
 <table>
 <thead><tr><th>Item</th><th>Owner</th><th>State</th></tr></thead>
 <tbody>
-<tr><td>Vonage excision — branch <span class="mono">chore/excise-vonage</span>, PR only</td><td>Devin</td><td><span class="pill p-defer">In flight</span> Will not be merged before the review</td></tr>
+<tr><td>Vonage excision — <span class="mono">chore/excise-vonage</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-keep">Reviewed</span> <a href="https://github.com/bioztar/gavel/pull/4">PR&nbsp;#4</a> &mdash; 40 files, verified, open and unmerged</td></tr>
+<tr><td>Avatar cut — <span class="mono">chore/cut-avatar</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-keep">Reviewed</span> <a href="https://github.com/bioztar/gavel/pull/5">PR&nbsp;#5</a> &mdash; 10,760 deletions; persona stills proven byte-identical after a correction</td></tr>
+<tr><td><code>ears-meet</code> — <span class="mono">feat/ears-meet</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-keep">Reviewed</span> <a href="https://github.com/bioztar/gavel/pull/8">PR&nbsp;#8</a> &mdash; 91 tests; brain reaches identical decisions from Meet frames as from Discord</td></tr>
+<tr><td>Karen&rsquo;s screen — <span class="mono">feat/karen-screen</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-keep">Reviewed</span> <a href="https://github.com/bioztar/gavel/pull/6">PR&nbsp;#6</a> &mdash; no clipped text at 720p or 1080p, re-verified in the pixels</td></tr>
+<tr><td>Compose extension — <span class="mono">feat/compose-extension</span></td><td>Devin&nbsp;ultra</td><td><span class="pill p-keep">Reviewed</span> <a href="https://github.com/bioztar/gavel/pull/7">PR&nbsp;#7</a> &mdash; 56 tests; no provider key in the bundle; server endpoints specified, not built</td></tr>
 <tr><td>gavel containers on the VPS</td><td>helm</td><td><span class="pill p-off">Stopped</span> Database dumped first, volume intact, one command to revive</td></tr>
 <tr><td>This document</td><td>helm</td><td><span class="pill p-keep">Published</span> Committed and served from GitHub Pages</td></tr>
-<tr><td>Meet egress spike, <code>ears-meet</code>, extension</td><td>—</td><td><span class="pill p-no">Held</span> Awaiting the four decisions above</td></tr>
+<tr><td>Zoom raw-audio injection spike</td><td>—</td><td><span class="pill p-no">Held</span> Half a day; must precede any Zoom commitment</td></tr>
+<tr><td>Teams / .NET hosting decision</td><td>—</td><td><span class="pill p-no">Held</span> No engineering until it is made</td></tr>
 </tbody>
 </table>
 </div>
@@ -562,7 +620,7 @@
 <footer>
 <p><strong>gavel</strong> — architecture reset and platform plan · 21 September 2026 · working document, not a contract.<br>
 Companion documents: <a href="architecture.html">architecture</a> · <a href="index.html">build board</a> · <a href="https://github.com/bioztar/gavel/blob/main/docs/CONTRACT.md">the frozen contract</a> · <a href="blueprint.md">Markdown twin</a></p>
-<p>Verified in this document: <code>brain</code> contains zero call-SDK imports; Meet Media API offers are receive-only with a three-stream audio cap; fal Director list price is $0.08/s at 768p with a $1.20 session minimum. Marked as unverified: Zoom Meeting SDK raw-audio injection.</p>
+<p>Verified in this document: <code>brain</code> contains zero call-SDK imports; Meet Media API offers are receive-only with a three-stream audio cap; fal Director list price is $0.08/s at 768p with a $1.20 session minimum. Verified since first publication, by measurement on 21 September: Chromium auto-selects the <code>gavel-stage</code> tab for Karen&rsquo;s screen share with no picker dialog &mdash; real headful Chromium on Xvfb, a track at 1280&times;720 and <span class="mono">displaySurface: "browser"</span>. Desktop capture on the same virtual display fails outright, so tab capture is the only route and the &ldquo;A tab&rdquo; menu item is load-bearing. Still unverified, and to be proven by a live call rather than by this document: Zoom Meeting SDK raw-audio injection, and the two Meet DOM selectors behind the present menu.</p>
 </footer>
 
 </div>
