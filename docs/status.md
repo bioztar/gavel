@@ -14,7 +14,7 @@
 | `ears-discord` | Discord call connection. Decides nothing. | 🟢 Works | In compose as `ears` — not running now |
 | `calendar` | Scheduling / booking service. | 🟢 Works | In compose — not running anywhere now |
 | `ears-meet` | Google Meet connection. Chromium + Playwright + PulseAudio. | 🟡 Built, unproven | In compose under the `meet` profile — `scripts/demo-up.sh` |
-| `stage` | Karen's live board. She screen-shares it; no separate page to visit. | 🟡 Demo mode only | In compose under the `meet` profile — `scripts/demo-up.sh` |
+| `stage` | Karen's live board. She screen-shares it; no separate page to visit. | 🟡 Demo mode only | In compose (always on) — `scripts/demo-up.sh` |
 | `extension` | `/compose` as a browser plugin. Signs into the real account. | 🟡 Builds, unpublished | No store listing yet |
 | `contract` | The frozen seam: WebSocket JSON frames + fixtures. | 🟢 Frozen | n/a — shared spec |
 | `concierge` | Bot that interviews the host and writes the agenda. | ⚪ Parked | Deliberately not built |
@@ -76,7 +76,7 @@ just live-check --launch --duration 180 --speak-after 20
 
 ### As a deployment
 
-`ears-meet` and `stage` have service blocks in `compose.yaml` under the `meet` profile.
+`ears-meet` (under the `meet` profile) and `stage` have service blocks in `compose.yaml`.
 `scripts/demo-preflight.sh` says whether a box is ready (images, settings present, ports,
 the still, the brain pointed at the right ears); `scripts/demo-up.sh` runs it, brings the
 profile up, waits for health and prints where the board and console are. See

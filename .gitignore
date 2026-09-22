@@ -19,6 +19,6 @@ __pycache__/
 *.mov
 ~$*
 
-# The signed-in Meet profile and live recordings never go in the repo
+# The signed-in Chromium profile for ears-meet lives here. It IS a credential.
 secrets/
 recordings/

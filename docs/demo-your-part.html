@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your part — Meet demo setup</title>
+<style>
+  :root{--ink:#16181d;--mute:#5c6470;--line:#e2e5ea;--accent:#2f5fd0;--warn:#b3401a;--warnbg:#fdf3ef;--okbg:#f1f6ff}
+  *{box-sizing:border-box}
+  body{margin:0;padding:40px 20px;background:#f7f8fa;color:var(--ink);
+       font:17px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  main{max-width:860px;margin:0 auto;background:#fff;padding:48px 52px;
+       border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  h1{font-size:30px;line-height:1.2;margin:0 0 6px}
+  .sub{color:var(--mute);margin:0 0 36px;font-size:16px}
+  h2{font-size:21px;margin:40px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--accent)}
+  h3{font-size:17px;margin:26px 0 8px}
+  p,li{margin:10px 0}
+  ul{padding-left:22px}
+  code{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+       background:#f2f4f7;padding:2px 5px;border-radius:4px}
+  pre{background:#1d2027;color:#e7eaf0;padding:16px 18px;border-radius:8px;overflow-x:auto;
+      font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  pre code{background:none;color:inherit;padding:0}
+  table{width:100%;border-collapse:collapse;margin:18px 0;font-size:16px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#eef1f5;font-weight:600}
+  tbody tr:nth-child(even){background:#fafbfc}
+  .box{border-left:4px solid var(--warn);background:var(--warnbg);padding:14px 18px;margin:18px 0;border-radius:0 6px 6px 0}
+  .box.info{border-left-color:var(--accent);background:var(--okbg)}
+  .box p{margin:6px 0}
+  .step{color:var(--accent);font-weight:700}
+  footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);color:var(--mute);font-size:14px}
+  @media print{
+    body{background:#fff;padding:0;color:#000}
+    main{box-shadow:none;padding:0;max-width:none}
+    pre{background:#f2f4f7;color:#000;border:1px solid #ccc}
+    table,.box,pre{page-break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Your part</h1>
+<p class="sub">Everything an agent cannot do for the Google Meet demo. Four lanes are running without you — listed at the bottom.</p>
+
+<h2><span class="step">1.</span> Pick the Google account that becomes Karen</h2>
+<p>You have several. Pick one you don't mind being <em>seen</em> in a meeting: the display name on that account is the name every participant reads in the Meet roster. <code>MEET_BOT_NAME</code> only applies to anonymous joins, and we join signed in.</p>
+<ul>
+  <li>Rename that account's profile to <strong>Karen</strong> (Google account → Personal info → Name) before the first login. Cosmetic — and it is the whole joke.</li>
+  <li>A plain <code>@gmail.com</code> works. A Workspace account is <em>better</em> if the meeting is hosted on the same Workspace: same-domain participants are usually admitted without anyone clicking "Admit".</li>
+  <li>Not your main account.</li>
+</ul>
+
+<h2><span class="step">2.</span> Make the signed-in profile (on your Mac)</h2>
+<p>The container has no screen, and Google's login form fights automation. So this happens once, by hand, on a machine with a display:</p>
+<pre><code>git clone https://github.com/bioztar/gavel.git    # if you don't have it
+cd gavel/packages/ears-meet
+just setup                                        # uv sync + Playwright Chromium
+MEET_PROFILE_DIR=~/gavel-meet-profile just login</code></pre>
+<p>A visible Chromium opens at the Google sign-in page. Sign in as Karen, finish any 2-step prompt, press Enter in the terminal. The script confirms <code>meet.google.com</code> really shows the account menu, then closes.</p>
+<div class="box">
+  <p><strong>That directory is the credential.</strong> It is a live Google session for the account. It is gitignored on both ends and must never enter an image, a commit, or a screen share.</p>
+</div>
+
+<h2><span class="step">3.</span> Copy the profile to the VPS</h2>
+<pre><code>scp -r ~/gavel-meet-profile coder@uk-lon-1:/home/coder/DEV/gavel/secrets/meet-profile
+ssh coder@uk-lon-1 'chmod -R go-rwx /home/coder/DEV/gavel/secrets/meet-profile'</code></pre>
+<p><code>secrets/</code> is already in <code>.gitignore</code> — committed today in <code>19fde09</code>. Profiles go stale after a long gap; if Meet asks to sign in again, redo step 2 and re-copy.</p>
+
+<h2><span class="step">4.</span> Four lines in <code>.env</code> on the VPS</h2>
+<pre><code>MEET_URL=https://meet.google.com/xxx-yyyy-zzz
+MEET_PROFILE_HOST_DIR=./secrets/meet-profile
+EARS_WIRE_URL=ws://ears-meet:8787
+EARS_HTTP_URL=http://ears-meet:8787</code></pre>
+<p>The last two are what swap the brain off Discord and onto Meet. Without them the stack boots fine and chairs a <em>Discord</em> call. Everything else has a default — see the MEET block in <code>.env.example</code>.</p>
+<pre><code>docker compose --profile meet up -d</code></pre>
+
+<h2><span class="step">5.</span> The rehearsal needs a second human</h2>
+<ul>
+  <li>Karen needs someone to interrupt and someone to cut off. One tab of yourself is not a rehearsal — turn-taking keys off other people actually speaking.</li>
+  <li>Book 30 minutes with one other person.</li>
+  <li><strong>Record it.</strong> The pitch lives or dies on her timing, and the only way to tune timing is to watch it back.</li>
+  <li>Do it at least a day before the real pitch. A first live call with a browser-driving bot always surfaces something.</li>
+</ul>
+
+<h2>Decisions I need from you</h2>
+<table>
+<thead><tr><th style="width:22%">Topic</th><th>Question</th><th style="width:24%">Why it's yours</th></tr></thead>
+<tbody>
+<tr><td><strong>Devin "ultra"</strong></td><td>The v3 API exposes <em>no</em> model, effort or tier parameter — only <code>max_acu_limit</code>, which I set (40 and 25). If ultra exists it is a plan or UI setting. Check app.devin.ai, or set it there yourself.</td><td>Billing and account access</td></tr>
+<tr><td><strong>Karen's face</strong></td><td><code>assets/persona/karen-formal.png</code> is the default. Three "funky" variants exist. Formal reads enterprise; funky reads demo.</td><td>Taste — and it's the first thing the audience sees</td></tr>
+<tr><td><strong>Brain lane</strong></td><td><code>brain/_config/lanes.yaml</code> has no <code>gavel</code> lane. Missions are being written against a lane that does not exist. Add it, or name the existing lane gavel belongs under.</td><td>Brain taxonomy is yours</td></tr>
+</tbody>
+</table>
+
+<h2>Running without you</h2>
+<table>
+<thead><tr><th style="width:22%">Lane</th><th style="width:20%">Who</th><th>What</th></tr></thead>
+<tbody>
+<tr><td>Compose boot proof</td><td>Devin A</td><td>Bring up <code>--profile meet</code> with no Google account and prove Xvfb, the PulseAudio sinks, <code>/health</code>, and the stage tab. Opens a PR; does not merge.</td></tr>
+<tr><td>Demo runner</td><td>Devin B</td><td><code>scripts/demo-preflight.sh</code> + <code>scripts/demo-up.sh</code>, and correcting the docs that still claim ears-meet has no compose service.</td></tr>
+<tr><td>New name</td><td>naming agent</td><td>15+ candidates screened against live companies, USPTO/EUIPO, .com/.ai, GitHub/npm/PyPI. Ranked top 5, each with the strongest argument <em>against</em> it.</td></tr>
+<tr><td>Chrome Web Store</td><td>crewmate <code>gavel-extension-store</code></td><td>Package <code>packages/extension</code>, honest minimal-permission manifest, update <code>docs/EXTENSION.md</code>. Own worktree, local-only.</td></tr>
+</tbody>
+</table>
+
+<div class="box info">
+  <p><strong>Shipped today:</strong> <code>compose.yaml</code> now carries real <code>stage</code> and <code>ears-meet</code> services (<code>19fde09</code>). The Meet stack is one <code>docker compose --profile meet up</code> away from running. It just has no account to be yet — that is step 1.</p>
+</div>
+
+<footer>gavel · docs/demo-your-part.html · 2026-09-22</footer>
+</main>
+</body>
+</html>

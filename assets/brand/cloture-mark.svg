@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cloture">
+  <title>Cloture</title>
+  <!-- The caesura: the notation that means stop here, the line is cut. Two parallel
+       strokes through the staff. Cloture is the motion that cuts off debate, so the
+       mark is the cut itself, not an object that makes it. -->
+  <rect width="64" height="64" rx="12" fill="#14161a"/>
+  <!-- the staff: debate, running left to right -->
+  <rect x="10" y="30.5" width="44" height="3" rx="1.5" fill="#6c7280"/>
+  <!-- the cut: two strokes, in the accent -->
+  <g fill="#c8102e">
+    <rect x="28" y="14" width="4.2" height="36" rx="2.1" transform="rotate(14 30.1 32)"/>
+    <rect x="37" y="14" width="4.2" height="36" rx="2.1" transform="rotate(14 39.1 32)"/>
+  </g>
+</svg>

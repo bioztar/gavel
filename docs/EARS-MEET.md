@@ -240,9 +240,10 @@ Only one `ears` may own port 8787: stop the Discord `ears` service first.
 docker build -f packages/ears-meet/Dockerfile -t gavel-ears-meet:local .
 ```
 
-`compose.yaml` carries `ears-meet` and `stage` under the **`meet` profile**. `ears-meet`
-mounts `MEET_PROFILE_HOST_DIR` read-write at `/profile`, needs `shm_size: 2g` for
-Chromium, presents `http://stage:8793`, and publishes its wire on loopback
+`compose.yaml` carries `stage` as a regular service and `ears-meet` under the **`meet`
+profile**. `ears-meet` mounts `MEET_PROFILE_HOST_DIR` read-write at `/profile` (it must
+be writable by the image's `pwuser`, uid 1001), needs `shm_size: 2gb` for Chromium,
+shares `http://stage:8793`, and publishes its wire on loopback
 `MEET_WIRE_PORT` (default 8797) because the Discord `ears` still holds 8787. The brain
 is pointed at it with `EARS_WIRE_URL=ws://ears-meet:8787` / `EARS_HTTP_URL=http://ears-meet:8787`
 in `.env`; left at the default it listens to the Discord ears and hears nothing.
@@ -256,8 +257,8 @@ scripts/demo-up.sh --down          # tear it down (named volumes kept)
 ```
 
 Preflight checks: docker + compose, `--profile meet config` validates, every image the
-profile builds exists, `MEET_URL` is set, `MEET_PROFILE_HOST_DIR` exists and is
-non-empty, `MEET_FACE_IMAGE` is a real file under `assets/persona/`, every published host
+profile builds exists, `MEET_URL` is set, `MEET_PROFILE_HOST_DIR` exists, is non-empty
+and is writable by the container, `MEET_FACE_IMAGE` is a real file under `assets/persona/`, every published host
 port is free (or already held by this stack), `EARS_WIRE_URL` points the brain at
 `ears-meet`, and the external Traefik network exists. Settings are checked for
 **presence only** — no value is ever printed and `.env` is never read directly; the

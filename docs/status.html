@@ -69,7 +69,7 @@
     <tr><td class="mono">ears-meet</td><td>Google Meet connection. Chromium + Playwright + PulseAudio.</td>
         <td class="dot a">◐ Built, unproven</td><td>In compose under the <code>meet</code> profile — <code>scripts/demo-up.sh</code></td></tr>
     <tr><td class="mono">stage</td><td>Karen's live board. She screen-shares it; no separate page to visit.</td>
-        <td class="dot a">◐ Demo mode only</td><td>In compose under the <code>meet</code> profile — <code>scripts/demo-up.sh</code></td></tr>
+        <td class="dot a">◐ Demo mode only</td><td>In compose (always on) — <code>scripts/demo-up.sh</code></td></tr>
     <tr><td class="mono">extension</td><td><code>/compose</code> as a browser plugin. Signs into the real account.</td>
         <td class="dot a">◐ Builds, unpublished</td><td>No store listing yet</td></tr>
     <tr><td class="mono">contract</td><td>The frozen seam: WebSocket JSON frames + fixtures.</td>
@@ -142,8 +142,8 @@ just live-check --launch --duration 180 --speak-after 20</pre>
 
 <div class="card">
   <p class="head" style="margin-bottom:6px">As a deployment</p>
-  <p style="margin:0"><code>ears-meet</code> and <code>stage</code> have service blocks in
-  <code>compose.yaml</code> under the <code>meet</code> profile. <code>scripts/demo-preflight.sh</code>
+  <p style="margin:0"><code>ears-meet</code> (under the <code>meet</code> profile) and <code>stage</code> have
+  service blocks in <code>compose.yaml</code>. <code>scripts/demo-preflight.sh</code>
   says whether a box is ready (images, settings present, ports, the still, the brain pointed at the
   right ears); <code>scripts/demo-up.sh</code> runs it, brings the profile up, waits for health and
   prints where the board and console are. Being <em>up</em> is not the same as <em>proven</em>: the

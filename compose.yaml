@@ -160,10 +160,8 @@ services:
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
       LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-}
       LANGFUSE_TRACING_ENVIRONMENT: ${LANGFUSE_TRACING_ENVIRONMENT:-}
-      # Which ears the brain listens to. Default: the Discord `ears` service. With the
-      # `meet` profile set EARS_WIRE_URL=ws://ears-meet:8787 and
-      # EARS_HTTP_URL=http://ears-meet:8787 in .env (scripts/demo-preflight.sh checks).
-      # A 127.0.0.1/localhost value from a laptop .env would point the brain at itself.
+      # Which ears chairs the call. Default is Discord; for a Google Meet demo set
+      #   EARS_WIRE_URL=ws://ears-meet:8787  EARS_HTTP_URL=http://ears-meet:8787
       EARS_WIRE_URL: ${EARS_WIRE_URL:-ws://ears:8787}
       EARS_HTTP_URL: ${EARS_HTTP_URL:-http://ears:8787}
       POSTGRES_DSN: postgresql://gavel:gavel@postgres:5432/gavel
@@ -265,54 +263,101 @@ services:
       retries: 12
       start_period: 5s
 
-  # --- `meet` profile: the Google Meet surface and the board Karen shares -------
-  # docker compose --profile meet up -d   (scripts/demo-up.sh does this with checks)
-  # The Discord `ears` still starts (wire-only without a token) so brain's depends_on
-  # holds; point the brain at this one via EARS_WIRE_URL / EARS_HTTP_URL above.
+  # Karen's live board. She screen-shares this page from inside the call, so it is a
+  # service like any other, not a page anyone is asked to visit. ears-meet finds the tab
+  # by its title (STAGE_TAB_TITLE, default `gavel-stage`) and captures it.
+  #
+  # Host port is STAGE_BOARD_PORT, not STAGE_PORT: brain already owns that name for its
+  # own 8788 above, and a repo-root .env would otherwise point this at the wrong service.
+  stage:
+    image: gavel-stage:local
+    build:
+      context: .
+      dockerfile: packages/stage/Dockerfile
+    init: true
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8793
+      # Hard-coded for the same reason as ears' copy: a 127.0.0.1 value in a repo-root
+      # .env would make this container poll itself.
+      BRAIN_STATE_URL: http://brain:8788/state
+      BRAIN_POLL_MS: ${BRAIN_POLL_MS:-1000}
+    ports:
+      - "127.0.0.1:${STAGE_BOARD_PORT:-8793}:8793"
+    depends_on:
+      brain:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8793/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+  # ears-meet: a real Chromium on a virtual display, joining a Google Meet as a guest.
+  # Same seam as ears-discord — it owns one call connection and decides nothing.
+  #
+  # Behind the `meet` profile because it is a 5GB image that only earns its keep for a
+  # Meet demo:  docker compose --profile meet up -d ears-meet
+  #
+  # It does NOT collide with the `ears` service on 8787: each container has its own port
+  # namespace, and only the published host port differs (8797 here). Point the brain at
+  # whichever ears should chair the call:
+  #     EARS_WIRE_URL=ws://ears-meet:8787  EARS_HTTP_URL=http://ears-meet:8787
   ears-meet:
+    profiles: ["meet"]
     image: gavel-ears-meet:local
     build:
       context: .
       dockerfile: packages/ears-meet/Dockerfile
-    profiles: [meet]
     init: true
     restart: unless-stopped
-    shm_size: 2g # Chromium
+    # Chromium dies on the default 64MB /dev/shm as soon as a call has video in it.
+    shm_size: "2gb"
     environment:
       MEET_URL: ${MEET_URL:-}
       MEET_BOT_NAME: ${MEET_BOT_NAME:-Karen (gavel)}
-      # The signed-in Chromium profile, mounted from MEET_PROFILE_HOST_DIR. It is the
-      # credential: never in the image, never committed.
+      # The mount point inside the container, not a host path — see volumes below.
       MEET_PROFILE_DIR: /profile
-      # Fallback only; prefer the profile. Never echoed.
-      MEET_BOT_EMAIL: ${MEET_BOT_EMAIL:-}
-      MEET_BOT_PASSWORD: ${MEET_BOT_PASSWORD:-}
-      MEET_ADMIT_TIMEOUT_S: ${MEET_ADMIT_TIMEOUT_S:-180}
       MEET_CAPTIONS: ${MEET_CAPTIONS:-true}
-      TRANSCRIPT_SOURCE: ${TRANSCRIPT_SOURCE:-auto}
-      # Karen's camera tile: a still under assets/persona, baked into the image.
+      MEET_ADMIT_TIMEOUT_S: ${MEET_ADMIT_TIMEOUT_S:-180}
+      MEET_LEAVE_WHEN_ALONE_S: ${MEET_LEAVE_WHEN_ALONE_S:-120}
+      # Karen's camera tile: a still, published as a real video track. No video is
+      # generated anywhere. Unset MEET_FACE_IMAGE and she joins with the camera off.
       MEET_FACE_IMAGE: ${MEET_FACE_IMAGE:-assets/persona/karen-formal.png}
-      STAGE_URL: http://stage:8793
-      DISPLAY: ":99"
-      XVFB_MANAGE: "true"
-      PULSE_MANAGE: "true"
+      MEET_FACE_FPS: ${MEET_FACE_FPS:-5}
+      # The board she shares. Captured by tab title, so both must agree.
+      STAGE_URL: ${MEET_STAGE_URL:-http://stage:8793/}
+      STAGE_TAB_TITLE: ${STAGE_TAB_TITLE:-gavel-stage}
+      WIRE_HOST: 0.0.0.0
+      WIRE_PORT: 8787
+      AGENDA_FILE: ${MEET_AGENDA_FILE:-/app/contract/fixtures/agenda.demo.json}
+      FRAMES_FILE: ${FRAMES_FILE:-}
       SLNG_API_KEY: ${SLNG_API_KEY:-}
       SLNG_BASE_URL: ${SLNG_BASE_URL:-https://eu-west.api.slng.ai}
       SLNG_STT_MODEL: ${SLNG_STT_MODEL:-deepgram/nova:3}
       SLNG_STT_LANGUAGE: ${SLNG_STT_LANGUAGE:-en}
       SLNG_TTS_MODEL: ${SLNG_TTS_MODEL:-deepgram/aura:2}
       SLNG_TTS_VOICE: ${SLNG_TTS_VOICE:-aura-2-thalia-en}
-      STT_MODE: ${STT_MODE:-stream}
-      WIRE_HOST: 0.0.0.0
-      WIRE_PORT: 8787
-      BRAIN_STATE_URL: http://brain:8788/state
-      FRAMES_FILE: /recordings/live.jsonl
       LOG_JSON: "true"
     volumes:
+      # THE CREDENTIAL. A Chromium profile signed in as Karen's Google account, made
+      # once on a machine with a screen (`just login`) and copied here. Never committed,
+      # never baked into an image, never in a public directory — `secrets/` is gitignored.
       - ${MEET_PROFILE_HOST_DIR:-./secrets/meet-profile}:/profile
-      - ears_meet_recordings:/recordings
+      # Every emitted frame, when FRAMES_FILE points in here — the fixture for replay.
+      - ./recordings:/recordings
+      # The agenda the chair runs. Read-only, outside the image so it can be edited
+      # without a rebuild.
+      - ./packages/contract/fixtures:/app/contract/fixtures:ro
     ports:
-      # The Discord ears holds 8787 on the host; this one gets its own loopback port.
       - "127.0.0.1:${MEET_WIRE_PORT:-8797}:8787"
     depends_on:
       stage:
@@ -330,36 +375,8 @@ services:
       retries: 12
       start_period: 20s
 
-  stage:
-    image: gavel-stage:local
-    build:
-      context: .
-      dockerfile: packages/stage/Dockerfile
-    profiles: [meet]
-    init: true
-    restart: unless-stopped
-    environment:
-      HOST: 0.0.0.0
-      PORT: 8793
-      BRAIN_STATE_URL: http://brain:8788/state
-    ports:
-      - "127.0.0.1:${BOARD_PORT:-8793}:8793"
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://127.0.0.1:8793/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
-        ]
-      interval: 5s
-      timeout: 3s
-      retries: 12
-      start_period: 5s
-
 volumes:
   postgres_data:
-  ears_meet_recordings:
 
 networks:
   traefik-public:
