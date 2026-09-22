@@ -3,12 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>gavel — architecture reset &amp; platform plan</title>
+<title>Cloture — architecture reset &amp; platform plan</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxNDE2MWEiLz4KICA8cmVjdCB4PSIxMCIgeT0iMzAuNSIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjMiIHJ4PSIxLjUiIGZpbGw9IiM2YzcyODAiLz4KICA8ZyBmaWxsPSIjYzgxMDJlIj4KICAgIDxyZWN0IHg9IjI4IiB5PSIxNCIgd2lkdGg9IjQuMiIgaGVpZ2h0PSIzNiIgcng9IjIuMSIgdHJhbnNmb3JtPSJyb3RhdGUoMTQgMzAuMSAzMikiLz4KICAgIDxyZWN0IHg9IjM3IiB5PSIxNCIgd2lkdGg9IjQuMiIgaGVpZ2h0PSIzNiIgcng9IjIuMSIgdHJhbnNmb3JtPSJyb3RhdGUoMTQgMzkuMSAzMikiLz4KICA8L2c+Cjwvc3ZnPgo=">
 <style>
   :root{
-    --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f6f7f9; --card:#fff;
-    --blue:#2563eb; --violet:#7c3aed; --green:#15803d; --amber:#b45309; --red:#b91c1c;
-    --teal:#0d9488; --slate:#475569;
+    --ink:#14161a; --ink-2:#3d434d; --mute:#6c7280; --line:#e4e2de; --paper:#faf9f7; --card:#ffffff;
+    --accent:#c8102e; --accent-soft:#fdf2f3; --info:#1f4fd8; --info-soft:#f1f5fe;
+    --muted:var(--mute); --bg:var(--paper); --slate:var(--ink-2);
+    --blue:var(--info); --violet:var(--ink-2); --teal:var(--mute);
+    --green:var(--accent); --red:var(--accent); --amber:var(--ink-2);
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);
@@ -16,11 +19,12 @@
     -webkit-font-smoothing:antialiased}
   .wrap{max-width:1040px;margin:0 auto;padding:30px 20px 90px}
 
-  h1{font-size:34px;margin:0 0 6px;letter-spacing:-.025em;line-height:1.12}
+  h1{font-size:34px;margin:0 0 6px;letter-spacing:-.025em;line-height:1.12;font-weight:600}
   h2{font-size:13px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);
-     margin:52px 0 14px;font-weight:700}
-  h3{font-size:20px;margin:0 0 8px;letter-spacing:-.015em}
-  h4{font-size:15px;margin:16px 0 6px;letter-spacing:-.01em}
+     margin:52px 0 14px;font-weight:600;border-bottom:3px solid var(--accent);
+     display:inline-block;padding-bottom:8px}
+  h3{font-size:20px;margin:0 0 8px;letter-spacing:-.015em;font-weight:600}
+  h4{font-size:15px;margin:16px 0 6px;letter-spacing:-.01em;font-weight:600}
   .sub{color:var(--muted);margin:0 0 6px;font-size:18px}
   .meta{color:var(--muted);font-size:13.5px;margin:10px 0 0}
 
@@ -32,26 +36,22 @@
   .g4{grid-template-columns:repeat(4,1fr)}
   .grid>.card{margin:0}
 
-  .hero{background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;border:0;
+  .hero{background:var(--ink);color:#fff;border:0;
     padding:30px 30px;border-radius:14px;margin:22px 0 10px}
   .hero h3{color:#fff;font-size:25px;line-height:1.3;margin-bottom:10px}
-  .hero p{color:#cbd5e1;margin:0 0 8px}
+  .hero p{color:rgba(255,255,255,.78);margin:0 0 8px}
   .hero strong{color:#fff}
   .hero .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:22px;
-    border-top:1px solid #334155;padding-top:18px}
+    border-top:1px solid rgba(255,255,255,.16);padding-top:18px}
   .hero .kpi .n{font-size:24px;font-weight:700;letter-spacing:-.02em;color:#fff}
-  .hero .kpi .l{font-size:11.5px;text-transform:uppercase;letter-spacing:.09em;color:#94a3b8;margin-top:3px}
+  .hero .kpi .l{font-size:11.5px;text-transform:uppercase;letter-spacing:.09em;color:rgba(255,255,255,.58);margin-top:3px}
 
   .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;
     letter-spacing:.03em;white-space:nowrap;text-transform:uppercase}
-  .p-keep{background:#dcfce7;color:var(--green)}
-  .p-cut{background:#fee2e2;color:var(--red)}
-  .p-defer{background:#fef3c7;color:var(--amber)}
-  .p-new{background:#dbeafe;color:var(--blue)}
-  .p-off{background:#f1f5f9;color:var(--slate)}
-  .p-ok{background:#dcfce7;color:var(--green)}
-  .p-no{background:#fee2e2;color:var(--red)}
-  .p-maybe{background:#fef3c7;color:var(--amber)}
+  .p-keep,.p-ok{background:var(--accent-soft);color:var(--accent)}
+  .p-cut,.p-no{background:var(--accent);color:#fff}
+  .p-defer,.p-maybe{background:var(--card);color:var(--mute);border:1px dashed var(--line)}
+  .p-new,.p-off{background:var(--card);color:var(--ink-2);border:1px solid var(--line)}
 
   table{width:100%;border-collapse:collapse;font-size:15px}
   th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;
@@ -64,11 +64,11 @@
     padding:1px 6px;border-radius:5px;color:#0f172a}
   .mono{font:13px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted)}
 
-  .callout{background:#fff7ed;border:1px solid #fed7aa;border-left:4px solid var(--amber);
+  .callout{background:var(--paper);border:1px solid var(--line);border-left:4px solid var(--ink-2);
     border-radius:10px;padding:16px 18px;margin:16px 0}
-  .callout.red{background:#fef2f2;border-color:#fecaca;border-left-color:var(--red)}
-  .callout.green{background:#f0fdf4;border-color:#bbf7d0;border-left-color:var(--green)}
-  .callout.blue{background:#eff6ff;border-color:#bfdbfe;border-left-color:var(--blue)}
+  .callout.red{background:var(--accent-soft);border-color:var(--accent);border-left-color:var(--accent)}
+  .callout.green{background:var(--card);border-color:var(--line);border-left-color:var(--accent)}
+  .callout.blue{background:var(--info-soft);border-color:var(--info);border-left-color:var(--info)}
   .callout h4{margin:0 0 7px;font-size:15.5px}
   .callout p:last-child,.callout ul:last-child{margin-bottom:0}
 
@@ -78,10 +78,10 @@
     background:#fff;border:1px solid var(--line);border-radius:10px;padding:13px 15px}
   .rung .tier{font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;
     padding:5px 0;text-align:center;border-radius:7px}
-  .t0{background:#dcfce7;color:var(--green)}
-  .t1{background:#dbeafe;color:var(--blue)}
-  .t2{background:#fef3c7;color:var(--amber)}
-  .t3{background:#fee2e2;color:var(--red)}
+  .t0{background:var(--accent-soft);color:var(--accent)}
+  .t1{background:var(--accent-soft);color:var(--accent)}
+  .t2{background:var(--card);color:var(--mute);border:1px dashed var(--line)}
+  .t3{background:var(--accent);color:#fff}
   .rung .what{font-size:15px}
   .rung .what b{display:block;font-size:15.5px;margin-bottom:2px}
   .rung .what span{color:var(--muted);font-size:13.5px}
@@ -150,9 +150,11 @@
     body{font-size:16px}
   }
   @media print{
-    body{background:#fff;font-size:11pt}
-    .card,.callout,.rung,.seambox{box-shadow:none;break-inside:avoid;page-break-inside:avoid}
-    .hero{background:#0f172a !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{background:#fff;color:#111;font-size:11pt}
+    .card,.callout,.rung,.seambox,table{box-shadow:none;break-inside:avoid;page-break-inside:avoid}
+    .hero{background:#fff !important;border:1px solid #ccc;color:#111}
+    .hero h3,.hero strong,.hero .kpi .n{color:#111}
+    .hero p,.hero .kpi .l{color:#444}
     tr{break-inside:avoid}
     h2{page-break-after:avoid}
   }
@@ -161,14 +163,29 @@
 <body>
 <div class="wrap">
 
-<h1>gavel — architecture reset &amp; platform plan</h1>
-<p class="sub">Strip the hackathon scaffolding. Keep the chair. Google Meet first, then Zoom, then Teams.</p>
+<div class="wordmark" aria-hidden="true" style="margin:0 0 20px">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 64" role="img" aria-label="Cloture" style="display:block;width:200px;height:auto">
+    <title>Cloture</title>
+    <rect x="0" y="0" width="64" height="64" rx="12" fill="#14161a"/>
+    <rect x="10" y="30.5" width="44" height="3" rx="1.5" fill="#6c7280"/>
+    <g fill="#c8102e">
+      <rect x="28" y="14" width="4.2" height="36" rx="2.1" transform="rotate(14 30.1 32)"/>
+      <rect x="37" y="14" width="4.2" height="36" rx="2.1" transform="rotate(14 39.1 32)"/>
+    </g>
+    <text x="84" y="43" fill="#14161a"
+          font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+          font-size="30" font-weight="600" letter-spacing="6.5">CLOTURE</text>
+  </svg>
+</div>
+
+<h1>Cloture — architecture reset &amp; platform plan</h1>
+<p class="sub"><strong>Cloture</strong> — the motion that cuts off debate. Strip the hackathon scaffolding. Keep the chair. Google Meet first, then Zoom, then Teams.</p>
 <p class="meta">Working document for the Vitaly × Artem review · 21 September 2026 · <span class="mono">bioztar/gavel</span></p>
 
 <div class="hero">
   <h3>The chair's core costs nothing to run. Everything expensive in the repo today is optional, and most of it exists because of a 36-hour hackathon, not because of the product.</h3>
-  <p>gavel decides <strong>whether</strong> to interrupt from two events and a clock — <code style="background:#1e293b;color:#e2e8f0">speaking.start</code>, <code style="background:#1e293b;color:#e2e8f0">speaking.end</code>. No audio decoding, no model call, no vendor. Only <strong>what she says</strong> hits a model: one sentence, under 20 words.</p>
-  <p>That means the judged moment — <em>"Vitaly, you've had eight of the last ten minutes — Ana, you had a point on this"</em> — runs for approximately zero marginal cost. The expensive parts (avatar video, continuous STT, restreaming) are all removable without touching it.</p>
+  <p>Cloture decides <strong>whether</strong> to interrupt from two events and a clock — <code style="background:#1e293b;color:#e2e8f0">speaking.start</code>, <code style="background:#1e293b;color:#e2e8f0">speaking.end</code>. No audio decoding, no model call, no vendor. Only <strong>what she says</strong> hits a model: one line, under 20 words.</p>
+  <p>That means the moment she cuts in — <em>"Vitaly, you've had eight of the last ten minutes — Ana, you had a point on this"</em> — runs for approximately zero marginal cost. The expensive parts (avatar video, continuous STT, restreaming) are all removable without touching it.</p>
   <div class="kpis">
     <div class="kpi"><div class="n">0</div><div class="l">Call-SDK imports in brain</div></div>
     <div class="kpi"><div class="n">~15,800</div><div class="l">Lines being deleted now</div></div>
@@ -215,7 +232,7 @@
       <li>Agenda + topic clock</li>
       <li>Talk-time per person</li>
       <li>Interrupt policy (plain code)</li>
-      <li>The one sentence (model)</li>
+      <li>The one line (model)</li>
       <li>Notes, decisions, parking lot</li>
     </ul>
     <p style="margin:10px 0 0"><span class="pill p-keep">5,265 lines · unchanged by any platform work</span></p>
@@ -236,13 +253,13 @@
 <div class="ladder">
   <div class="rung">
     <div class="tier t0">Tier 0</div>
-    <div class="what"><b>Floor governance — the judged moment</b>
+    <div class="what"><b>Floor governance — the moment she cuts in</b>
       <span>Talk-time share, monologue detection, topic over budget, silent must-hear attendee, dead air. Runs on <code>speaking.start</code> / <code>speaking.end</code> plus a clock. Plain code, unit-tested against a scripted replay.</span></div>
     <div class="cost">free<small>CPU only</small></div>
   </div>
   <div class="rung">
     <div class="tier t1">Tier 1</div>
-    <div class="what"><b>The sentence she says</b>
+    <div class="what"><b>The line she says</b>
       <span>One model call per intervention, capped under 20 words. Nebius, OpenAI-compatible, driven by <code>config/models.yaml</code>.</span></div>
     <div class="cost">~$0.001<small>per intervention</small></div>
   </div>
@@ -326,7 +343,7 @@
   <div class="card" style="margin:0;border-top:3px solid var(--violet)">
     <span class="mono" style="font-size:11px;letter-spacing:.09em;text-transform:uppercase">3 · Think</span>
     <h4 style="margin:6px 0 4px"><code>brain</code></h4>
-    <p style="font-size:14px;color:var(--slate);margin:0">Floor clock and triggers in plain code. One model call writes the sentence. Notes, decisions, open items, parking lot. Postgres + Redis behind it.</p>
+    <p style="font-size:14px;color:var(--slate);margin:0">Floor clock and triggers in plain code. One model call writes the line. Notes, decisions, open items, parking lot. Postgres + Redis behind it.</p>
   </div>
   <div class="card" style="margin:0;border-top:3px solid var(--teal)">
     <span class="mono" style="font-size:11px;letter-spacing:.09em;text-transform:uppercase">4 · Show</span>
@@ -340,7 +357,7 @@
 
 <div class="callout">
 <h4>The unit cost moves, and it is worth naming before Artem asks</h4>
-<p style="margin-bottom:0">With the avatar gone, inference is not the scale driver — <strong>the browser is</strong>. Every concurrent meeting on Meet needs its own headless Chromium: roughly 1 vCPU and 0.5–1 GB RAM, for the duration of the call. That is the number that decides whether gavel is priced per room, per seat, or per meeting-hour, and it is the number a managed bot vendor is quoting you when they charge per bot-hour.</p>
+<p style="margin-bottom:0">With the avatar gone, inference is not the scale driver — <strong>the browser is</strong>. Every concurrent meeting on Meet needs its own headless Chromium: roughly 1 vCPU and 0.5–1 GB RAM, for the duration of the call. That is the number that decides whether Cloture is priced per room, per seat, or per meeting-hour, and it is the number a managed bot vendor is quoting you when they charge per bot-hour.</p>
 </div>
 
 <h2>5 · Karen&rsquo;s presence — a shared screen, and a still rather than a generated face</h2>
@@ -462,7 +479,7 @@
 <h4>Why the Google Meet Media API is not the route — despite being the "official" one</h4>
 <p>It is the obvious first answer and it fails on three independent counts, any one of which is fatal:</p>
 <ul>
-<li><strong>It cannot speak.</strong> The client's SDP offer must contain <em>receive-only</em> media descriptions — <code>a=recvonly</code> from the client, <code>a=sendonly</code> from Meet. gavel's entire product is a chair who interrupts out loud. A receive-only API cannot be the surface.</li>
+<li><strong>It cannot speak.</strong> The client's SDP offer must contain <em>receive-only</em> media descriptions — <code>a=recvonly</code> from the client, <code>a=sendonly</code> from Meet. Cloture's entire product is a chair who interrupts out loud. A receive-only API cannot be the surface.</li>
 <li><strong>It cannot count the floor.</strong> The cap is exactly three virtual audio streams, allocated to the most relevant speakers and reassigned as the conversation moves. Talk-time share per person over a whole meeting is structurally unobtainable from three rotating slots. This one is architectural, not a preview limitation — it does not go away at GA.</li>
 <li><strong>It is not generally available.</strong> Developer Preview enrolment is required for the Cloud project, the OAuth principal, <em>and every participant in the conference</em>. Also blocked for encrypted or watermarked meetings, blocked when an underage account is present, capped at eight hours, and the host can terminate it mid-call.</li>
 </ul>
@@ -483,7 +500,7 @@
       <li>Sends the brief to our server, which does the model call and returns the structured agenda.</li>
       <li>Writes the agenda into the real invite description, and registers the contract-shaped <code>agenda.json</code> against the meeting id.</li>
       <li>Shows the refusal inline when the brief has no decidable topics — the gate moves to the point of creation instead of a separate page.</li>
-      <li>Invites the bot account to the event, which is how gavel gets into the call.</li>
+      <li>Invites the bot account to the event, which is how Cloture gets into the call.</li>
     </ul>
   </div>
   <div class="card" style="margin:0;background:#f8fafc">
@@ -538,7 +555,7 @@
   </div>
   <div class="grow">
     <div class="nm">Zoom app review<small>Vitaly/Artem · start early, it is a queue</small></div>
-    <div class="track"><div class="seg" style="left:33%;width:67%;background:#94a3b8">4–6 wks elapsed</div></div>
+    <div class="track"><div class="seg" style="left:33%;width:67%;background:var(--mute)">4–6 wks elapsed</div></div>
   </div>
   <div class="grow">
     <div class="nm">Zoom egress spike + <code>ears-zoom</code><small>crewmate · after Meet lands</small></div>
@@ -574,7 +591,7 @@
     <p style="font-size:14.5px;color:var(--slate);margin:4px 0 0">The bot must be a participant, which means it must be an identity somewhere.</p>
     <div class="opt"><b>Bring your own</b>The customer creates a bot account in their own Workspace. Solves external-participant blocks and data residency instantly; adds an onboarding step that loses self-serve users.</div>
     <div class="opt"><b>Managed by us</b>One click to install, and then a fight with every Workspace that blocks external participants.</div>
-    <p style="font-size:14px;margin:10px 0 0">This is a go-to-market decision wearing a technical costume — it decides whether gavel is self-serve or sales-led.</p>
+    <p style="font-size:14px;margin:10px 0 0">This is a go-to-market decision wearing a technical costume — it decides whether Cloture is self-serve or sales-led.</p>
   </div>
 
   <div class="card dec">
@@ -618,7 +635,7 @@
 </div>
 
 <footer>
-<p><strong>gavel</strong> — architecture reset and platform plan · 21 September 2026 · working document, not a contract.<br>
+<p><strong>Cloture</strong> — architecture reset and platform plan · 21 September 2026 · working document, not a contract.<br>
 Companion documents: <a href="architecture.html">architecture</a> · <a href="index.html">build board</a> · <a href="https://github.com/bioztar/gavel/blob/main/docs/CONTRACT.md">the frozen contract</a> · <a href="blueprint.md">Markdown twin</a></p>
 <p>Verified in this document: <code>brain</code> contains zero call-SDK imports; Meet Media API offers are receive-only with a three-stream audio cap; fal Director list price is $0.08/s at 768p with a $1.20 session minimum. Verified since first publication, by measurement on 21 September: Chromium auto-selects the <code>gavel-stage</code> tab for Karen&rsquo;s screen share with no picker dialog &mdash; real headful Chromium on Xvfb, a track at 1280&times;720 and <span class="mono">displaySurface: "browser"</span>. Desktop capture on the same virtual display fails outright, so tab capture is the only route and the &ldquo;A tab&rdquo; menu item is load-bearing. Measured 22 September: Chromium&rsquo;s own fake-camera flags are unusable here &mdash; <span class="mono">--use-fake-device-for-media-stream</span> also replaces the audio manager, leaving only &ldquo;Fake Audio Input&rdquo; devices where the PulseAudio monitors have to be, and <span class="mono">--use-file-for-fake-video-capture</span> alone is inert. Karen&rsquo;s still is therefore published by patching <code>getUserMedia</code> with a canvas track; the frame the page received was compared pixel-by-pixel against the source image and matched exactly. Still unverified, and to be proven by a live call rather than by this document: Zoom Meeting SDK raw-audio injection, and the two Meet DOM selectors behind the present menu.</p>
 </footer>

@@ -3,42 +3,46 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Karen — the chair's tile image — gavel</title>
+<title>Karen — the chair's tile image — Cloture</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxNDE2MWEiLz4KICA8cmVjdCB4PSIxMCIgeT0iMzAuNSIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjMiIHJ4PSIxLjUiIGZpbGw9IiM2YzcyODAiLz4KICA8ZyBmaWxsPSIjYzgxMDJlIj4KICAgIDxyZWN0IHg9IjI4IiB5PSIxNCIgd2lkdGg9IjQuMiIgaGVpZ2h0PSIzNiIgcng9IjIuMSIgdHJhbnNmb3JtPSJyb3RhdGUoMTQgMzAuMSAzMikiLz4KICAgIDxyZWN0IHg9IjM3IiB5PSIxNCIgd2lkdGg9IjQuMiIgaGVpZ2h0PSIzNiIgcng9IjIuMSIgdHJhbnNmb3JtPSJyb3RhdGUoMTQgMzkuMSAzMikiLz4KICA8L2c+Cjwvc3ZnPgo=">
 <style>
   :root {
-    --ink: #1a1a1a;
-    --muted: #5d6470;
-    --line: #e2e5ea;
-    --accent: #2f5fd0;
-    --warn-bg: #fff6e5;
-    --warn-line: #e0a64a;
-    --ok-bg: #ecf6ed;
-    --ok-line: #4a9c58;
+    --ink: #14161a;
+    --ink-2: #3d434d;
+    --mute: #6c7280;
+    --line: #e4e2de;
+    --paper: #faf9f7;
+    --card: #ffffff;
+    --accent: #c8102e;
+    --accent-soft: #fdf2f3;
+    --info: #1f4fd8;
+    --info-soft: #f1f5fe;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     padding: 32px 20px 72px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-                 "Helvetica Neue", Arial, sans-serif;
+                 Helvetica, Arial, sans-serif;
     font-size: 17px;
-    line-height: 1.6;
+    line-height: 1.65;
     color: var(--ink);
-    background: #f7f8fa;
+    background: var(--paper);
   }
   .wrap { max-width: 860px; margin: 0 auto; }
-  h1 { font-size: 30px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .wordmark { margin: 0 0 28px; }
+  .wordmark svg { display: block; width: 200px; height: auto; }
+  h1 { font-size: 30px; line-height: 1.25; margin: 0 0 6px; letter-spacing: -0.01em; font-weight: 600; }
   h2 {
     font-size: 21px; margin: 44px 0 6px; padding-bottom: 8px;
-    border-bottom: 3px solid var(--accent);
+    border-bottom: 3px solid var(--accent); font-weight: 600;
   }
-  .sub { color: var(--muted); margin: 0 0 28px; }
+  .sub { color: var(--mute); margin: 0 0 28px; }
   .callout {
-    border-left: 4px solid var(--warn-line);
-    background: var(--warn-bg);
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
     padding: 14px 18px; margin: 18px 0; border-radius: 0 6px 6px 0;
   }
-  .callout.ok { border-left-color: var(--ok-line); background: var(--ok-bg); }
   .callout p { margin: 0 0 8px; }
   .callout p:last-child { margin-bottom: 0; }
   .grid {
@@ -46,42 +50,60 @@
     gap: 22px; margin-top: 20px;
   }
   .card {
-    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
     overflow: hidden; box-shadow: 0 1px 3px rgba(20,25,40,.07);
   }
   .card img { display: block; width: 100%; height: auto; background: #eceef2; }
   .card .body { padding: 14px 16px 18px; }
-  .card h3 { margin: 0 0 4px; font-size: 17px; }
-  .card code { font-size: 13px; color: var(--muted); }
-  .card p { margin: 8px 0 0; font-size: 15px; color: var(--muted); line-height: 1.5; }
+  .card h3 { margin: 0 0 4px; font-size: 17px; font-weight: 600; }
+  .card code { font-size: 13px; color: var(--mute); }
+  .card p { margin: 8px 0 0; font-size: 15px; color: var(--mute); line-height: 1.5; }
   .tag {
     display: inline-block; font-size: 12px; font-weight: 600;
     text-transform: uppercase; letter-spacing: .06em;
     padding: 2px 8px; border-radius: 20px; margin-left: 6px; vertical-align: 2px;
   }
-  .tag.picked { background: var(--ok-bg); color: #2c6b37; border: 1px solid var(--ok-line); }
-  .tag.rejected { background: #fdecec; color: #9c2a2a; border: 1px solid #d47a7a; }
+  .tag.picked { background: var(--card); color: var(--ink-2); border: 1px solid var(--line); }
+  .tag.rejected { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); }
   .hero { max-width: 420px; }
-  .checks { margin: 14px 0 0; padding-left: 20px; font-size: 15px; color: var(--muted); }
-  footer { margin-top: 48px; color: var(--muted); font-size: 14px;
+  .checks { margin: 14px 0 0; padding-left: 20px; font-size: 15px; color: var(--mute); }
+  footer { margin-top: 48px; color: var(--mute); font-size: 14px;
            border-top: 1px solid var(--line); padding-top: 14px; }
-  a { color: var(--accent); }
+  a { color: var(--info); }
   @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
   @media print {
-    body { background: #fff; color: #000; padding: 0; font-size: 12pt; }
+    body { background: #fff; color: #111; padding: 0; font-size: 12pt; }
     .card { box-shadow: none; page-break-inside: avoid; }
     .grid { gap: 14px; }
     .callout { page-break-inside: avoid; }
+    h1, h2 { color: #111; }
+    .sub, .card p, .card code, footer { color: #444; }
   }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <h1>Karen — the chair's tile image</h1>
-  <p class="sub">gavel · HackBarna AI Summit 26 · persona stills in <code>assets/persona/</code></p>
+  <div class="wordmark" aria-hidden="true">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 64" role="img" aria-label="Cloture">
+      <title>Cloture</title>
+      <rect x="0" y="0" width="64" height="64" rx="12" fill="#14161a"/>
+      <rect x="10" y="30.5" width="44" height="3" rx="1.5" fill="#6c7280"/>
+      <g fill="#c8102e">
+        <rect x="28" y="14" width="4.2" height="36" rx="2.1" transform="rotate(14 30.1 32)"/>
+        <rect x="37" y="14" width="4.2" height="36" rx="2.1" transform="rotate(14 39.1 32)"/>
+      </g>
+      <text x="84" y="43" fill="#14161a"
+            font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+            font-size="30" font-weight="600" letter-spacing="6.5">CLOTURE</text>
+    </svg>
+  </div>
 
-  <div class="callout ok">
+  <h1>Karen — the chair's tile image</h1>
+  <p class="sub"><strong>Cloture</strong> — the motion that cuts off debate. HackBarna AI Summit 26 ·
+     persona stills in <code>assets/persona/</code></p>
+
+  <div class="callout">
     <p><strong>Decided.</strong> Vitaly picked candidate <code>chair-03</code>. She is
        <strong>Karen</strong>. It is the still she presents in her participant tile; her live board
         is a screen share from that tile, so this is the only image of her.</p>
@@ -106,7 +128,7 @@
 
   <h2>Funky Karen — candidates</h2>
 
-  <div class="callout ok">
+  <div class="callout">
     <p><strong>Batch 2 — the regeneration worked.</strong> Strength raised and the funky
        elements moved ahead of the identity clause, so the wardrobe and the background now
        actually change. Batch 1 (three near-identical black blazers) is gone from this page;
@@ -159,7 +181,7 @@
 
   <footer>
     Prompts and generation parameters: <code>assets/persona/PROMPTS.md</code>.
-    Board: <a href="index.html">gavel tasks</a>.
+    Board: <a href="index.html">Cloture tasks</a>.
   </footer>
 
 </div>
