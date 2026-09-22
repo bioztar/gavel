@@ -1,0 +1,7 @@
+# never commit a browser profile, cookies or a recording
+.chromium-profile/
+profile/
+*.profile/
+recordings/
+*.jsonl
+!tests/conformance/fixtures/*.jsonl
