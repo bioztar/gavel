@@ -4,7 +4,7 @@ Deadline **12:00**. Script is `demo-script.md`; this file is only *how to shoot 
 
 ## Where files go
 
-Everything into `/Users/alex/DEV/_assets/gavel-video/raw/`, named exactly:
+Everything into `/Users/alex/DEV/_assets/cloture-video/raw/`, named exactly:
 
 | Take | Screen file | Webcam file |
 |---|---|---|
