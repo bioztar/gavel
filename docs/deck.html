@@ -156,7 +156,11 @@
   body.present .slide p,body.present .slide li{font-size:clamp(16px,1.42vw,21px)}
   body.present table{font-size:clamp(14px,1.25vw,19px)}
   body.present .said{font-size:clamp(19px,1.9vw,26px)}
-  body.present .title{display:flex; flex-direction:column; justify-content:center; text-align:center}
+  /* Scoped to .on, and placed after the .slide.on rule so flex wins for title slides.
+     Unscoped, this matched body.present .slide's display:none at equal specificity and
+     came later — so slides 1 and 14 stayed visible, fixed, stacked over the current one.
+     The counter advanced and the view did not. */
+  body.present .title.on{display:flex; flex-direction:column; justify-content:center; text-align:center}
   body.present .title .wordmark{font-size:clamp(46px,7vw,92px)}
   body.present .bar{background:#0e0f12; border-bottom-color:#26282e; color:#8b9099}
   body.present .bar .wm{color:#f2f3f5}
@@ -440,13 +444,13 @@
     <thead><tr><th style="width:34%">Workstream</th><th>Outcome</th><th style="width:16%">Share</th></tr></thead>
     <tbody>
       <tr><td><strong>Engineering</strong> — 2 hires</td><td>Meet hardened at volume, Zoom and
-      Teams adapters, the minute, reliability.</td><td class="num">~55%</td></tr>
+      Teams adapters, the minute, reliability.</td><td class="num">60%</td></tr>
       <tr><td><strong>Distribution</strong></td><td>Store listings and their review cycles,
-      onboarding, self-serve billing, first paying teams.</td><td class="num">~20%</td></tr>
+      onboarding, self-serve billing, first paying teams.</td><td class="num">25%</td></tr>
       <tr><td><strong>Design &amp; product</strong></td><td>The booking gate that people choose
-      rather than tolerate. Pricing research.</td><td class="num">~15%</td></tr>
+      rather than tolerate. Pricing research.</td><td class="num">10%</td></tr>
       <tr><td><strong>Infrastructure</strong></td><td>A container per call is the cost model.
-      Reserved vs. spot, egress, per-meeting unit economics.</td><td class="num">~10%</td></tr>
+      Reserved vs. spot, egress, per-meeting unit economics.</td><td class="num">5%</td></tr>
     </tbody>
   </table>
   <div class="callout info">
