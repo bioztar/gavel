@@ -375,8 +375,78 @@ services:
       retries: 12
       start_period: 20s
 
+  # The decks, served read-only behind the shared Traefik so they can be opened on a phone
+  # or handed to someone in a meeting.
+  #
+  # Each file is bind-mounted individually and `docs/` is NOT mounted wholesale. That
+  # directory also holds CREDENTIALS.md, DEPLOYMENT.md (VPS hostname and IP),
+  # CALENDAR-SETUP.md and the rest of the internal markdown. Those live in a public repo,
+  # but a live HTTPS URL beside a running service is a different act from a file in a repo,
+  # and the allowlist is what makes the difference auditable. Adding a deck is a line here.
+  #
+  # It answers on the existing GAVEL_DOMAIN under /docs because that host already resolves
+  # to this box and its certificate is already in acme.json — so this adds no new ACME
+  # issuance. The cloture.pro7ocol.com router is deliberately absent until that name has a
+  # DNS record: the resolver is tls-alpn-01, which fails for a name that does not resolve,
+  # and repeated failures burn Let's Encrypt's budget for every service on pro7ocol.com.
+  docs:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./docker/docs/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docs/index.html:/srv/docs/index.html:ro
+      - ./docs/pitch-investor.html:/srv/docs/pitch-investor.html:ro
+      - ./docs/architecture.html:/srv/docs/architecture.html:ro
+      - ./docs/blueprint.html:/srv/docs/blueprint.html:ro
+      - ./docs/status.html:/srv/docs/status.html:ro
+      - ./docs/demo-your-part.html:/srv/docs/demo-your-part.html:ro
+      - ./docs/demo-script.html:/srv/docs/demo-script.html:ro
+      - ./docs/avatars.html:/srv/docs/avatars.html:ro
+      - ./docs/tasks.json:/srv/docs/tasks.json:ro
+    ports:
+      - "127.0.0.1:${DOCS_PORT:-8799}:8799"
+    networks:
+      - default
+      - traefik-public
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: ${TRAEFIK_NETWORK:-traefik-public}
+      traefik.http.routers.cloture-docs.rule:
+        Host(`${GAVEL_DOMAIN:-gavel.pro7ocol.com}`) && PathPrefix(`/docs`)
+      # Above the calendar service's bare Host() router, so /docs keeps working when the
+      # rest of the stack comes back up.
+      traefik.http.routers.cloture-docs.priority: "120"
+      traefik.http.routers.cloture-docs.entrypoints: websecure
+      traefik.http.routers.cloture-docs.tls: "true"
+      traefik.http.routers.cloture-docs.tls.certresolver: mytlschallenge
+      traefik.http.routers.cloture-docs.middlewares: cloture-docs-slash,cloture-docs-strip
+      # /docs must redirect to /docs/, or index.html's relative fetch of tasks.json
+      # resolves to /tasks.json, 404s, and the board silently renders its stale fallback.
+      traefik.http.middlewares.cloture-docs-slash.redirectregex.regex: ^(https?://[^/]+)/docs$$
+      traefik.http.middlewares.cloture-docs-slash.redirectregex.replacement: $${1}/docs/
+      traefik.http.middlewares.cloture-docs-strip.stripprefix.prefixes: /docs
+      traefik.http.services.cloture-docs.loadbalancer.server.port: "8799"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8799/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 volumes:
   postgres_data:
+
+  # The decks, served read-only behind the shared Traefik so they can be opened on a phone
+  # or handed to someone in a meeting.
+  #
+  # Each file is bind-mounted individually and `docs/` is NOT mounted wholesale. That
+  # directory also holds CREDENTIALS.md, DEPLOYMENT.md (VPS hostname and IP),
+  # CALENDAR-SETUP.md and the rest of the internal markdown. Those live in a public repo,
+  # but a live HTTPS URL beside a running service is a different act from a file in a repo,
+  # and the allowlist is what makes the difference auditable. Adding a deck is a line here.
+  #
+  # It answers on the existing GAVEL_DOMAIN under /docs because that host already resolves
+  # to this box and its certificate is already in acme.json — so this adds no new ACME
+  # issuance. The cloture.pro7ocol.com router is deliberately absent until that name has a
+  # DNS record: the resolver is tls-alpn-01, which fails for a name that does not resolve,
 
 networks:
   traefik-public:
