@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>gavel — where the build stands</title>
+<style>
+  :root { --ink:#1b1b1f; --mut:#5c5f6b; --line:#e2e4ea; --bg:#f7f8fa;
+          --grn:#1a7f4b; --amb:#a86a00; --red:#b3261e; --gry:#8a8d97; --acc:#2f4fd0; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:36px 20px 72px; background:var(--bg); color:var(--ink);
+         font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  main { max-width:860px; margin:0 auto; }
+  h1 { font-size:30px; margin:0 0 4px; letter-spacing:-.02em; }
+  .sub { color:var(--mut); font-size:15px; margin:0 0 28px; }
+  h2 { font-size:20px; margin:38px 0 12px; padding-left:11px; border-left:4px solid var(--acc); }
+  h3 { font-size:15px; margin:22px 0 8px; color:var(--mut); text-transform:uppercase; letter-spacing:.06em; }
+  p { margin:0 0 12px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:10px;
+          padding:18px 20px; margin:0 0 16px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .head { font-size:19px; font-weight:600; margin:0 0 10px; }
+  table { width:100%; border-collapse:collapse; font-size:15px; background:#fff;
+          border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  th { text-align:left; background:#eef0f5; font-size:13px; text-transform:uppercase;
+       letter-spacing:.05em; color:var(--mut); padding:9px 12px; }
+  td { padding:10px 12px; border-top:1px solid var(--line); vertical-align:top; }
+  tbody tr:nth-child(even) td { background:#fafbfc; }
+  .dot { font-weight:700; white-space:nowrap; }
+  .g { color:var(--grn); } .a { color:var(--amb); } .r { color:var(--red); } .x { color:var(--gry); }
+  ul { margin:0 0 6px; padding-left:20px; } li { margin:0 0 6px; }
+  code, .mono { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:14px; }
+  pre { background:#1b1b1f; color:#eceff4; padding:14px 16px; border-radius:8px;
+        overflow-x:auto; font-size:13.5px; line-height:1.5; margin:8px 0 0; }
+  .warn { border-left:4px solid var(--amb); background:#fff8ec; }
+  .stop { border-left:4px solid var(--red); background:#fdf0ef; }
+  .ok   { border-left:4px solid var(--grn); background:#f0f8f3; }
+  .lead { font-size:19px; line-height:1.5; }
+  footer { margin-top:44px; color:var(--mut); font-size:13.5px; border-top:1px solid var(--line); padding-top:14px; }
+  @media print {
+    body { background:#fff; padding:0; color:#000; }
+    .card, table, pre { box-shadow:none; page-break-inside:avoid; }
+    pre { background:#fff; color:#000; border:1px solid #999; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<h1>gavel — where the build stands</h1>
+<p class="sub">22 September 2026 · status of the application, not the hackathon board</p>
+
+<div class="card ok">
+  <p class="lead" style="margin:0">The brain and the Discord route run. <strong>Google Meet is written and
+  green on tests but has never joined a real call.</strong> Three things you can test today; one thing
+  blocks a real Meet test, and it needs a second person.</p>
+</div>
+
+<h2>1 · The scaffolding</h2>
+
+<table>
+  <thead><tr><th>Piece</th><th>What it is</th><th>State</th><th>Deployable?</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">brain</td><td>Decides everything. Agenda, turns, timing. Imports no call SDK.</td>
+        <td class="dot g">● Works</td><td>Yes — in compose</td></tr>
+    <tr><td class="mono">ears-discord</td><td>Discord call connection. Decides nothing.</td>
+        <td class="dot g">● Works</td><td>Yes — in compose as <code>ears</code></td></tr>
+    <tr><td class="mono">calendar</td><td>Scheduling / booking service.</td>
+        <td class="dot g">● Works</td><td>Yes — in compose</td></tr>
+    <tr><td class="mono">ears-meet</td><td>Google Meet connection. Chromium + Playwright + PulseAudio.</td>
+        <td class="dot a">◐ Built, unproven</td><td><strong>No</strong> — no compose service</td></tr>
+    <tr><td class="mono">stage</td><td>Karen's live board. She screen-shares it; no separate page to visit.</td>
+        <td class="dot a">◐ Demo mode only</td><td><strong>No</strong> — no compose service</td></tr>
+    <tr><td class="mono">extension</td><td><code>/compose</code> as a browser plugin. Signs into the real account.</td>
+        <td class="dot a">◐ Builds, unpublished</td><td>No store listing yet</td></tr>
+    <tr><td class="mono">contract</td><td>The frozen seam: WebSocket JSON frames + fixtures.</td>
+        <td class="dot g">● Frozen</td><td>n/a — shared spec</td></tr>
+    <tr><td class="mono">concierge</td><td>Bot that interviews the host and writes the agenda.</td>
+        <td class="dot x">○ Parked</td><td>Deliberately not built</td></tr>
+    <tr><td class="mono">chair-video</td><td>Generated video avatar.</td>
+        <td class="dot x">○ Cut</td><td>Removed — replaced by a still</td></tr>
+  </tbody>
+</table>
+
+<p style="font-size:15px;color:var(--mut);margin-top:10px">Nothing generates video anywhere. Karen's face is
+one static image published as a real camera track; her "visual" is the shared board.</p>
+
+<h2>2 · Google Meet — built vs. proven</h2>
+
+<table>
+  <thead><tr><th>Capability</th><th>Built</th><th>Proven</th></tr></thead>
+  <tbody>
+    <tr><td>Join a Meet as a named guest</td><td class="dot g">● Yes</td><td class="dot a">◐ Harness only</td></tr>
+    <tr><td>Hear the room (tab audio → speech-to-text)</td><td class="dot g">● Yes</td><td class="dot a">◐ Faked audio</td></tr>
+    <tr><td>Know who is talking (per-tile indicator)</td><td class="dot g">● Yes</td><td class="dot a">◐ Faked DOM</td></tr>
+    <tr><td>Speak into the room (virtual mic)</td><td class="dot g">● Yes</td><td class="dot a">◐ Faked audio</td></tr>
+    <tr><td>Show a face (still as camera track)</td><td class="dot g">● Yes</td><td class="dot g">● Real Chromium, pixel-verified</td></tr>
+    <tr><td>Share the board as a screen</td><td class="dot g">● Yes</td><td class="dot a">◐ Tab capture, not in a call</td></tr>
+    <tr><td>Run in a real Google Meet call</td><td class="dot g">● Yes</td><td class="dot r">● <strong>Never done</strong></td></tr>
+  </tbody>
+</table>
+
+<p style="margin-top:12px">93 tests pass. Every one of them runs against a faked Meet — no Google account,
+no network. That is a real result and it is not the same as working.</p>
+
+<h2>3 · What you can test today</h2>
+
+<div class="card ok">
+  <p class="head" style="margin-bottom:6px">Right now, no setup</p>
+  <ul>
+    <li><strong>The brain on a recorded meeting.</strong> <code>pnpm replay</code> — feed it a transcript,
+    watch it run the agenda.</li>
+    <li><strong>Karen's board, every state.</strong> <code>/?demo=1&amp;scene=open</code> — scenes for crowd,
+    gathering, idle, open, untimed, finished.</li>
+    <li><strong>The plugin, against a mock.</strong> <code>pnpm mock</code> — the whole compose flow with no
+    Google account attached.</li>
+  </ul>
+  <p style="margin:6px 0 0;font-size:15px;color:var(--mut)">Caveat: needs a machine with <code>pnpm</code>.
+  This VPS does not have it — the box gavel lives on can't build the two front-end pieces right now.</p>
+</div>
+
+<div class="card warn">
+  <p class="head" style="margin-bottom:6px">~30 minutes of setup, and a second person</p>
+  <p style="margin:0 0 8px"><strong>A real Google Meet call.</strong> Three things stand in the way, all human:</p>
+  <ul>
+    <li>A signed-in Chromium profile — made once, <em>on a machine with a screen</em> (not this VPS).</li>
+    <li>A Linux host with Xvfb, PulseAudio and ffmpeg. This box has ffmpeg and Xvfb; PulseAudio is untested here.</li>
+    <li><strong>A second human in the call.</strong> Meet won't behave with one participant.</li>
+  </ul>
+<pre>just login                 # once, on a laptop — signs the profile in
+just live-check --launch --duration 180 --speak-after 20</pre>
+</div>
+
+<div class="card stop">
+  <p class="head" style="margin-bottom:6px">Not testable as a deployment</p>
+  <p style="margin:0">Neither <code>ears-meet</code> nor <code>stage</code> has a service block in
+  <code>compose.yaml</code>. They run from a terminal, by hand. Nothing stands up the Meet route as a
+  service yet — and this was never wired, it isn't something the merges broke.</p>
+</div>
+
+<h2>4 · What needs you</h2>
+
+<table>
+  <thead><tr><th>Item</th><th>Why it's stuck</th><th>Who</th></tr></thead>
+  <tbody>
+    <tr><td>First real Meet call</td><td>Needs a signed-in profile made on a screen + a second participant</td><td><strong>You</strong></td></tr>
+    <tr><td>Compose blocks for <span class="mono">ears-meet</span> + <span class="mono">stage</span></td><td>Just not written yet — half a day</td><td>helm</td></tr>
+    <tr><td>Norma's findings</td><td>~230 findings sit behind a login I don't have. 7 real ones fixed; 10 visible ones judged noise</td><td><strong>You</strong> (login) </td></tr>
+    <tr><td>Two Devin sessions</td><td>Suspended mid-flight — close them or resume</td><td><strong>You</strong></td></tr>
+    <tr><td>Plugin store listing</td><td>Chrome Web Store / Workspace Marketplace need a publisher account</td><td><strong>You</strong></td></tr>
+  </tbody>
+</table>
+
+<footer>
+gavel · <span class="mono">bioztar/gavel</span> (public) · this page lives at <span class="mono">docs/status.html</span>.<br>
+Architecture for Artem: <span class="mono">docs/blueprint.html</span>. Demo-prep board: <span class="mono">docs/index.html</span> — different thing, don't read it as build status.
+</footer>
+
+</main>
+</body>
+</html>
