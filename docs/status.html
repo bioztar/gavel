@@ -61,11 +61,11 @@
   <thead><tr><th>Piece</th><th>What it is</th><th>State</th><th>Deployable?</th></tr></thead>
   <tbody>
     <tr><td class="mono">brain</td><td>Decides everything. Agenda, turns, timing. Imports no call SDK.</td>
-        <td class="dot g">● Works</td><td>Yes — in compose</td></tr>
+        <td class="dot g">● Works</td><td>In compose — not running anywhere now</td></tr>
     <tr><td class="mono">ears-discord</td><td>Discord call connection. Decides nothing.</td>
-        <td class="dot g">● Works</td><td>Yes — in compose as <code>ears</code></td></tr>
+        <td class="dot g">● Works</td><td>In compose as <code>ears</code> — not running now</td></tr>
     <tr><td class="mono">calendar</td><td>Scheduling / booking service.</td>
-        <td class="dot g">● Works</td><td>Yes — in compose</td></tr>
+        <td class="dot g">● Works</td><td>In compose — not running anywhere now</td></tr>
     <tr><td class="mono">ears-meet</td><td>Google Meet connection. Chromium + Playwright + PulseAudio.</td>
         <td class="dot a">◐ Built, unproven</td><td><strong>No</strong> — no compose service</td></tr>
     <tr><td class="mono">stage</td><td>Karen's live board. She screen-shares it; no separate page to visit.</td>
@@ -105,28 +105,38 @@ no network. That is a real result and it is not the same as working.</p>
 <h2>3 · What you can test today</h2>
 
 <div class="card ok">
-  <p class="head" style="margin-bottom:6px">Right now, no setup</p>
+  <p class="head" style="margin-bottom:6px">On your laptop — no Google account needed</p>
+  <p style="margin:0 0 8px;font-size:15px;color:var(--mut)">Each one wants <code>pnpm install</code> in that
+  package first. The VPS gavel lives on has no <code>pnpm</code>, so these are laptop-only today.</p>
   <ul>
-    <li><strong>The brain on a recorded meeting.</strong> <code>pnpm replay</code> — feed it a transcript,
-    watch it run the agenda.</li>
-    <li><strong>Karen's board, every state.</strong> <code>/?demo=1&amp;scene=open</code> — scenes for crowd,
-    gathering, idle, open, untimed, finished.</li>
-    <li><strong>The plugin, against a mock.</strong> <code>pnpm mock</code> — the whole compose flow with no
-    Google account attached.</li>
+    <li><strong>Karen's board, every state.</strong> <code>cd packages/stage &amp;&amp; pnpm install &amp;&amp; pnpm start</code>,
+    then <code>http://127.0.0.1:8793/?demo=1&amp;scene=open</code> — also <code>crowd</code>, <code>gathering</code>,
+    <code>idle</code>, <code>untimed</code>, <code>finished</code>.</li>
+    <li><strong>The brain on a recorded meeting.</strong> <code>cd packages/brain &amp;&amp; pnpm replay</code> —
+    feed it a transcript, watch it run the agenda.</li>
+    <li><strong>The plugin, against a mock.</strong> <code>cd packages/extension &amp;&amp; pnpm mock</code> — the
+    whole compose flow with no Google account attached.</li>
   </ul>
-  <p style="margin:6px 0 0;font-size:15px;color:var(--mut)">Caveat: needs a machine with <code>pnpm</code>.
-  This VPS does not have it — the box gavel lives on can't build the two front-end pieces right now.</p>
 </div>
 
 <div class="card warn">
-  <p class="head" style="margin-bottom:6px">~30 minutes of setup, and a second person</p>
-  <p style="margin:0 0 8px"><strong>A real Google Meet call.</strong> Three things stand in the way, all human:</p>
+  <p class="head" style="margin-bottom:6px">With setup — and a second person</p>
+  <p style="margin:0 0 8px"><strong>A real Google Meet call.</strong> Four steps, in order — steps 1 and 2 are yours:</p>
   <ul>
-    <li>A signed-in Chromium profile — made once, <em>on a machine with a screen</em> (not this VPS).</li>
-    <li>A Linux host with Xvfb, PulseAudio and ffmpeg. This box has ffmpeg and Xvfb; PulseAudio is untested here.</li>
+    <li><strong>Host packages.</strong> <code>sudo apt-get install -y xvfb pulseaudio pulseaudio-utils ffmpeg</code>.
+    This VPS has ffmpeg and Xvfb but <strong>no PulseAudio and no sudo</strong> — so the live run happens on a box
+    where you are root, not here.</li>
+    <li><strong>A signed-in Chromium profile</strong> — made once, on a machine with a screen. The profile
+    <em>is</em> the credential: never committed, never baked into an image.</li>
     <li><strong>A second human in the call.</strong> Meet won't behave with one participant.</li>
   </ul>
-<pre>just login                 # once, on a laptop — signs the profile in
+<pre>cd packages/ears-meet &amp;&amp; just setup      # uv sync + playwright chromium
+
+MEET_PROFILE_DIR=~/gavel-meet-profile just login   # on a laptop, once
+
+# .env at repo root — MEET_URL, MEET_PROFILE_DIR, MEET_BOT_NAME
+#   optional: STAGE_URL, SLNG_API_KEY, AGENDA_FILE
+
 just live-check --launch --duration 180 --speak-after 20</pre>
 </div>
 
@@ -142,8 +152,8 @@ just live-check --launch --duration 180 --speak-after 20</pre>
 <table>
   <thead><tr><th>Item</th><th>Why it's stuck</th><th>Who</th></tr></thead>
   <tbody>
-    <tr><td>First real Meet call</td><td>Needs a signed-in profile made on a screen + a second participant</td><td><strong>You</strong></td></tr>
-    <tr><td>Compose blocks for <span class="mono">ears-meet</span> + <span class="mono">stage</span></td><td>Just not written yet — half a day</td><td>helm</td></tr>
+    <tr><td>First real Meet call</td><td>A root-capable Linux box, a profile signed in on a screen, and a second participant</td><td><strong>You</strong></td></tr>
+    <tr><td>Compose blocks for <span class="mono">ears-meet</span> + <span class="mono">stage</span></td><td>Never written. Not a merge regression — no commit ever had them</td><td>helm</td></tr>
     <tr><td>Norma's findings</td><td>~230 findings sit behind a login I don't have. 7 real ones fixed; 10 visible ones judged noise</td><td><strong>You</strong> (login) </td></tr>
     <tr><td>Two Devin sessions</td><td>Suspended mid-flight — close them or resume</td><td><strong>You</strong></td></tr>
     <tr><td>Plugin store listing</td><td>Chrome Web Store / Workspace Marketplace need a publisher account</td><td><strong>You</strong></td></tr>

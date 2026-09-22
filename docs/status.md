@@ -10,9 +10,9 @@
 
 | Piece | What it is | State | Deployable? |
 |---|---|---|---|
-| `brain` | Decides everything. Agenda, turns, timing. Imports no call SDK. | 🟢 Works | Yes — in compose |
-| `ears-discord` | Discord call connection. Decides nothing. | 🟢 Works | Yes — in compose as `ears` |
-| `calendar` | Scheduling / booking service. | 🟢 Works | Yes — in compose |
+| `brain` | Decides everything. Agenda, turns, timing. Imports no call SDK. | 🟢 Works | In compose — not running anywhere now |
+| `ears-discord` | Discord call connection. Decides nothing. | 🟢 Works | In compose as `ears` — not running now |
+| `calendar` | Scheduling / booking service. | 🟢 Works | In compose — not running anywhere now |
 | `ears-meet` | Google Meet connection. Chromium + Playwright + PulseAudio. | 🟡 Built, unproven | **No** — no compose service |
 | `stage` | Karen's live board. She screen-shares it; no separate page to visit. | 🟡 Demo mode only | **No** — no compose service |
 | `extension` | `/compose` as a browser plugin. Signs into the real account. | 🟡 Builds, unpublished | No store listing yet |
@@ -40,27 +40,37 @@ That is a real result and it is not the same as working.
 
 ## 3 · What you can test today
 
-### Right now, no setup
+### On your laptop — no Google account needed
 
-- **The brain on a recorded meeting** — `pnpm replay`, feed it a transcript, watch it run the agenda.
-- **Karen's board, every state** — `/?demo=1&scene=open`; scenes for crowd, gathering, idle, open,
-  untimed, finished.
-- **The plugin, against a mock** — `pnpm mock`, the whole compose flow with no Google account attached.
+Each one wants `pnpm install` in that package first. The VPS gavel lives on has no `pnpm`, so
+these are laptop-only today.
 
-Caveat: needs a machine with `pnpm`. This VPS does not have it — the box gavel lives on can't
-build the two front-end pieces right now.
+- **Karen's board, every state** — `cd packages/stage && pnpm install && pnpm start`, then
+  `http://127.0.0.1:8793/?demo=1&scene=open`; also `crowd`, `gathering`, `idle`, `untimed`, `finished`.
+- **The brain on a recorded meeting** — `cd packages/brain && pnpm replay`, feed it a transcript,
+  watch it run the agenda.
+- **The plugin, against a mock** — `cd packages/extension && pnpm mock`, the whole compose flow with
+  no Google account attached.
 
-### ~30 minutes of setup, and a second person
+### With setup — and a second person
 
-**A real Google Meet call.** Three things stand in the way, all human:
+**A real Google Meet call.** Four steps, in order — steps 1 and 2 are yours:
 
-- A signed-in Chromium profile — made once, *on a machine with a screen* (not this VPS).
-- A Linux host with Xvfb, PulseAudio and ffmpeg. This box has ffmpeg and Xvfb; PulseAudio is
-  untested here.
+- **Host packages** — `sudo apt-get install -y xvfb pulseaudio pulseaudio-utils ffmpeg`. This VPS has
+  ffmpeg and Xvfb but **no PulseAudio and no sudo**, so the live run happens on a box where you are
+  root, not here.
+- **A signed-in Chromium profile** — made once, on a machine with a screen. The profile *is* the
+  credential: never committed, never baked into an image.
 - **A second human in the call.** Meet won't behave with one participant.
 
 ```
-just login                 # once, on a laptop — signs the profile in
+cd packages/ears-meet && just setup       # uv sync + playwright chromium
+
+MEET_PROFILE_DIR=~/gavel-meet-profile just login    # on a laptop, once
+
+# .env at repo root — MEET_URL, MEET_PROFILE_DIR, MEET_BOT_NAME
+#   optional: STAGE_URL, SLNG_API_KEY, AGENDA_FILE
+
 just live-check --launch --duration 180 --speak-after 20
 ```
 
@@ -74,8 +84,8 @@ something the merges broke.
 
 | Item | Why it's stuck | Who |
 |---|---|---|
-| First real Meet call | Needs a signed-in profile made on a screen + a second participant | **You** |
-| Compose blocks for `ears-meet` + `stage` | Just not written yet — half a day | helm |
+| First real Meet call | A root-capable Linux box, a profile signed in on a screen, and a second participant | **You** |
+| Compose blocks for `ears-meet` + `stage` | Never written. Not a merge regression — no commit ever had them | helm |
 | Norma's findings | ~230 findings sit behind a login I don't have. 7 real ones fixed; 10 visible ones judged noise | **You** (login) |
 | Two Devin sessions | Suspended mid-flight — close them or resume | **You** |
 | Plugin store listing | Chrome Web Store / Workspace Marketplace need a publisher account | **You** |
