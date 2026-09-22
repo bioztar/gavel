@@ -3,36 +3,40 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>gavel — where the build stands</title>
+<title>Cloture — where the build stands</title>
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxNDE2MWEiLz4KICA8cmVjdCB4PSIxMCIgeT0iMzAuNSIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjMiIHJ4PSIxLjUiIGZpbGw9IiM2YzcyODAiLz4KICA8ZyBmaWxsPSIjYzgxMDJlIj4KICAgIDxyZWN0IHg9IjI4IiB5PSIxNCIgd2lkdGg9IjQuMiIgaGVpZ2h0PSIzNiIgcng9IjIuMSIgdHJhbnNmb3JtPSJyb3RhdGUoMTQgMzAuMSAzMikiLz4KICAgIDxyZWN0IHg9IjM3IiB5PSIxNCIgd2lkdGg9IjQuMiIgaGVpZ2h0PSIzNiIgcng9IjIuMSIgdHJhbnNmb3JtPSJyb3RhdGUoMTQgMzkuMSAzMikiLz4KICA8L2c+Cjwvc3ZnPgo=">
 <style>
-  :root { --ink:#1b1b1f; --mut:#5c5f6b; --line:#e2e4ea; --bg:#f7f8fa;
-          --grn:#1a7f4b; --amb:#a86a00; --red:#b3261e; --gry:#8a8d97; --acc:#2f4fd0; }
+  :root { --ink:#14161a; --ink-2:#3d434d; --mut:#6c7280; --line:#e4e2de; --paper:#faf9f7; --card:#fff;
+          --accent:#c8102e; --accent-soft:#fdf2f3; --info:#1f4fd8; --info-soft:#f1f5fe;
+          --grn:#1a7f4b; --amb:#a86a00; --red:#b3261e; --gry:#8a8d97; }
   * { box-sizing:border-box; }
-  body { margin:0; padding:36px 20px 72px; background:var(--bg); color:var(--ink);
-         font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  body { margin:0; padding:36px 20px 72px; background:var(--paper); color:var(--ink);
+         font:17px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
   main { max-width:860px; margin:0 auto; }
-  h1 { font-size:30px; margin:0 0 4px; letter-spacing:-.02em; }
+  .brand { margin:0 0 22px; }
+  .brand svg { display:block; width:190px; height:auto; }
+  h1 { font-size:30px; margin:0 0 4px; letter-spacing:-.02em; font-weight:600; }
   .sub { color:var(--mut); font-size:15px; margin:0 0 28px; }
-  h2 { font-size:20px; margin:38px 0 12px; padding-left:11px; border-left:4px solid var(--acc); }
+  h2 { font-size:20px; margin:38px 0 12px; padding-left:11px; border-left:4px solid var(--accent); font-weight:600; }
   h3 { font-size:15px; margin:22px 0 8px; color:var(--mut); text-transform:uppercase; letter-spacing:.06em; }
   p { margin:0 0 12px; }
-  .card { background:#fff; border:1px solid var(--line); border-radius:10px;
-          padding:18px 20px; margin:0 0 16px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px;
+          padding:18px 20px; margin:0 0 16px; }
   .head { font-size:19px; font-weight:600; margin:0 0 10px; }
-  table { width:100%; border-collapse:collapse; font-size:15px; background:#fff;
+  table { width:100%; border-collapse:collapse; font-size:15px; background:var(--card);
           border:1px solid var(--line); border-radius:10px; overflow:hidden; }
-  th { text-align:left; background:#eef0f5; font-size:13px; text-transform:uppercase;
+  th { text-align:left; background:#f1efe9; font-size:13px; text-transform:uppercase;
        letter-spacing:.05em; color:var(--mut); padding:9px 12px; }
   td { padding:10px 12px; border-top:1px solid var(--line); vertical-align:top; }
-  tbody tr:nth-child(even) td { background:#fafbfc; }
+  tbody tr:nth-child(even) td { background:#faf9f7; }
   .dot { font-weight:700; white-space:nowrap; }
   .g { color:var(--grn); } .a { color:var(--amb); } .r { color:var(--red); } .x { color:var(--gry); }
   ul { margin:0 0 6px; padding-left:20px; } li { margin:0 0 6px; }
   code, .mono { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:14px; }
-  pre { background:#1b1b1f; color:#eceff4; padding:14px 16px; border-radius:8px;
+  pre { background:#14161a; color:#eceff4; padding:14px 16px; border-radius:8px;
         overflow-x:auto; font-size:13.5px; line-height:1.5; margin:8px 0 0; }
-  .warn { border-left:4px solid var(--amb); background:#fff8ec; }
-  .stop { border-left:4px solid var(--red); background:#fdf0ef; }
+  .warn { border-left:4px solid var(--amb); background:#fdf8ec; }
+  .stop { border-left:4px solid var(--accent); background:var(--accent-soft); }
   .ok   { border-left:4px solid var(--grn); background:#f0f8f3; }
   .lead { font-size:19px; line-height:1.5; }
   footer { margin-top:44px; color:var(--mut); font-size:13.5px; border-top:1px solid var(--line); padding-top:14px; }
@@ -46,8 +50,24 @@
 <body>
 <main>
 
-<h1>gavel — where the build stands</h1>
-<p class="sub">22 September 2026 · status of the application, not the hackathon board</p>
+<div class="brand" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 64" role="img" aria-label="Cloture">
+  <title>Cloture</title>
+  <rect x="0" y="0" width="64" height="64" rx="12" fill="#14161a"/>
+  <rect x="10" y="30.5" width="44" height="3" rx="1.5" fill="#6c7280"/>
+  <g fill="#c8102e">
+    <rect x="28" y="14" width="4.2" height="36" rx="2.1" transform="rotate(14 30.1 32)"/>
+    <rect x="37" y="14" width="4.2" height="36" rx="2.1" transform="rotate(14 39.1 32)"/>
+  </g>
+  <text x="84" y="43" fill="#14161a"
+        font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="30" font-weight="600" letter-spacing="6.5">CLOTURE</text>
+</svg>
+</div>
+
+<h1>Cloture — where the build stands</h1>
+<p class="sub">Cloture — the motion that cuts off debate. 22 September 2026 · status of the
+application, not the hackathon board</p>
 
 <div class="card ok">
   <p class="lead" style="margin:0">The brain and the Discord route run. <strong>Google Meet is written and
@@ -67,9 +87,11 @@
     <tr><td class="mono">calendar</td><td>Scheduling / booking service.</td>
         <td class="dot g">● Works</td><td>In compose — not running anywhere now</td></tr>
     <tr><td class="mono">ears-meet</td><td>Google Meet connection. Chromium + Playwright + PulseAudio.</td>
-        <td class="dot a">◐ Built, unproven</td><td>In compose under the <code>meet</code> profile — <code>scripts/demo-up.sh</code></td></tr>
+        <td class="dot a">◐ Built, unproven</td><td>In compose today (<code>19fde09</code>) — behind
+        <code>docker compose --profile meet up -d ears-meet</code></td></tr>
     <tr><td class="mono">stage</td><td>Karen's live board. She screen-shares it; no separate page to visit.</td>
-        <td class="dot a">◐ Demo mode only</td><td>In compose (always on) — <code>scripts/demo-up.sh</code></td></tr>
+        <td class="dot a">◐ Demo mode only</td><td>In compose today (<code>19fde09</code>) — not running
+        anywhere now</td></tr>
     <tr><td class="mono">extension</td><td><code>/compose</code> as a browser plugin. Signs into the real account.</td>
         <td class="dot a">◐ Builds, unpublished</td><td>No store listing yet</td></tr>
     <tr><td class="mono">contract</td><td>The frozen seam: WebSocket JSON frames + fixtures.</td>
@@ -140,14 +162,14 @@ MEET_PROFILE_DIR=~/gavel-meet-profile just login   # on a laptop, once
 just live-check --launch --duration 180 --speak-after 20</pre>
 </div>
 
-<div class="card">
-  <p class="head" style="margin-bottom:6px">As a deployment</p>
-  <p style="margin:0"><code>ears-meet</code> (under the <code>meet</code> profile) and <code>stage</code> have
-  service blocks in <code>compose.yaml</code>. <code>scripts/demo-preflight.sh</code>
-  says whether a box is ready (images, settings present, ports, the still, the brain pointed at the
-  right ears); <code>scripts/demo-up.sh</code> runs it, brings the profile up, waits for health and
-  prints where the board and console are. Being <em>up</em> is not the same as <em>proven</em>: the
-  first real call is still on the list below.</p>
+<div class="card stop">
+  <p class="head" style="margin-bottom:6px">Not yet proven as a deployment</p>
+  <p style="margin:0"><code>ears-meet</code> and <code>stage</code> picked up real service blocks in
+  <code>compose.yaml</code> today (<code>19fde09</code>) — <code>docker compose --profile meet up -d</code> is
+  a real command now, not an aspiration. Nobody has run it against a signed-in account yet, which is exactly
+  what section 4 below needs from you. On the day: <code>scripts/demo-preflight.sh</code> says whether the
+  box is ready and <code>scripts/demo-up.sh</code> brings the profile up, waits for health and prints where
+  the board and console are — see EARS-MEET.md § Demo day.</p>
 </div>
 
 <h2>4 · What needs you</h2>
@@ -163,7 +185,7 @@ just live-check --launch --duration 180 --speak-after 20</pre>
 </table>
 
 <footer>
-gavel · <span class="mono">bioztar/gavel</span> (public) · this page lives at <span class="mono">docs/status.html</span>.<br>
+Cloture · <span class="mono">bioztar/gavel</span> (public) · this page lives at <span class="mono">docs/status.html</span>.<br>
 Architecture for Artem: <span class="mono">docs/blueprint.html</span>. Demo-prep board: <span class="mono">docs/index.html</span> — different thing, don't read it as build status.
 </footer>
 

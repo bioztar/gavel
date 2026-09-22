@@ -1,6 +1,7 @@
-# gavel — the investor pitch
+# Cloture — the investor pitch
 
-*4 minutes. Karen opens from inside a live Google Meet, you carry, Karen cuts you off to close.*
+*Cloture — the motion that cuts off debate. 4 minutes. Karen opens from inside a live Google
+Meet, you carry, Karen cuts you off to close.*
 
 > **The one sentence the whole pitch makes:** Karen never writes your agenda. **She refuses to
 > work without one, and then she holds you to it — including on the person pitching her.**
@@ -125,5 +126,5 @@ during the drift (practise not stopping) · the handover — she says "ask", you
 
 ---
 
-gavel · `bioztar/gavel` (public). Build status: [status.md](status.md) ·
+Cloture · `bioztar/gavel` (repo, unchanged). Build status: [status.md](status.md) ·
 architecture: [blueprint.md](blueprint.md) · older HackBarna run sheet: [demo-script-full.md](demo-script-full.md).

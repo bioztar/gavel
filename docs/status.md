@@ -1,6 +1,7 @@
-# gavel — where the build stands
+# Cloture — where the build stands
 
-*22 September 2026 · status of the application, not the hackathon board*
+*Cloture — the motion that cuts off debate. 22 September 2026 · status of the application, not
+the hackathon board*
 
 > The brain and the Discord route run. **Google Meet is written and green on tests but has
 > never joined a real call.** Three things you can test today; one thing blocks a real Meet
@@ -13,8 +14,8 @@
 | `brain` | Decides everything. Agenda, turns, timing. Imports no call SDK. | 🟢 Works | In compose — not running anywhere now |
 | `ears-discord` | Discord call connection. Decides nothing. | 🟢 Works | In compose as `ears` — not running now |
 | `calendar` | Scheduling / booking service. | 🟢 Works | In compose — not running anywhere now |
-| `ears-meet` | Google Meet connection. Chromium + Playwright + PulseAudio. | 🟡 Built, unproven | In compose under the `meet` profile — `scripts/demo-up.sh` |
-| `stage` | Karen's live board. She screen-shares it; no separate page to visit. | 🟡 Demo mode only | In compose (always on) — `scripts/demo-up.sh` |
+| `ears-meet` | Google Meet connection. Chromium + Playwright + PulseAudio. | 🟡 Built, unproven | In compose today (`19fde09`) — behind `docker compose --profile meet up -d ears-meet` |
+| `stage` | Karen's live board. She screen-shares it; no separate page to visit. | 🟡 Demo mode only | In compose today (`19fde09`) — not running anywhere now |
 | `extension` | `/compose` as a browser plugin. Signs into the real account. | 🟡 Builds, unpublished | No store listing yet |
 | `contract` | The frozen seam: WebSocket JSON frames + fixtures. | 🟢 Frozen | n/a — shared spec |
 | `concierge` | Bot that interviews the host and writes the agenda. | ⚪ Parked | Deliberately not built |
@@ -74,14 +75,15 @@ MEET_PROFILE_DIR=~/gavel-meet-profile just login    # on a laptop, once
 just live-check --launch --duration 180 --speak-after 20
 ```
 
-### As a deployment
+### Not yet proven as a deployment
 
-`ears-meet` (under the `meet` profile) and `stage` have service blocks in `compose.yaml`.
-`scripts/demo-preflight.sh` says whether a box is ready (images, settings present, ports,
-the still, the brain pointed at the right ears); `scripts/demo-up.sh` runs it, brings the
-profile up, waits for health and prints where the board and console are. See
-[EARS-MEET.md § Docker](EARS-MEET.md#docker). Being *up* is not the same as *proven*: the
-first real call is still on the list below.
+`ears-meet` and `stage` picked up real service blocks in `compose.yaml` today (`19fde09`) —
+`docker compose --profile meet up -d` is a real command now, not an aspiration. Nobody has run
+it against a signed-in account yet, which is exactly what section 4 below needs from you.
+On the day: `scripts/demo-preflight.sh` says whether the box is ready (images, settings
+present, ports, the still, the brain pointed at the right ears) and `scripts/demo-up.sh`
+brings the profile up, waits for health and prints where the board and console are —
+see [EARS-MEET.md § Demo day](EARS-MEET.md#demo-day-two-scripts-nothing-to-remember).
 
 ## 4 · What needs you
 
@@ -94,5 +96,5 @@ first real call is still on the list below.
 
 ---
 
-gavel · `bioztar/gavel` (public). Architecture for Artem: `docs/blueprint.html`.
+Cloture · `bioztar/gavel` (public). Architecture for Artem: `docs/blueprint.html`.
 Demo-prep board: `docs/index.html` — different thing, don't read it as build status.

@@ -3,37 +3,41 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Your part — Meet demo setup</title>
+<title>Cloture — your part</title>
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMxNDE2MWEiLz4KICA8cmVjdCB4PSIxMCIgeT0iMzAuNSIgd2lkdGg9IjQ0IiBoZWlnaHQ9IjMiIHJ4PSIxLjUiIGZpbGw9IiM2YzcyODAiLz4KICA8ZyBmaWxsPSIjYzgxMDJlIj4KICAgIDxyZWN0IHg9IjI4IiB5PSIxNCIgd2lkdGg9IjQuMiIgaGVpZ2h0PSIzNiIgcng9IjIuMSIgdHJhbnNmb3JtPSJyb3RhdGUoMTQgMzAuMSAzMikiLz4KICAgIDxyZWN0IHg9IjM3IiB5PSIxNCIgd2lkdGg9IjQuMiIgaGVpZ2h0PSIzNiIgcng9IjIuMSIgdHJhbnNmb3JtPSJyb3RhdGUoMTQgMzkuMSAzMikiLz4KICA8L2c+Cjwvc3ZnPgo=">
 <style>
-  :root{--ink:#16181d;--mute:#5c6470;--line:#e2e5ea;--accent:#2f5fd0;--warn:#b3401a;--warnbg:#fdf3ef;--okbg:#f1f6ff}
+  :root{--ink:#14161a;--ink-2:#3d434d;--mute:#6c7280;--line:#e4e2de;--paper:#faf9f7;--card:#fff;
+        --accent:#c8102e;--accent-soft:#fdf2f3;--info:#1f4fd8;--info-soft:#f1f5fe;--warn:#a86a00;--warnbg:#fdf8ec}
   *{box-sizing:border-box}
-  body{margin:0;padding:40px 20px;background:#f7f8fa;color:var(--ink);
+  body{margin:0;padding:40px 20px;background:var(--paper);color:var(--ink);
        font:17px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-  main{max-width:860px;margin:0 auto;background:#fff;padding:48px 52px;
-       border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-  h1{font-size:30px;line-height:1.2;margin:0 0 6px}
+  main{max-width:860px;margin:0 auto;background:var(--card);padding:48px 52px;
+       border-radius:10px;border:1px solid var(--line)}
+  .brand{margin:0 0 28px}
+  .brand svg{display:block;width:190px;height:auto}
+  h1{font-size:30px;line-height:1.2;margin:0 0 6px;font-weight:600}
   .sub{color:var(--mute);margin:0 0 36px;font-size:16px}
-  h2{font-size:21px;margin:40px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--accent)}
-  h3{font-size:17px;margin:26px 0 8px}
+  h2{font-size:21px;margin:40px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--accent);font-weight:600}
+  h3{font-size:17px;margin:26px 0 8px;font-weight:600}
   p,li{margin:10px 0}
   ul{padding-left:22px}
   code{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-       background:#f2f4f7;padding:2px 5px;border-radius:4px}
-  pre{background:#1d2027;color:#e7eaf0;padding:16px 18px;border-radius:8px;overflow-x:auto;
+       background:#f1efe9;padding:2px 5px;border-radius:4px}
+  pre{background:#14161a;color:#eceff4;padding:16px 18px;border-radius:8px;overflow-x:auto;
       font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
   pre code{background:none;color:inherit;padding:0}
   table{width:100%;border-collapse:collapse;margin:18px 0;font-size:16px}
   th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
-  th{background:#eef1f5;font-weight:600}
-  tbody tr:nth-child(even){background:#fafbfc}
+  th{background:#f1efe9;font-weight:600}
+  tbody tr:nth-child(even){background:#faf9f7}
   .box{border-left:4px solid var(--warn);background:var(--warnbg);padding:14px 18px;margin:18px 0;border-radius:0 6px 6px 0}
-  .box.info{border-left-color:var(--accent);background:var(--okbg)}
+  .box.info{border-left-color:var(--accent);background:var(--accent-soft)}
   .box p{margin:6px 0}
   .step{color:var(--accent);font-weight:700}
   footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);color:var(--mute);font-size:14px}
   @media print{
     body{background:#fff;padding:0;color:#000}
-    main{box-shadow:none;padding:0;max-width:none}
+    main{box-shadow:none;padding:0;max-width:none;border:none}
     pre{background:#f2f4f7;color:#000;border:1px solid #ccc}
     table,.box,pre{page-break-inside:avoid}
   }
@@ -42,8 +46,24 @@
 <body>
 <main>
 
+<div class="brand" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 64" role="img" aria-label="Cloture">
+  <title>Cloture</title>
+  <rect x="0" y="0" width="64" height="64" rx="12" fill="#14161a"/>
+  <rect x="10" y="30.5" width="44" height="3" rx="1.5" fill="#6c7280"/>
+  <g fill="#c8102e">
+    <rect x="28" y="14" width="4.2" height="36" rx="2.1" transform="rotate(14 30.1 32)"/>
+    <rect x="37" y="14" width="4.2" height="36" rx="2.1" transform="rotate(14 39.1 32)"/>
+  </g>
+  <text x="84" y="43" fill="#14161a"
+        font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        font-size="30" font-weight="600" letter-spacing="6.5">CLOTURE</text>
+</svg>
+</div>
+
 <h1>Your part</h1>
-<p class="sub">Everything an agent cannot do for the Google Meet demo. Four lanes are running without you — listed at the bottom.</p>
+<p class="sub">Cloture — the motion that cuts off debate. Everything an agent cannot do for the
+Google Meet demo. Four lanes are running without you — listed at the bottom.</p>
 
 <h2><span class="step">1.</span> Pick the Google account that becomes Karen</h2>
 <p>You have several. Pick one you don't mind being <em>seen</em> in a meeting: the display name on that account is the name every participant reads in the Meet roster. <code>MEET_BOT_NAME</code> only applies to anonymous joins, and we join signed in.</p>
@@ -110,7 +130,7 @@ EARS_HTTP_URL=http://ears-meet:8787</code></pre>
   <p><strong>Shipped today:</strong> <code>compose.yaml</code> now carries real <code>stage</code> and <code>ears-meet</code> services (<code>19fde09</code>). The Meet stack is one <code>docker compose --profile meet up</code> away from running. It just has no account to be yet — that is step 1.</p>
 </div>
 
-<footer>gavel · docs/demo-your-part.html · 2026-09-22</footer>
+<footer>Cloture · docs/demo-your-part.html · 2026-09-22</footer>
 </main>
 </body>
 </html>
