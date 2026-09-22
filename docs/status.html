@@ -167,7 +167,9 @@ just live-check --launch --duration 180 --speak-after 20</pre>
   <p style="margin:0"><code>ears-meet</code> and <code>stage</code> picked up real service blocks in
   <code>compose.yaml</code> today (<code>19fde09</code>) — <code>docker compose --profile meet up -d</code> is
   a real command now, not an aspiration. Nobody has run it against a signed-in account yet, which is exactly
-  what section 4 below needs from you.</p>
+  what section 4 below needs from you. On the day: <code>scripts/demo-preflight.sh</code> says whether the
+  box is ready and <code>scripts/demo-up.sh</code> brings the profile up, waits for health and prints where
+  the board and console are — see EARS-MEET.md § Demo day.</p>
 </div>
 
 <h2>4 · What needs you</h2>

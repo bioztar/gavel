@@ -80,6 +80,10 @@ just live-check --launch --duration 180 --speak-after 20
 `ears-meet` and `stage` picked up real service blocks in `compose.yaml` today (`19fde09`) —
 `docker compose --profile meet up -d` is a real command now, not an aspiration. Nobody has run
 it against a signed-in account yet, which is exactly what section 4 below needs from you.
+On the day: `scripts/demo-preflight.sh` says whether the box is ready (images, settings
+present, ports, the still, the brain pointed at the right ears) and `scripts/demo-up.sh`
+brings the profile up, waits for health and prints where the board and console are —
+see [EARS-MEET.md § Demo day](EARS-MEET.md#demo-day-two-scripts-nothing-to-remember).
 
 ## 4 · What needs you
 
