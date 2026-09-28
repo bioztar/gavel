@@ -277,7 +277,12 @@ Supported:
 - `RECURRENCE-ID` overrides: a moved or edited instance **replaces** the generated one
   (same occurrence id, keyed on the instance's *original* start), wherever it moved to,
   and never appears twice. An override dragged into the window from outside it shows up;
-  one dragged out of it does not.
+  one dragged out of it does not. `RANGE=THISANDFUTURE` applies the override to that
+  instance and every later one, each shifted by the delta the named instance moved by.
+- `STATUS:CANCELLED` on an override drops that one instance (the common "delete this
+  occurrence" export); on the master it drops the whole series. Already-ingested
+  occurrences are not removed from the store — they simply stop being re-ingested.
+- `DURATION` instead of `DTEND`, for single events and series alike.
 - Timezones: a `TZID` `DTSTART` expands in its own zone, so 09:30 Madrid stays 09:30
   Madrid across a DST change; `UNTIL` is read as UTC-anchored even then; a floating
   `DTSTART` (no `TZID`, no `Z`) is assumed UTC, same as everywhere else in this package;
@@ -296,17 +301,16 @@ Not implemented:
 
 - `RRULE` parts dateutil does not handle, and `BYSETPOS`-heavy or `WKST`-sensitive rules
   are only as correct as dateutil is — untested here.
-- `RANGE=THISANDFUTURE` on a `RECURRENCE-ID`: the override is applied to that one
-  instance only, not to the rest of the series.
 - `VEVENT`s of the same series split across *different* feeds, or an override arriving in
   a later poll than its master (it is applied from the poll where both are present).
-- `EXRULE` (deprecated in RFC 5545), `VALARM`, `DURATION` instead of `DTEND` (an event
-  with no `DTEND` is zero-length, as before), and non-Gregorian `CALSCALE`.
+- `EXRULE` (deprecated in RFC 5545), `VALARM`, and non-Gregorian `CALSCALE`. An event
+  with neither `DTEND` nor `DURATION` is zero-length, as before.
 - Nothing rewrites the calendar: this is read-only expansion, and occurrences live in the
   in-memory store like any other invite.
 
-`tests/fixtures/*.ics` + `tests/test_recurrence.py` cover each of the supported cases
-against fixed dates. No test touches the network, and no fixture contains a feed URL.
+`tests/fixtures/*.ics` + `tests/test_recurrence.py` / `tests/test_recurrence_exceptions.py`
+cover each of the supported cases against fixed dates (every exception fixture straddles a
+DST change). No test touches the network, and no fixture contains a feed URL.
 
 ## Tests
 
