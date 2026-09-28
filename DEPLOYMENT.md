@@ -99,7 +99,8 @@ The whole host routes to `calendar`. What answers on it:
 | `https://gavel.pro7ocol.com/board` | 200 | The invite board — this is the demo URL |
 | `https://gavel.pro7ocol.com/health` | 200 | `{"status":"ok","pending":0,"feeds":[]}` |
 | `https://gavel.pro7ocol.com/` | 307 → `/board` | A judge types the bare domain and lands on the board |
-| `https://gavel.pro7ocol.com/compose` | 200 | The compose front door — free-text brief → confirm → meeting |
+| `https://gavel.pro7ocol.com/compose` | 401 | The compose front door — operator token (`CALENDAR_ADMIN_TOKEN`; Bearer, or Basic with the token as password). 503 until the token is set; 429 past `CALENDAR_RATE_LIMIT` per client IP |
+| `https://gavel.pro7ocol.com/architecture`, `…/demo-script` | 401 | Same token and rate limit as `/compose` |
 | `https://gavel.pro7ocol.com/console` | 404 | Correct — the operator console is deliberately not exposed |
 | `http://gavel.pro7ocol.com/board` | 301 → `https://…/board` | HTTP is redirected, not served |
 
@@ -165,7 +166,13 @@ read, printed or logged:
 | `DISCORD_GUILD_ID` | empty | **fine** — servers are now chosen in the console and stored in Postgres; this is a legacy seed (`packages/ears-discord/README.md:23-29`) |
 | `NEBIUS_MODEL` | empty | **fine** — `config/models.yaml` owns the profiles; `config.ts:210-212` only overrides on a truthy value |
 | `DISCORD_CONCIERGE_TOKEN` | empty | second bot, not deployed |
-| `SEAM_SHARED_SECRET` | empty | not enforced in this build |
+| `SEAM_SHARED_SECRET` | **required** | both ears check it (`X-Seam-Secret`, constant time) on the brain's socket and `/api/*`; brain and calendar send it. Compose refuses to start without it |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD` | **required** | every `POSTGRES_DSN` in `compose.yaml` is built from them; no default. The existing volume was initialised as user `gavel` — see known gap 5 |
+| `CALENDAR_ADMIN_TOKEN` | **required** | `/compose*`, `/architecture`, `/demo-script`; unset = those routes answer 503 |
+| `GAVEL_CONSOLE_USERS` | **required** for the console | ears (both) check it in-app on `/console`, `/live`, `/api/*`; unset = 503. Set with `scripts/set-console-auth.sh` |
+
+Rows marked **required** describe what the hardening pass (`harden/pre-real-use`) makes
+compose and the services demand, not what was observed on the box.
 
 **Not set, and each one disables a feature:**
 
@@ -177,6 +184,19 @@ read, printed or logged:
 
 Defaults that matter, all in `compose.yaml`: `CHAIR_PERSONA=funky`, `STT_MODE=stream`,
 `SCHEDULER_POLL_SECONDS=30`, `CALENDAR_FEED_WINDOW_HOURS=24`, `DISCORD_LEAVE_GRACE_SECONDS=10`.
+
+### Local development
+
+`compose.yaml` has no default for `POSTGRES_USER`, `POSTGRES_PASSWORD` or
+`SEAM_SHARED_SECRET`, and every auth switch defaults to on. A laptop opts out explicitly,
+with a second env file whose values are all weak and public:
+
+```bash
+docker compose --env-file .env --env-file docker/dev.env up -d
+```
+
+Later files win, so `docker/dev.env` overrides the same keys in `.env`. Never point a
+deployed host at it.
 
 ### One fix was needed before this would start
 
@@ -301,8 +321,25 @@ Brain is connected to the wire:
 3. **No feeds configured** — `CALENDAR_ICS_FEEDS` is empty, so the poller runs against nothing.
 4. **Email is not wired** — the compose lane's Resend leg needs `RESEND_API_KEY` and
    `COMPOSE_FROM_EMAIL`, and that branch is unmerged.
-5. **`SEAM_SHARED_SECRET` is empty.** The ears↔brain seam is unauthenticated. Acceptable only
-   because both ports are loopback-bound and the services share a private Docker network.
+5. **The box's `.env` predates the hardening pass.** Before the next `docker compose up`
+   it needs `SEAM_SHARED_SECRET`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `CALENDAR_ADMIN_TOKEN`
+   (all `openssl rand -hex 32`-grade) and, via `scripts/set-console-auth.sh`,
+   `GAVEL_CONSOLE_USERS`. The `postgres_data` volume was initialised with user `gavel` and
+   the old default password: keep `POSTGRES_USER=gavel`, and change the password in the
+   database *first* — the image only reads its variables on first init —
+   `docker compose exec postgres psql -U gavel -c "ALTER USER gavel PASSWORD '<new>'"`,
+   then put the same value in `.env` and `docker compose up -d`.
+6. **One shared operator token** guards the compose and deck routes, not per-user accounts.
+   Rotating it is editing `.env` and `docker compose up -d calendar`.
+7. **Rate limiting is per process, in memory** (slowapi). A calendar restart resets the
+   counters, and the client IP is whatever Traefik puts in `X-Forwarded-For`
+   (`CALENDAR_FORWARDED_ALLOW_IPS=*` inside compose, where only Traefik and loopback reach it).
+8. **The console's basic auth is checked twice** — by Traefik on the public route and by ears
+   itself everywhere — against the same `GAVEL_CONSOLE_USERS` value. Only the script should
+   write it, or the two drift. `scripts/set-console-auth.sh --off` now removes the public
+   route and keeps the credential.
+9. **`SEAM_SHARED_SECRET` is one static value** shared by every service. Rotation is a
+   coordinated restart of ears, brain and calendar; there is no dual-key window.
 
 ## Blocked on Vitaly
 

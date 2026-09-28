@@ -33,6 +33,7 @@ src/ears_meet/
   stt.py, stt_stream.py, tts.py, audio.py   the SLNG path, same as ears-discord
   frames.py       the contract (copied; docs/CONTRACT.md is the source of truth)
   wire.py         ws:// for the brain, /live for the operator console, the HTTP store
+  access.py       who gets in: SEAM_SHARED_SECRET on the brain's socket, basic auth on /live and /api
   settings.py     pydantic-settings; credential settings are SecretStr and only ever NAMED
 scripts/
   live_check.py   human-run integration: real meeting, frames on stdout, scorecard

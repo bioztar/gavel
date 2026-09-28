@@ -68,6 +68,15 @@ Every ears implementation is interchangeable. `brain` is started pointing at one
 cannot tell which surface is on the other end. Adding a second surface is a second ears
 package and nothing else.
 
+### Who may connect
+
+`SEAM_SHARED_SECRET`, one value known to both halves. When it is set, the brain sends it
+as an `X-Seam-Secret` header on the WebSocket handshake and on every call into the store
+below (so does `calendar`), and ears compares it in constant time: a missing or wrong
+header is refused before the socket is accepted — the handshake fails; a REST call gets
+401. Empty on both sides means no check, for a laptop with both processes on loopback and
+nothing else. Frames are unchanged: the credential lives in the handshake, never in a frame.
+
 ### ears → brain
 
 | `type` | When | Fields |
@@ -188,7 +197,9 @@ The Discord bot needs **Mute Members** and **Priority Speaker** for these.
 ### Additive — ears is the one store (REST, `http://127.0.0.1:8787`)
 
 The brain keeps nothing on disk. What it decides goes into ears' Postgres, next to the
-transcripts; Mastra's own storage uses the same database in a `mastra` schema.
+transcripts; Mastra's own storage uses the same database in a `mastra` schema. These
+routes sit behind the operator console's basic auth; a machine gets past it with the same
+`X-Seam-Secret` header as the socket.
 
 | Route | Body / query | For |
 |---|---|---|
