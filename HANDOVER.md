@@ -104,8 +104,10 @@
 3. After the hackathon: `scripts/set-console-auth.sh --off`, and decide on the loose
    secret copy (`/home/coder/DEV/gavel/.env.bak`). `.env.example` still does not mention
    `--off`.
-4. Back-burner, unbuilt: infer invitees with the LLM instead of the three hard-coded
-   addresses.
+4. Done: invitees are read off the brief by the LLM, checked against what was typed (no
+   made-up addresses reach the invite) and confirmed explicitly before `/compose/send`.
+   `COMPOSE_DEFAULT_ATTENDEES` is gone; the optional `COMPOSE_HOST` names the one person
+   always on the invite — set it in the container's `.env` if the host should be.
 
 ## Blockers / needs human
 - Submission target (URL, length cap, upload vs link) is still unknown — not in the repo.
