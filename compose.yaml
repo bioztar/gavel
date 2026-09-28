@@ -234,7 +234,9 @@ services:
       CALENDAR_ADMIN_TOKEN: ${CALENDAR_ADMIN_TOKEN:-}
       CALENDAR_AUTH_REQUIRED: ${CALENDAR_AUTH_REQUIRED:-true}
       CALENDAR_RATE_LIMIT: ${CALENDAR_RATE_LIMIT:-30/minute}
-      CALENDAR_FORWARDED_ALLOW_IPS: "*"
+      # Proxies whose X-Forwarded-For counts for the rate limit. traefik-public is shared
+      # with other stacks: narrow this to Traefik's address there, or a co-tenant can forge it.
+      CALENDAR_FORWARDED_ALLOW_IPS: ${CALENDAR_FORWARDED_ALLOW_IPS:-*}
       # The same database as ears, for this service's own `calendar_invites`.
       # Without it the store runs memory-only and every /m/ link dies with the
       # container — which is what `GET /health`'s `durable` flag reports.

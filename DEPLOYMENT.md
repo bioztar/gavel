@@ -334,8 +334,11 @@ Brain is connected to the wire:
 6. **One shared operator token** guards the compose and deck routes, not per-user accounts.
    Rotating it is editing `.env` and `docker compose up -d calendar`.
 7. **Rate limiting is per process, in memory** (slowapi). A calendar restart resets the
-   counters, and the client IP is whatever Traefik puts in `X-Forwarded-For`
-   (`CALENDAR_FORWARDED_ALLOW_IPS=*` inside compose, where only Traefik and loopback reach it).
+   counters, and the client IP is whatever Traefik puts in `X-Forwarded-For`.
+   `CALENDAR_FORWARDED_ALLOW_IPS` defaults to `*` in compose; `traefik-public` is shared with
+   other stacks, so a co-tenant container could forge the header and dodge the limit (not
+   the token). Set it to Traefik's address on that network
+   (`docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}' <traefik>`).
 8. **The console's basic auth is checked twice** — by Traefik on the public route and by ears
    itself everywhere — against the same `GAVEL_CONSOLE_USERS` value. Only the script should
    write it, or the two drift. `scripts/set-console-auth.sh --off` now removes the public
