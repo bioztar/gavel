@@ -16,6 +16,9 @@
                               the demo path from a read-only feed to a running session
     GET  /health
 
+`/compose*`, `/architecture` and `/demo-script` take the operator token and are
+rate-limited per client IP — see access.py.
+
 Both the Join button and the scheduler end in `service.start` — see scheduler.py.
 The compose routes' form-parsing and HTML live in `compose.py`; the routes stay
 here so they share this module's single `store` instance.
@@ -34,8 +37,9 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
+from slowapi.errors import RateLimitExceeded
 
-from . import compose, room, scheduler, service
+from . import access, compose, room, scheduler, service
 from .agenda import build_agenda
 from .ears_client import EarsClient
 from .feed_store import FeedRegistry
@@ -45,7 +49,7 @@ from .store import InviteRecord, InviteStore
 
 settings = get_settings()
 store = InviteStore()
-ears = EarsClient(settings.ears_api_url)
+ears = EarsClient(settings.ears_api_url, seam_secret=settings.seam_shared_secret)
 feed_registry = FeedRegistry()
 logger = logging.getLogger(__name__)
 
@@ -80,6 +84,13 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="gavel calendar", lifespan=lifespan)
+app.state.limiter = access.limiter
+app.add_exception_handler(RateLimitExceeded, access.rate_limited)
+
+
+def _operator_rate_limit() -> str:
+    # Read per request so a test (or a reload) can change it without a restart.
+    return settings.calendar_rate_limit
 
 
 @app.get("/", include_in_schema=False)
@@ -144,15 +155,24 @@ async def invite(
     return {"sessionId": session_id, "joinUrl": join_url}
 
 
+# The operator routes below: rate limit first (the decorator), then the token
+# (first line of the body), so a wrong-token loop is throttled as well.
 @app.get("/compose", response_class=HTMLResponse)
-async def compose_form() -> str:
+@access.limiter.limit(_operator_rate_limit)
+async def compose_form(request: Request) -> str:
+    access.require_operator(request, settings)
     return compose.render_brief_form()
 
 
 @app.post("/compose/parse", response_class=HTMLResponse)
+@access.limiter.limit(_operator_rate_limit)
 async def compose_parse(
-    brief: str = Form(...), attendees: str = Form(""), agenda: str = Form("")
+    request: Request,
+    brief: str = Form(...),
+    attendees: str = Form(""),
+    agenda: str = Form(""),
 ) -> str:
+    access.require_operator(request, settings)
     # Both optional fields default to "" rather than being required. An empty
     # text input posts as `attendees=`, which this Starlette version reports as
     # *missing*, not as an empty string — required, that 422s the one path the
@@ -163,7 +183,9 @@ async def compose_parse(
 
 
 @app.post("/compose/send", response_class=HTMLResponse)
+@access.limiter.limit(_operator_rate_limit)
 async def compose_send(request: Request) -> str:
+    access.require_operator(request, settings)
     form = await request.form()
     return await compose.handle_send(form, store, settings, ears)
 
@@ -190,14 +212,18 @@ def _mounted_doc(filename: str, what: str) -> str:
 # Both routes are sync on purpose: FastAPI runs them in a threadpool, so the
 # small blocking read never sits on the event loop.
 @app.get("/architecture", response_class=HTMLResponse)
-def architecture() -> str:
+@access.limiter.limit(_operator_rate_limit)
+def architecture(request: Request) -> str:
     """The demo deck (docs/architecture.html), on the same host as everything else."""
+    access.require_operator(request, settings)
     return _mounted_doc("architecture.html", "architecture deck")
 
 
 @app.get("/demo-script", response_class=HTMLResponse)
-def demo_script() -> str:
+@access.limiter.limit(_operator_rate_limit)
+def demo_script(request: Request) -> str:
     """The run sheet for the demo (docs/demo-script.html) — readable on a phone on stage."""
+    access.require_operator(request, settings)
     return _mounted_doc("demo-script.html", "demo script")
 
 

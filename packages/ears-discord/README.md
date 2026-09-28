@@ -37,8 +37,10 @@ Creating the app and sharing invite links: [docs/DISCORD-SETUP.md](../../docs/DI
 
 ## The console — `http://127.0.0.1:8787/console`
 
-A no-auth operator page, served by ears itself. It follows the OS light/dark
-preference, and the **light / dark** button in the header overrides that and is
+Served by ears itself, behind HTTP Basic — the `GAVEL_CONSOLE_USERS` htpasswd line,
+checked in `src/ears/access.py`, on by default and never open when unset (503).
+`CONSOLE_AUTH_REQUIRED=false` is for a laptop only (`docker/dev.env` at the repo root
+sets it). It follows the OS light/dark preference, and the **light / dark** button in the header overrides that and is
 remembered per browser — dark at a desk, light when the console is on a projector
 next to the meeting room page, which has no black to give.
 
@@ -121,6 +123,7 @@ the brain's replay fixture (plan chunk E4).
 | `turns.py`, `segmenter.py` | pure, clock-injected: turns and utterance chunking |
 | `stt.py`, `audio.py` | SLNG over HTTP; 48k stereo → 16k mono WAV |
 | `wire.py`, `console.html` | WebSockets (brain `/`, console `/live`), REST API, the console page |
+| `access.py` | Who gets in: `SEAM_SHARED_SECRET` on the brain\'s socket and `/api/*`, basic auth on the console |
 | `meetings.py`, `tts.py` | agenda schema; SLNG TTS for the say-box |
 | `status_board.py` | the live meeting-status message: brain `/state` → embed, edited in place |
 | `bus.py`, `db/` | Redis; Postgres (queued writer, alembic migrations) |

@@ -62,13 +62,16 @@ export interface Store {
 }
 
 export class EarsStore implements Store {
-  constructor(private baseUrl: string) {}
+  constructor(
+    private baseUrl: string,
+    private headers: Record<string, string> = {},
+  ) {}
 
   private async call<T>(method: string, path: string, body?: unknown): Promise<T | null> {
     try {
       const res = await fetch(`${this.baseUrl.replace(/\/$/, "")}${path}`, {
         method,
-        headers: body ? { "Content-Type": "application/json" } : undefined,
+        headers: body ? { ...this.headers, "Content-Type": "application/json" } : this.headers,
         body: body ? JSON.stringify(body) : undefined,
         signal: AbortSignal.timeout(3000),
       });

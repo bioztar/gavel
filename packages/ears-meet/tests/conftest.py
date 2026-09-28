@@ -28,6 +28,7 @@ def make_settings(**overrides: Any) -> Settings:
         "speaking_off_ms": 400,
         "caption_settle_ms": 300,
         "frames_file": "",
+        "console_auth_required": False,
     }
     base.update(overrides)
     base["_env_file"] = None  # never read a developer's .env in tests

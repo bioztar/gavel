@@ -47,7 +47,7 @@ the `id`/`sessionId` `ears` handed back).
 | `GET /board` | Upcoming ingested meetings (manual invites and polled feed events alike), each with its own **Join** button — the demo path from "meeting exists" to "session running" when nothing wrote a join link back into the calendar. |
 | `GET /health` | `{status, pending, feeds}` — `feeds` is per-`CALENDAR_ICS_FEEDS` entry, addressed by index only: `{feed, lastSuccess, eventCount, lastError}`. Never the feed URL. |
 | `GET /` | 307 redirect to `/board`. |
-| `GET /compose` | The "set up a meeting" front door: a plain-English brief form plus an optional attendees field. |
+| `GET /compose` | The "set up a meeting" front door: a plain-English brief form plus an optional attendees field. This, the two rows below, `GET /architecture` and `GET /demo-script` take the operator token (`CALENDAR_ADMIN_TOKEN` — Bearer, or Basic with the token as password) and a per-IP rate limit (`CALENDAR_RATE_LIMIT`); `src/gavel_calendar/access.py`. Unset token = 503. |
 | `POST /compose/parse` | Sends the brief to the LLM, returns an editable confirmation form (title, start, duration, invitee rows, per-topic rows). Invitees are read off the brief and every address is checked against what you typed — see below. No LLM configured, or the call fails: falls back to an empty/best-guess form instead of erroring — you can still fill it by hand and send. |
 | `POST /compose/send` | Sends **only** with the confirm box ticked (`confirm=yes`) and at least one invitee row; otherwise it re-renders the confirmation form with the reason and nothing is created. See below for what a real send does and in what order. |
 

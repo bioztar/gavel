@@ -18,7 +18,10 @@ export class EarsWire extends EventEmitter<{ frame: [EarsFrame]; connected: []; 
   private backoffMs = 500;
   private closed = false;
 
-  constructor(private url: string) {
+  constructor(
+    private url: string,
+    private headers: Record<string, string> = {},
+  ) {
     super();
   }
 
@@ -28,7 +31,7 @@ export class EarsWire extends EventEmitter<{ frame: [EarsFrame]; connected: []; 
 
   start(): void {
     if (this.closed) return;
-    const ws = new WebSocket(this.url);
+    const ws = new WebSocket(this.url, { headers: this.headers });
     this.ws = ws;
     ws.on("open", () => {
       this.backoffMs = 500;

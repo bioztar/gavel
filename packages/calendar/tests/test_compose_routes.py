@@ -17,8 +17,12 @@ import pytest
 from fastapi.testclient import TestClient
 from pytest_httpx import HTTPXMock
 
+from gavel_calendar import access
 from gavel_calendar import app as app_module
 from gavel_calendar.app import app, store
+
+TOKEN = "test-operator-token"
+AUTH = {"Authorization": f"Bearer {TOKEN}"}
 
 
 @pytest.fixture(autouse=True)
@@ -34,6 +38,10 @@ def _isolated_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(app_module.settings, "nebius_base_url", "https://fake.test/v1")
     monkeypatch.setattr(app_module.settings, "resend_api_key", "")
     monkeypatch.setattr(app_module.settings, "compose_from_email", "")
+    monkeypatch.setattr(app_module.settings, "calendar_admin_token", TOKEN)
+    monkeypatch.setattr(app_module.settings, "calendar_auth_required", True)
+    monkeypatch.setattr(app_module.settings, "calendar_rate_limit", "1000/minute")
+    access.limiter.reset()
 
 
 def test_root_redirects_to_board() -> None:
@@ -44,14 +52,14 @@ def test_root_redirects_to_board() -> None:
 
 
 def test_get_compose_renders_brief_form() -> None:
-    with TestClient(app) as client:
+    with TestClient(app, headers=AUTH) as client:
         resp = client.get("/compose")
         assert resp.status_code == 200
         assert "<textarea" in resp.text
 
 
 def test_compose_parse_falls_back_without_llm_configured() -> None:
-    with TestClient(app) as client:
+    with TestClient(app, headers=AUTH) as client:
         resp = client.post(
             "/compose/parse",
             data={"brief": "set up a meeting", "attendees": "Vitaly <vitaly@test.dev>"},
@@ -66,7 +74,7 @@ def test_compose_send_creates_meeting_with_working_join_link(httpx_mock: HTTPXMo
     # Creating the meeting hands it straight to ears, so those two calls are real.
     httpx_mock.add_response(url="http://localhost:8787/api/meetings", json={"id": "m-1"})
     httpx_mock.add_response(url="http://localhost:8787/api/sessions", json={"sessionId": "s-1"})
-    with TestClient(app) as client:
+    with TestClient(app, headers=AUTH) as client:
         resp = client.post(
             "/compose/send",
             data={
@@ -119,7 +127,7 @@ def test_compose_parse_uses_llm_when_configured(
         json={"choices": [{"message": {"content": json.dumps(payload)}}]},
     )
     monkeypatch.setattr(app_module.settings, "nebius_api_key", "key123")
-    with TestClient(app) as client:
+    with TestClient(app, headers=AUTH) as client:
         resp = client.post(
             "/compose/parse",
             data={"brief": "pricing in an hour", "attendees": "Vitaly <vitaly@test.dev>"},
@@ -149,7 +157,7 @@ def test_gate_asks_for_an_agenda_and_nothing_else(
         json={"choices": [{"message": {"content": json.dumps(payload)}}]},
     )
     monkeypatch.setattr(app_module.settings, "nebius_api_key", "key123")
-    with TestClient(app) as client:
+    with TestClient(app, headers=AUTH) as client:
         resp = client.post(
             "/compose/parse",
             data={"brief": "meeting with Artem tomorrow", "attendees": ""},
@@ -178,7 +186,7 @@ def test_a_typed_agenda_clears_the_gate(
         json={"choices": [{"message": {"content": json.dumps(payload)}}]},
     )
     monkeypatch.setattr(app_module.settings, "nebius_api_key", "key123")
-    with TestClient(app) as client:
+    with TestClient(app, headers=AUTH) as client:
         resp = client.post(
             "/compose/parse",
             data={
@@ -219,7 +227,7 @@ def test_parse_confirm_send_with_inferred_invitees(
     monkeypatch.setattr(app_module.settings, "nebius_api_key", "key123")
     monkeypatch.setattr(app_module.settings, "compose_host", "Host <host@test.dev>")
 
-    with TestClient(app) as client:
+    with TestClient(app, headers=AUTH) as client:
         parsed = client.post(
             "/compose/parse",
             data={
@@ -267,6 +275,6 @@ def test_parse_confirm_send_with_inferred_invitees(
 
 def test_parse_accepts_an_empty_invitee_box():
     """Page one's invitee field is optional; leaving it blank must not 422."""
-    with TestClient(app) as client:
+    with TestClient(app, headers=AUTH) as client:
         resp = client.post("/compose/parse", data={"brief": "Karen, meet Artem.", "attendees": ""})
     assert resp.status_code == 200

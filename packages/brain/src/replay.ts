@@ -23,6 +23,7 @@ const [
   { StubLlm },
   { MastraLlm },
   { SilentTts, SlngTts },
+  { seamHeaders },
   { EarsStore, MemoryStore },
   { EarsWire },
   { Engine },
@@ -37,6 +38,7 @@ const [
   import("./chair/llm"),
   import("./chair/mastraLlm"),
   import("./chair/tts"),
+  import("./ears/seam"),
   import("./ears/store"),
   import("./ears/wire"),
   import("./engine"),
@@ -95,7 +97,7 @@ log.setQuiet(values.quiet);
 class FakeWire {
   connected = true;
   queue: EarsFrame[] = [];
-  real = values.speak ? new EarsWire(env.earsWireUrl) : null;
+  real = values.speak ? new EarsWire(env.earsWireUrl, seamHeaders(env.seamSharedSecret)) : null;
 
   send(frame: BrainFrame): boolean {
     this.real?.send(frame);
@@ -113,7 +115,7 @@ class FakeWire {
 let lastLine = "";
 const wire = new FakeWire();
 if (wire.real) wire.real.start();
-const store = values.store === "ears" ? new EarsStore(env.earsHttpUrl) : new MemoryStore();
+const store = values.store === "ears" ? new EarsStore(env.earsHttpUrl, seamHeaders(env.seamSharedSecret)) : new MemoryStore();
 const useModel = !values["stub-llm"] && !!env.nebiusApiKey;
 let engine: InstanceType<typeof Engine>;
 

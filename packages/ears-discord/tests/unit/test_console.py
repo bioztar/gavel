@@ -74,7 +74,7 @@ class FakeDiscordVoice(FakeVoice):
 
 
 def make() -> tuple[Ears, TestClient, list[dict[str, Any]]]:
-    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    settings = Settings(_env_file=None, console_auth_required=False)  # type: ignore[call-arg]
     ears = Ears(settings, Store(None), Bus(None, "t", 10), None, FakeTts())  # type: ignore[arg-type]
     sent: list[dict[str, Any]] = []
     ears.hub.broadcast = sent.append  # type: ignore[method-assign]
@@ -388,7 +388,7 @@ def test_changing_the_voice_tells_every_brain_at_once() -> None:
 def test_the_say_box_uses_the_new_voice_on_the_very_next_line() -> None:
     """The regression this replaces: `SlngTts` snapshotted the voice at
     construction, so a change could not reach anything until a restart."""
-    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    settings = Settings(_env_file=None, console_auth_required=False)  # type: ignore[call-arg]
     ears = Ears(settings, Store(None), Bus(None, "t", 10), None, None)  # type: ignore[arg-type]
     tts = SlngTts(settings, httpx.AsyncClient(), voice=lambda: ears.tts_voice)
 
@@ -422,7 +422,7 @@ def test_a_brain_that_connects_is_told_the_current_voice() -> None:
 
 
 async def test_the_choice_outlives_the_process() -> None:
-    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    settings = Settings(_env_file=None, console_auth_required=False)  # type: ignore[call-arg]
     store = Store(None)  # memory-backed here; the same code path writes app_settings
     ears = Ears(settings, store, Bus(None, "t", 10), None, FakeTts())  # type: ignore[arg-type]
     ears.hub.broadcast = lambda _f: None  # type: ignore[method-assign]

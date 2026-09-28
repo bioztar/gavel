@@ -2,6 +2,28 @@
 
 ## State: demo path live and proven; a complete synthetic first-pass submission video is built (6:45) and waiting for Vitaly to watch. The meeting room (`/m/{id}`) is new since that video was cut — it is not in it.
 
+## Hardening pass — `harden/pre-real-use` (2026-09-28)
+What changed, and what the box needs before its next `docker compose up`:
+- `/compose`, `/compose/parse`, `/compose/send`, `/architecture`, `/demo-script` take
+  `CALENDAR_ADMIN_TOKEN` (Bearer, or Basic with the token as password) and are rate-limited
+  per client IP (`CALENDAR_RATE_LIMIT`, default `30/minute`). Unset token = 503, not open.
+- The ears↔brain seam checks `SEAM_SHARED_SECRET` (`X-Seam-Secret`, constant time) in both
+  ears packages, on the socket handshake and on `/api/*`; brain and calendar send it.
+  `compose.yaml` now requires it. Empty = unchecked, for a laptop only.
+- The ears console (`/console`, `/live`, `/api/*`) asks for basic auth inside the app, on
+  by default, against the same `GAVEL_CONSOLE_USERS` value Traefik uses.
+  `CONSOLE_AUTH_REQUIRED=false` is the laptop-only opt-out. `scripts/set-console-auth.sh
+  --off` now drops only the public route; the credential stays.
+- brain `GET /state` CORS: `STAGE_CORS_ORIGINS` allowlist, default same-origin.
+- Postgres user/password come from `.env` with no default. `docker/dev.env` holds the
+  laptop values and the opt-outs: `docker compose --env-file .env --env-file docker/dev.env`.
+- Before deploying: `POSTGRES_USER=gavel` (the volume was initialised with it), a new
+  `POSTGRES_PASSWORD` (DEPLOYMENT.md known gap 5 has the `ALTER USER` step),
+  `SEAM_SHARED_SECRET`, `CALENDAR_ADMIN_TOKEN`; run `scripts/set-console-auth.sh` if it
+  has not been. Hand the calendar token to whoever demos `/compose`.
+- Dependency audits (pnpm / npm / pip-audit) were clean for every package on 2026-09-28.
+- Housekeeping: `issues-export-2026-09-20.json` and `packages/brain/package-lock.json` gone.
+
 ## Done this session (helm, on the Mac)
 - Repo cloned to `/Users/alex/DEV/gavel` (the dir held a stray `private.key` and no git —
   key moved to `/Users/alex/DEV/_assets/gavel-secrets/private.key`, outside every repo).
@@ -99,11 +121,11 @@
 
 ## Next steps (ordered)
 1. Rehearse the demo against the live site, script in hand.
-2. `/compose`, `/architecture`, `/demo-script` are publicly unauthenticated — Vitaly's
-   call whether that stands through the hackathon.
-3. After the hackathon: `scripts/set-console-auth.sh --off`, and decide on the loose
-   secret copy (`/home/coder/DEV/gavel/.env.bak`). `.env.example` still does not mention
-   `--off`.
+2. `/compose`, `/architecture`, `/demo-script` now take the operator token (see the
+   hardening pass above) — whoever demos needs `CALENDAR_ADMIN_TOKEN` in hand.
+3. After the hackathon: `scripts/set-console-auth.sh --off` (drops the public console
+   route, keeps the credential), and decide on the loose secret copy
+   (`/home/coder/DEV/gavel/.env.bak`).
 4. Done: invitees are read off the brief by the LLM, checked against what was typed (no
    made-up addresses reach the invite) and confirmed explicitly before `/compose/send`.
    `COMPOSE_DEFAULT_ATTENDEES` is gone; the optional `COMPOSE_HOST` names the one person

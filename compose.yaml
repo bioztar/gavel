@@ -5,15 +5,18 @@ services:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: gavel
-      POSTGRES_PASSWORD: gavel
-      POSTGRES_DB: gavel
+      # No defaults on purpose: the credential comes from .env. Compose refuses to
+      # start without it. A laptop adds `--env-file docker/dev.env` (weak, public
+      # values, dev only — see DEPLOYMENT.md "Local development").
+      POSTGRES_USER: ${POSTGRES_USER:?set in .env (or --env-file docker/dev.env for local dev)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env (or --env-file docker/dev.env for local dev)}
+      POSTGRES_DB: ${POSTGRES_DB:-gavel}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U gavel -d gavel"]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -37,7 +40,7 @@ services:
       dockerfile: packages/ears-discord/Dockerfile
     command: ["alembic", "upgrade", "head"]
     environment:
-      POSTGRES_DSN: postgresql+asyncpg://gavel:gavel@postgres:5432/gavel
+      POSTGRES_DSN: postgresql+asyncpg://${POSTGRES_USER:?set in .env}:${POSTGRES_PASSWORD:?set in .env}@postgres:5432/${POSTGRES_DB:-gavel}
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,7 +57,7 @@ services:
       dockerfile: packages/calendar/Dockerfile
     command: ["alembic", "upgrade", "head"]
     environment:
-      POSTGRES_DSN: postgresql+asyncpg://gavel:gavel@postgres:5432/gavel
+      POSTGRES_DSN: postgresql+asyncpg://${POSTGRES_USER:?set in .env}:${POSTGRES_PASSWORD:?set in .env}@postgres:5432/${POSTGRES_DB:-gavel}
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,7 +91,14 @@ services:
       WIRE_HOST: 0.0.0.0
       WIRE_PORT: 8787
       BRAIN_STATE_URL: http://brain:8788/state
-      POSTGRES_DSN: postgresql+asyncpg://gavel:gavel@postgres:5432/gavel
+      # The ears<->brain seam credential (docs/CONTRACT.md §2). Required: without it
+      # ears would refuse the brain's store calls once console auth is on.
+      SEAM_SHARED_SECRET: ${SEAM_SHARED_SECRET:?set in .env — a long random string (or --env-file docker/dev.env for local dev)}
+      # Basic auth in the app itself for /console, /live and /api/* — on by default,
+      # the same htpasswd value Traefik's middleware below reads. `false` is local only.
+      CONSOLE_AUTH_REQUIRED: ${CONSOLE_AUTH_REQUIRED:-true}
+      GAVEL_CONSOLE_USERS: ${GAVEL_CONSOLE_USERS:-}
+      POSTGRES_DSN: postgresql+asyncpg://${POSTGRES_USER:?set in .env}:${POSTGRES_PASSWORD:?set in .env}@postgres:5432/${POSTGRES_DB:-gavel}
       REDIS_DSN: redis://redis:6379/0
       OPUS_LIB: libopus.so.0
       LOG_JSON: "true"
@@ -108,6 +118,8 @@ services:
       #   GAVEL_CONSOLE_USERS=<htpasswd bcrypt line> — the credential
       # Set them with scripts/set-console-auth.sh, which never echoes the password.
       # With PUBLIC unset the container is exactly as it was: 127.0.0.1:8787 only.
+      # The same GAVEL_CONSOLE_USERS is checked again inside ears (access.py), so the
+      # console is behind basic auth even over the loopback port and an SSH tunnel.
       #
       # PathPrefix(`/api/`) is deliberate and is the whole REST surface — unlike the
       # watch page, there is no read-only subset worth carving out here, because every
@@ -164,10 +176,16 @@ services:
       #   EARS_WIRE_URL=ws://ears-meet:8787  EARS_HTTP_URL=http://ears-meet:8787
       EARS_WIRE_URL: ${EARS_WIRE_URL:-ws://ears:8787}
       EARS_HTTP_URL: ${EARS_HTTP_URL:-http://ears:8787}
-      POSTGRES_DSN: postgresql://gavel:gavel@postgres:5432/gavel
+      POSTGRES_DSN: postgresql://${POSTGRES_USER:?set in .env}:${POSTGRES_PASSWORD:?set in .env}@postgres:5432/${POSTGRES_DB:-gavel}
       AGENDA_FILE: /app/contract/fixtures/agenda.demo.json
       STAGE_HOST: 0.0.0.0
       STAGE_PORT: 8788
+      # The ears<->brain seam credential (docs/CONTRACT.md §2). Required: without it
+      # ears would refuse the brain's store calls once console auth is on.
+      SEAM_SHARED_SECRET: ${SEAM_SHARED_SECRET:?set in .env — a long random string (or --env-file docker/dev.env for local dev)}
+      # Browser origins allowed to read /state cross-origin, comma-separated and exact.
+      # Empty = same-origin only. The stage and the ears console read it server-side.
+      STAGE_CORS_ORIGINS: ${STAGE_CORS_ORIGINS:-}
     ports:
       - "127.0.0.1:${STAGE_PORT:-8788}:8788"
     depends_on:
@@ -206,10 +224,23 @@ services:
       CALENDAR_ICS_FEEDS: ${CALENDAR_ICS_FEEDS:-}
       CALENDAR_FEED_WINDOW_HOURS: ${CALENDAR_FEED_WINDOW_HOURS:-24}
       EARS_API_URL: http://ears:8787
+      # The ears<->brain seam credential (docs/CONTRACT.md §2). Required: without it
+      # ears would refuse the brain's store calls once console auth is on.
+      SEAM_SHARED_SECRET: ${SEAM_SHARED_SECRET:?set in .env — a long random string (or --env-file docker/dev.env for local dev)}
+      # /compose, /compose/*, /architecture, /demo-script take this token (Bearer, or
+      # Basic with any user and the token as password). Unset with auth on: 503, not
+      # open. CALENDAR_AUTH_REQUIRED=false is for a laptop only. Per-IP rate limit on
+      # the same routes; Traefik is the only thing in front, so trust its X-Forwarded-For.
+      CALENDAR_ADMIN_TOKEN: ${CALENDAR_ADMIN_TOKEN:-}
+      CALENDAR_AUTH_REQUIRED: ${CALENDAR_AUTH_REQUIRED:-true}
+      CALENDAR_RATE_LIMIT: ${CALENDAR_RATE_LIMIT:-30/minute}
+      # Proxies whose X-Forwarded-For counts for the rate limit. traefik-public is shared
+      # with other stacks: narrow this to Traefik's address there, or a co-tenant can forge it.
+      CALENDAR_FORWARDED_ALLOW_IPS: ${CALENDAR_FORWARDED_ALLOW_IPS:-*}
       # The same database as ears, for this service's own `calendar_invites`.
       # Without it the store runs memory-only and every /m/ link dies with the
       # container — which is what `GET /health`'s `durable` flag reports.
-      POSTGRES_DSN: postgresql+asyncpg://gavel:gavel@postgres:5432/gavel
+      POSTGRES_DSN: postgresql+asyncpg://${POSTGRES_USER:?set in .env}:${POSTGRES_PASSWORD:?set in .env}@postgres:5432/${POSTGRES_DB:-gavel}
       # The meeting room page (GET /m/{id}) reads the chair's live view from the
       # brain server-side. Best-effort: unreachable brain = the agenda or the
       # banked report, no error page; hence no depends_on.
@@ -338,6 +369,13 @@ services:
       STAGE_TAB_TITLE: ${STAGE_TAB_TITLE:-gavel-stage}
       WIRE_HOST: 0.0.0.0
       WIRE_PORT: 8787
+      # The ears<->brain seam credential (docs/CONTRACT.md §2). Required: without it
+      # ears would refuse the brain's store calls once console auth is on.
+      SEAM_SHARED_SECRET: ${SEAM_SHARED_SECRET:?set in .env — a long random string (or --env-file docker/dev.env for local dev)}
+      # Basic auth in the app itself for /console, /live and /api/* — on by default,
+      # the same htpasswd value Traefik's middleware below reads. `false` is local only.
+      CONSOLE_AUTH_REQUIRED: ${CONSOLE_AUTH_REQUIRED:-true}
+      GAVEL_CONSOLE_USERS: ${GAVEL_CONSOLE_USERS:-}
       AGENDA_FILE: ${MEET_AGENDA_FILE:-/app/contract/fixtures/agenda.demo.json}
       FRAMES_FILE: ${FRAMES_FILE:-}
       SLNG_API_KEY: ${SLNG_API_KEY:-}
