@@ -17,18 +17,18 @@ from __future__ import annotations
 import html
 import logging
 import uuid
-from dataclasses import dataclass
-from datetime import datetime
-from email.utils import getaddresses
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
-from . import service
+from . import invitees, service
 from .agenda import attendee_name, build_agenda
 from .ears_client import EarsClient
 from .ics_parser import InviteAttendee, ParsedInvite, TopicDraft
 from .ics_writer import build_ics
 from .invite_email import render_invite_html, render_invite_text
+from .invitees import Invitee
 from .llm import NebiusClient, ParsedBrief
 from .mailer import MailResult, send_invite
 from .schema import DEFAULT_ENFORCEMENT, ENFORCEMENT_LEVELS
@@ -52,18 +52,13 @@ def _form_str(form: FormData, key: str, default: str = "") -> str:
 
 
 def _attendees_from_field(raw: str) -> list[tuple[str, str]]:
-    """ "Name <email>, email2, ..." -> [(name, email), ...]. A bare address
-    falls back to its local part for a name, same convention as
-    `ics_parser._attendee_name`.
-    """
-    out: list[tuple[str, str]] = []
-    for name, email in getaddresses([raw]):
-        email = email.strip().lower()
-        if not email:
-            continue
-        display = name.strip() or email.split("@")[0].replace(".", " ").replace("_", " ").title()
-        out.append((display, email))
-    return out
+    """ "Name <email>, email2, ..." -> [(name, email), ...] (see `invitees.from_field`)."""
+    return [(i.name, i.email) for i in invitees.from_field(raw)]
+
+
+def _host_invitee(settings: Settings) -> Invitee | None:
+    parsed = invitees.from_field(settings.compose_host)
+    return parsed[0] if parsed else None
 
 
 def _fill_topic_minutes(minutes: list[int | None], total_minutes: int) -> list[int]:
@@ -190,6 +185,11 @@ td input:focus, td select:focus { border-color: var(--accent); background: var(-
 .seg input:checked + label { border-color: var(--accent); background: #f2f8ff;
                              box-shadow: 0 0 0 3px rgba(0,113,227,.13); }
 
+/* the explicit yes before anything goes out */
+label.confirm { display: flex; gap: 12px; align-items: center; margin-top: 40px;
+                font-size: 16px; font-weight: 400; }
+label.confirm input { width: 20px; height: 20px; margin: 0; padding: 0; accent-color: var(--accent); }
+
 /* success */
 .notice { display: inline-block; margin: 0 0 4px; font-size: 14px;
           padding: 8px 15px; border-radius: 980px; }
@@ -242,28 +242,6 @@ the brief</span></label>
 
 
 # --- POST /compose/parse ------------------------------------------------------------
-
-
-def _resolve_invitees(typed: str, settings: Settings) -> list[tuple[str, str]]:
-    """Who ends up on the invite: the standing room, plus anyone typed in.
-
-    The standing room is `COMPOSE_DEFAULT_ATTENDEES` and it is always included —
-    reading a guest list out of a spoken brief reliably enough to *remove*
-    someone is not a bet worth taking on a live meeting, so the brief can add
-    people and the confirm page can take them away, but a silent omission is
-    not possible. De-duplicated on the address, first spelling of a name wins.
-    """
-    pairs = _attendees_from_field(settings.compose_default_attendees)
-    seen = {email for _, email in pairs}
-    for name, email in _attendees_from_field(typed):
-        if email not in seen:
-            seen.add(email)
-            pairs.append((name, email))
-    return pairs
-
-
-def _attendee_field(pairs: list[tuple[str, str]]) -> str:
-    return ", ".join(f"{name} <{email}>" for name, email in pairs)
 
 
 def render_gate_html(brief: str, attendees: str, typed: str = "") -> str:
@@ -325,27 +303,35 @@ async def render_confirm_form(
     """
     llm = NebiusClient(settings.nebius_base_url, settings.nebius_api_key)
     now = datetime.now(ZoneInfo(settings.compose_timezone))
-    attendee_pairs = _resolve_invitees(attendees, settings)
-    attendee_field = _attendee_field(attendee_pairs)
+    host = _host_invitee(settings)
+    explicit = invitees.from_field(attendees)
+    known = invitees.resolve([], source="", explicit=explicit, host=host).invitees
     typed = agenda_text.strip()
     combined = f"{brief}\n\nAgenda:\n{typed}" if typed else brief
     parsed = await llm.parse_brief(
         combined,
         now=now,
         timezone=settings.compose_timezone,
-        attendees=[name for name, _ in attendee_pairs],
+        attendees=[i.name for i in known],
     )
+    # The guest list is read off the brief by the model, then every address it
+    # returns is checked against what the host typed — see `invitees.resolve`.
+    guests = invitees.resolve(
+        parsed.invitees if parsed else [], source=combined, explicit=explicit, host=host
+    )
+    if guests.stripped:
+        logger.warning("compose.invitees_stripped count=%d", len(guests.stripped))
     if parsed is None or not parsed.topics:
         if not typed:
-            return render_gate_html(brief, attendee_field)
-        host_name = attendee_pairs[0][0] if attendee_pairs else ""
+            return render_gate_html(brief, attendees)
+        host_name = known[0].name if known else ""
         fallback = _rows_from_lines(typed, host_name)
         if fallback:
-            return _render_confirm_html(
-                brief, attendee_field, parsed, settings.compose_timezone, fallback
-            )
-        return render_gate_html(brief, attendee_field, typed)
-    return _render_confirm_html(brief, attendee_field, parsed, settings.compose_timezone)
+            view = _view_from_parsed(brief, parsed, guests, settings.compose_timezone)
+            view.rows = [*fallback, _Row()]
+            return _render_confirm_html(view)
+        return render_gate_html(brief, attendees, typed)
+    return _render_confirm_html(_view_from_parsed(brief, parsed, guests, settings.compose_timezone))
 
 
 @dataclass
@@ -358,6 +344,59 @@ class _Row:
     # person speaks by design (a demo, a readout) is a presentation, and the
     # chair will not hand the floor on inside it.
     type: str = "discussion"
+
+
+@dataclass
+class _ConfirmView:
+    """Everything the confirm page shows. Built from the model's answer on the
+    way in (`_view_from_parsed`) and from the posted form on the way back
+    (`_view_from_form`) when `/compose/send` refuses, so a refused send re-renders
+    the page with every edit intact rather than a dead end."""
+
+    brief: str
+    timezone: str
+    title: str = ""
+    purpose: str = ""
+    start_value: str = ""
+    duration: str = ""
+    rows: list[_Row] = field(default_factory=list)
+    guests: list[Invitee] = field(default_factory=list)
+    stripped: list[str] = field(default_factory=list)
+    enforcement: str = DEFAULT_ENFORCEMENT
+    notice: str = ""
+
+
+def _view_from_parsed(
+    brief: str, parsed: ParsedBrief | None, guests: invitees.Resolution, timezone: str
+) -> _ConfirmView:
+    host_name = guests.invitees[0].name if guests.invitees else ""
+    rows, start_value = _rows_from_parsed(parsed, timezone, host_name)
+    return _ConfirmView(
+        brief=brief,
+        timezone=timezone,
+        title=parsed.title if parsed else "",
+        purpose=parsed.purpose.strip() if parsed else "",
+        start_value=start_value,
+        duration=str(parsed.duration_minutes) if parsed else "",
+        rows=rows,
+        guests=guests.invitees,
+        stripped=guests.stripped,
+    )
+
+
+def _view_from_form(form: FormData, timezone: str, notice: str) -> _ConfirmView:
+    return _ConfirmView(
+        brief=_form_str(form, "brief"),
+        timezone=timezone,
+        title=_form_str(form, "title"),
+        purpose=_form_str(form, "purpose"),
+        start_value=_form_str(form, "start"),
+        duration=_form_str(form, "duration_minutes"),
+        rows=_rows_from_form(form) or [_Row() for _ in range(_MIN_TOPIC_ROWS)],
+        guests=invitees.from_form(form),
+        enforcement=_form_str(form, "enforcement", DEFAULT_ENFORCEMENT),
+        notice=notice,
+    )
 
 
 def _rows_from_parsed(
@@ -386,22 +425,41 @@ def _rows_from_parsed(
     return rows, local_start.strftime("%Y-%m-%dT%H:%M")
 
 
-def _render_confirm_html(
-    brief: str,
-    attendees: str,
-    parsed: ParsedBrief | None,
-    timezone: str,
-    fallback_rows: list[_Row] | None = None,
-) -> str:
+def _invitee_rows_html(guests: list[Invitee]) -> str:
     e = html.escape
-    attendee_pairs = _attendees_from_field(attendees)
-    host_name = attendee_pairs[0][0] if attendee_pairs else ""
-    rows, start_value = _rows_from_parsed(parsed, timezone, host_name)
-    if fallback_rows:
-        rows = [*fallback_rows, _Row()]
-    title = e(parsed.title if parsed else "")
-    purpose = e(parsed.purpose.strip() if parsed and parsed.purpose.strip() else "")
-    duration = str(parsed.duration_minutes) if parsed else ""
+    # One spare row, same reasoning as the agenda's: room to add the person the
+    # brief forgot, not a form to fill in.
+    padded = [*guests, Invitee(name="", email="")]
+    return "".join(
+        f"""<tr>
+<td><input name="invitee_name_{i}" value="{e(g.name)}" placeholder="Name"></td>
+<td><input name="invitee_email_{i}" value="{e(g.email)}" placeholder="email" type="email"></td>
+</tr>"""
+        for i, g in enumerate(padded)
+    )
+
+
+def _render_confirm_html(view: _ConfirmView) -> str:
+    e = html.escape
+    rows = view.rows
+    title = e(view.title)
+    purpose = e(view.purpose)
+    duration = view.duration
+    start_value = view.start_value
+    timezone = view.timezone
+    brief = view.brief
+    invitee_rows = _invitee_rows_html(view.guests)
+    stripped = (
+        '<p class="hint">Left out &mdash; the model suggested these but they are not in '
+        f"anything you typed: <strong>{e(', '.join(view.stripped))}</strong>. Add one "
+        "back yourself if it is right.</p>"
+        if view.stripped
+        else ""
+    )
+    notice = f'<div class="gate"><p>{e(view.notice)}</p></div>' if view.notice else ""
+    checked = {
+        level: " checked" if view.enforcement == level else "" for level in ENFORCEMENT_LEVELS
+    }
 
     topic_rows = "".join(
         f"""<tr>
@@ -427,14 +485,22 @@ def _render_confirm_html(
 <h1>Here&rsquo;s the contract.</h1>
 <p class="lede">This is what the invitees will read, and what the chair will hold
 the room to. Change anything that is wrong.</p>
+{notice}
 <form method="post" action="/compose/send">
 <input type="hidden" name="brief" value="{e(brief)}">
 <label for="title">Title</label>
 <input id="title" name="title" value="{title}">
 <label for="purpose">Purpose <span class="opt">&mdash; one line, read first</span></label>
 <input id="purpose" name="purpose" value="{purpose}">
-<label for="attendees">Invitees <span class="opt">&mdash; add or remove</span></label>
-<input id="attendees" name="attendees" value="{e(attendees)}">
+
+<h2>Who&rsquo;s invited</h2>
+<p class="hint">Read off your brief. Only addresses you wrote can be here &mdash; clear a
+row to drop someone, use the spare row to add someone.</p>
+<input type="hidden" name="invitees_count" value="{len(view.guests) + 1}">
+<table><thead><tr><th>Name</th><th>Email</th></tr></thead>
+<tbody>{invitee_rows}</tbody></table>
+{stripped}
+
 <label for="start">Start <span class="opt">&mdash; {e(timezone)}</span></label>
 <input id="start" name="start" type="datetime-local" value="{e(start_value)}">
 <label for="duration_minutes">Duration <span class="opt">&mdash; minutes</span></label>
@@ -449,18 +515,20 @@ purpose. The chair keeps it on the agenda and never hands the floor on inside it
 
 <h2>How hard she chairs</h2>
 <div class="seg">
-<input type="radio" id="enf_low" name="enforcement" value="low">
+<input type="radio" id="enf_low" name="enforcement" value="low"{checked["low"]}>
 <label for="enf_low"><b>Low</b><span>Long rope. She only speaks up when a topic
 badly overruns.</span></label>
-<input type="radio" id="enf_medium" name="enforcement" value="medium" checked>
+<input type="radio" id="enf_medium" name="enforcement" value="medium"{checked["medium"]}>
 <label for="enf_medium"><b>Medium</b><span>Waits for a pause, then moves the room
 on. The default chair.</span></label>
-<input type="radio" id="enf_high" name="enforcement" value="high">
+<input type="radio" id="enf_high" name="enforcement" value="high"{checked["high"]}>
 <label for="enf_high"><b>High</b><span>Cuts in mid-sentence, short grace, and may
 mute after a warning is ignored.</span></label>
 </div>
 <p class="hint">Nobody is exempt, including you. If the host is the one running over, the host is the one who gets chaired.</p>
 
+<label class="confirm"><input type="checkbox" name="confirm" value="yes" required>
+I&rsquo;ve checked who&rsquo;s invited and what they&rsquo;ll read.</label>
 <button type="submit">Send the invite</button>
 </form>
 </div></body></html>"""
@@ -499,18 +567,27 @@ def _topic_drafts(rows: list[_Row], total_minutes: int) -> list[TopicDraft]:
     ]
 
 
-def _host(attendee_pairs: list[tuple[str, str]], from_email: str) -> tuple[str, str]:
+def _host(attendee_pairs: list[tuple[str, str]], *preferred: str) -> tuple[str, str]:
     """The attendee this invite's `ORGANIZER` speaks for. Preferring
     `COMPOSE_FROM_EMAIL` when it is itself an attendee keeps `ics_writer.py`'s
     `ORGANIZER` and `ics_parser`'s re-derived `is_organizer` pointing at the
-    same person on a round trip; falling back to the first attendee still
-    guarantees there always is one.
+    same person on a round trip; then `COMPOSE_HOST`; falling back to the
+    first attendee still guarantees there always is one.
     """
-    from_email = from_email.strip().lower()
-    for name, email in attendee_pairs:
-        if email == from_email:
-            return name, email
+    wanted = [p.strip().lower() for p in preferred if p.strip()]
+    for candidate in wanted:
+        for name, email in attendee_pairs:
+            if email == candidate:
+                return name, email
     return attendee_pairs[0]
+
+
+# What `/compose/send` says when it will not send. Both are the confirm page
+# again, edits intact, with the reason on top -- never a bare error page.
+_NOT_CONFIRMED = (
+    "Nothing was sent. Tick the box at the bottom once you have checked who is invited."
+)
+_NO_INVITEES = "Nothing was sent. There is nobody to invite: add at least one address."
 
 
 async def handle_send(
@@ -519,12 +596,19 @@ async def handle_send(
     settings: Settings,
     ears: EarsClient | None = None,
 ) -> str:
+    # The explicit yes, and someone to send to. Neither is inferred: a POST
+    # without them gets the confirm page back, not a meeting.
+    guests = invitees.from_form(form)
+    if _form_str(form, "confirm").strip().lower() != "yes":
+        return _render_confirm_html(
+            _view_from_form(form, settings.compose_timezone, _NOT_CONFIRMED)
+        )
+    if not guests:
+        return _render_confirm_html(_view_from_form(form, settings.compose_timezone, _NO_INVITEES))
+
     title = _form_str(form, "title").strip() or "Untitled meeting"
     brief = _form_str(form, "brief")
-    attendees_raw = _form_str(form, "attendees")
-    attendee_pairs = _attendees_from_field(attendees_raw) or _attendees_from_field(
-        settings.compose_default_attendees
-    )
+    attendee_pairs = [(g.name, g.email) for g in guests]
 
     tz = ZoneInfo(settings.compose_timezone)
     try:
@@ -534,11 +618,12 @@ async def handle_send(
 
     duration_raw = _form_str(form, "duration_minutes")
     duration_minutes = int(duration_raw) if duration_raw.strip().isdigit() else 30
-    from datetime import timedelta
-
     end = start + timedelta(minutes=duration_minutes)
 
-    host_name, host_email = _host(attendee_pairs, settings.compose_from_email)
+    host = _host_invitee(settings)
+    host_name, host_email = _host(
+        attendee_pairs, settings.compose_from_email, host.email if host else ""
+    )
     invite_attendees = [
         InviteAttendee(email=email, name=name, is_organizer=(email == host_email))
         for name, email in attendee_pairs

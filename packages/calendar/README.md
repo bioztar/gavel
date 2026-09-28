@@ -47,9 +47,9 @@ the `id`/`sessionId` `ears` handed back).
 | `GET /board` | Upcoming ingested meetings (manual invites and polled feed events alike), each with its own **Join** button — the demo path from "meeting exists" to "session running" when nothing wrote a join link back into the calendar. |
 | `GET /health` | `{status, pending, feeds}` — `feeds` is per-`CALENDAR_ICS_FEEDS` entry, addressed by index only: `{feed, lastSuccess, eventCount, lastError}`. Never the feed URL. |
 | `GET /` | 307 redirect to `/board`. |
-| `GET /compose` | The "set up a meeting" front door: a plain-English brief form, prefilled with `COMPOSE_DEFAULT_ATTENDEES`. This, the two rows below, `GET /architecture` and `GET /demo-script` take the operator token (`CALENDAR_ADMIN_TOKEN` — Bearer, or Basic with the token as password) and a per-IP rate limit (`CALENDAR_RATE_LIMIT`); `src/gavel_calendar/access.py`. Unset token = 503. |
-| `POST /compose/parse` | Sends the brief to the LLM, returns an editable confirmation form (title, start, duration, per-topic rows). No LLM configured, or the call fails: falls back to an empty/best-guess form instead of erroring — you can still fill it by hand and send. |
-| `POST /compose/send` | Confirms the form. See below for what this does and in what order. |
+| `GET /compose` | The "set up a meeting" front door: a plain-English brief form plus an optional attendees field. This, the two rows below, `GET /architecture` and `GET /demo-script` take the operator token (`CALENDAR_ADMIN_TOKEN` — Bearer, or Basic with the token as password) and a per-IP rate limit (`CALENDAR_RATE_LIMIT`); `src/gavel_calendar/access.py`. Unset token = 503. |
+| `POST /compose/parse` | Sends the brief to the LLM, returns an editable confirmation form (title, start, duration, invitee rows, per-topic rows). Invitees are read off the brief and every address is checked against what you typed — see below. No LLM configured, or the call fails: falls back to an empty/best-guess form instead of erroring — you can still fill it by hand and send. |
+| `POST /compose/send` | Sends **only** with the confirm box ticked (`confirm=yes`) and at least one invitee row; otherwise it re-renders the confirmation form with the reason and nothing is created. See below for what a real send does and in what order. |
 
 ## The meeting room — `GET /m/{sessionId}`
 
@@ -164,16 +164,33 @@ Discord.
 `src/gavel_calendar/compose.py` is the plain-English path onto the board, for when
 nothing put an invite on Vitaly's calendar in the first place. Flow:
 
-1. `GET /compose` — a brief textarea plus an attendees field (prefilled from
-   `COMPOSE_DEFAULT_ATTENDEES`).
+1. `GET /compose` — a brief textarea plus an optional attendees field (`Name <email>, ...`).
+   Nothing is prefilled: there is no standing guest list.
 2. `POST /compose/parse` — `src/gavel_calendar/llm.py`'s `NebiusClient` sends the brief to
-   Nebius (chat completions) and asks for `{title, start, duration_minutes, topics[]}` as
-   JSON. The result renders as an editable form — every field, including per-topic minutes,
-   owner, and must-hear, can be corrected by hand before sending. `NEBIUS_API_KEY` unset, or
-   the call fails or returns something that doesn't match the schema: the form still renders,
-   just empty/best-guess instead of LLM-filled. This path never raises — a flaky or
-   unconfigured LLM degrades to manual entry, it does not block the meeting.
-3. `POST /compose/send` — in this exact order:
+   Nebius (chat completions) and asks for `{title, start, duration_minutes, invitees[],
+   topics[]}` as JSON, `invitees` being `[{name, email}]`. The result renders as an editable
+   form — every field, including per-topic minutes, owner, and must-hear, can be corrected by
+   hand before sending. `NEBIUS_API_KEY` unset, or the call fails or returns something that
+   doesn't match the schema: the form still renders, just empty/best-guess instead of
+   LLM-filled. This path never raises — a flaky or unconfigured LLM degrades to manual entry,
+   it does not block the meeting.
+
+   **Who gets invited** (`src/gavel_calendar/invitees.py`): the model may *read* the guest
+   list off the brief, it may not *add* to it. `invitees.resolve` keeps a returned address
+   only if it appears verbatim (case-insensitively) in the text you typed — brief, typed
+   agenda, or the attendees field — or is the configured `COMPOSE_HOST`. Anything else is a
+   hallucination: it is stripped, logged as a count (`compose.invitees_stripped`, never the
+   address), and named on the confirmation page under "Left out" so you can add it back by
+   hand if the model was right after all. Order is host, then the attendees field, then the
+   brief; one row per address, the typed spelling of a name wins. Tests:
+   `tests/test_invitees.py` (mocked LLM) and the parse → confirm → send route test in
+   `tests/test_compose_routes.py`.
+3. **Confirm** — the invitee table is editable (clear a row to drop someone, the spare row
+   adds someone) and the form will not submit without the "I've checked who's invited"
+   checkbox. `POST /compose/send` enforces the same server-side: no `confirm=yes`, or no
+   valid invitee row, and it hands the page back with the reason on top and every edit
+   intact. Nothing is created, nothing is mailed, ears is not called.
+4. `POST /compose/send` — in this exact order:
    1. Builds the contract agenda (`agenda.py:build_agenda`, same code `.ics` ingestion uses)
       and saves the `InviteRecord` to the in-memory `InviteStore`. The join URL
       (`/m/{sessionId}`) works from this point on, regardless of what happens next.
@@ -216,7 +233,7 @@ meeting.
 | `NEBIUS_API_KEY` | empty | shared with `packages/brain` — powers `POST /compose/parse`. Empty: compose still works, form starts blank/best-guess instead of LLM-filled |
 | `RESEND_API_KEY` | empty | powers `POST /compose/send`'s email step. Empty: mailer dry-runs, meeting is still created and the join link still works |
 | `COMPOSE_FROM_EMAIL` | empty | must be on a Resend-verified sending domain |
-| `COMPOSE_DEFAULT_ATTENDEES` | see `.env.example` | `"Name <email>, Name <email>, ..."` — prefills `GET /compose` |
+| `COMPOSE_HOST` | empty | `"Name <email>"` — the person dictating briefs: always on the invite, the `ORGANIZER` when `COMPOSE_FROM_EMAIL` is not itself an attendee, and who "me" resolves to. Empty: the guest list is only what the brief and the attendees field say |
 | `DISCORD_MEETING_URL` | see `.env.example` | the `.ics` `LOCATION`, the success page's Discord link, and the room page's **Join the call** |
 | `BRAIN_STATE_URL` | `http://localhost:8788/state` | the chair's live view, for the meeting room. Unreachable: the room shows the banked report or the agenda |
 | `COMPOSE_TIMEZONE` | `Europe/Madrid` | IANA name — what relative times like "in an hour" resolve against |
@@ -277,7 +294,12 @@ Supported:
 - `RECURRENCE-ID` overrides: a moved or edited instance **replaces** the generated one
   (same occurrence id, keyed on the instance's *original* start), wherever it moved to,
   and never appears twice. An override dragged into the window from outside it shows up;
-  one dragged out of it does not.
+  one dragged out of it does not. `RANGE=THISANDFUTURE` applies the override to that
+  instance and every later one, each shifted by the delta the named instance moved by.
+- `STATUS:CANCELLED` on an override drops that one instance (the common "delete this
+  occurrence" export); on the master it drops the whole series. Already-ingested
+  occurrences are not removed from the store — they simply stop being re-ingested.
+- `DURATION` instead of `DTEND`, for single events and series alike.
 - Timezones: a `TZID` `DTSTART` expands in its own zone, so 09:30 Madrid stays 09:30
   Madrid across a DST change; `UNTIL` is read as UTC-anchored even then; a floating
   `DTSTART` (no `TZID`, no `Z`) is assumed UTC, same as everywhere else in this package;
@@ -296,17 +318,16 @@ Not implemented:
 
 - `RRULE` parts dateutil does not handle, and `BYSETPOS`-heavy or `WKST`-sensitive rules
   are only as correct as dateutil is — untested here.
-- `RANGE=THISANDFUTURE` on a `RECURRENCE-ID`: the override is applied to that one
-  instance only, not to the rest of the series.
 - `VEVENT`s of the same series split across *different* feeds, or an override arriving in
   a later poll than its master (it is applied from the poll where both are present).
-- `EXRULE` (deprecated in RFC 5545), `VALARM`, `DURATION` instead of `DTEND` (an event
-  with no `DTEND` is zero-length, as before), and non-Gregorian `CALSCALE`.
+- `EXRULE` (deprecated in RFC 5545), `VALARM`, and non-Gregorian `CALSCALE`. An event
+  with neither `DTEND` nor `DURATION` is zero-length, as before.
 - Nothing rewrites the calendar: this is read-only expansion, and occurrences live in the
   in-memory store like any other invite.
 
-`tests/fixtures/*.ics` + `tests/test_recurrence.py` cover each of the supported cases
-against fixed dates. No test touches the network, and no fixture contains a feed URL.
+`tests/fixtures/*.ics` + `tests/test_recurrence.py` / `tests/test_recurrence_exceptions.py`
+cover each of the supported cases against fixed dates (every exception fixture straddles a
+DST change). No test touches the network, and no fixture contains a feed URL.
 
 ## Tests
 

@@ -316,8 +316,10 @@ Brain is connected to the wire:
    front door works and creates the meeting; the mailer runs dry-run by design and the `.ics`
    `LOCATION`/join link is empty until `DISCORD_MEETING_URL` lands. Both are Vitaly's to
    supply. Live email send is therefore **unverified**.
-2. **Recurring calendar events are not expanded.** The feed poller does not handle `RRULE`, so
-   a weekly standup in a subscribed calendar produces one occurrence, not a series.
+2. **Recurring calendar events are expanded, but only from feeds.** The poller handles
+   `RRULE`/`RDATE`/`EXDATE`/`RECURRENCE-ID` (incl. `RANGE=THISANDFUTURE`), `STATUS:CANCELLED`
+   and `DURATION` across DST (`packages/calendar/tests/test_recurrence*.py`); a recurring
+   `.ics` pasted into `POST /invite` still yields its first instance only.
 3. **No feeds configured** — `CALENDAR_ICS_FEEDS` is empty, so the poller runs against nothing.
 4. **Email is not wired** — the compose lane's Resend leg needs `RESEND_API_KEY` and
    `COMPOSE_FROM_EMAIL`, and that branch is unmerged.

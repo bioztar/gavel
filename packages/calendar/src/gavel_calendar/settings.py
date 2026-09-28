@@ -130,15 +130,11 @@ class Settings(BaseSettings):
     # Must be on a Resend-verified sending domain. Empty fails loudly with the
     # setting's name at send time, never silently.
     compose_from_email: str = ""
-    # "Name <email>, Name <email>, ..." (RFC 5322 address list) — prefills
-    # GET /compose's attendees field. The three people already on this demo;
-    # kept distinct even where two share a first name, since `agenda.py`
-    # matches an owner/must-hear name case-insensitively and a collision would
-    # silently resolve to the wrong attendee.
-    compose_default_attendees: str = (
-        "Vitaly <vitaly.alt@gmail.com>, Artem <a.shambalev@gmail.com>, "
-        "Vitaly P <vitaly@pro7ocol.com>"
-    )
+    # "Name <email>" — the person who dictates briefs. Always on the invite and
+    # who "me"/"my" resolve to in the brief (see llm.py). Empty: the guest list
+    # is only what the brief and the attendees field say. Everyone else is read
+    # off the brief per meeting — there is no standing room.
+    compose_host: str = ""
     # The meeting's .ics LOCATION and the success page's Discord link.
     discord_meeting_url: str = (
         "https://discordapp.com/channels/1550819764258213909/1550820239564996608"

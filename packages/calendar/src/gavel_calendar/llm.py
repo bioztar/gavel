@@ -28,7 +28,8 @@ _SYSTEM_PROMPT_TEMPLATE = """You turn a short, spoken-style meeting brief into s
 Reply with ONLY a JSON object — no prose, no markdown code fences — matching exactly \
 this shape:
 {"title": string, "purpose": string, "start": ISO-8601 datetime with a UTC offset, \
-"duration_minutes": integer, "topics": [{"title": string, "minutes": integer or null, \
+"duration_minutes": integer, "invitees": [{"name": string, "email": string}], \
+"topics": [{"title": string, "minutes": integer or null, \
 "owner": string or null, "must_hear": [string, ...], "type": "discussion" or \
 "presentation"}]}
 
@@ -51,7 +52,12 @@ than guessing. A topic where one named person presents, demos or reads something
 is "presentation"; anything the room talks through together is "discussion" — when in \
 doubt, "discussion". "purpose" is one plain sentence saying what this meeting has to \
 decide or produce, written for the people being invited — not a restatement of the \
-brief's wording, and never longer than one sentence."""
+brief's wording, and never longer than one sentence. "invitees" is every person the brief \
+says should be in the meeting AND whose email address is written in the brief itself. Copy \
+each address character for character from the brief; never complete, correct, guess or \
+invent one, and never add an address from the known-attendees list or from memory. A \
+person the brief names without an address is not an invitee (they may still be an \
+"owner"). If the brief contains no addresses, "invitees" is an empty list."""
 
 
 def _build_system_prompt(*, now: datetime, timezone: str, attendees: list[str]) -> str:
@@ -76,6 +82,14 @@ class BriefTopic(BaseModel):
     type: str = "discussion"
 
 
+class BriefInvitee(BaseModel):
+    # Deliberately loose here: a malformed address must cost that one line in
+    # `invitees.resolve` (which also checks the host actually typed it), never
+    # the whole parse and with it the agenda.
+    name: str = ""
+    email: str = ""
+
+
 class ParsedBrief(BaseModel):
     title: str
     # One clean sentence for the invite email. The model often omits it; the
@@ -83,6 +97,7 @@ class ParsedBrief(BaseModel):
     purpose: str = ""
     start: datetime
     duration_minutes: int = Field(gt=0)
+    invitees: list[BriefInvitee] = Field(default_factory=list)
     topics: list[BriefTopic] = Field(default_factory=list)
 
 

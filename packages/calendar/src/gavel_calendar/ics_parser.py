@@ -15,7 +15,7 @@ from __future__ import annotations
 import dataclasses
 import re
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
 from dateutil.rrule import rrule as dateutil_rrule
@@ -220,7 +220,11 @@ def _parse_event(event: Any) -> ParsedInvite:
     if dtstart is None:
         raise InvalidInvite("event has no DTSTART")
     start = _to_utc(dtstart.dt)
-    end = _to_utc(dtend.dt) if dtend is not None else start
+    if dtend is not None:
+        end = _to_utc(dtend.dt)
+    else:
+        duration = event.get("duration")
+        end = start + duration.dt if duration is not None else start
 
     title = str(event.get("summary", "")).strip() or "Untitled meeting"
 
@@ -284,6 +288,10 @@ def parse_ics(raw: bytes | str) -> ParsedInvite:
 #     naive and aware datetimes).
 #   * A RECURRENCE-ID VEVENT is an override: it *replaces* the generated
 #     instance whose start it names, wherever the override itself was moved to.
+#     With RANGE=THISANDFUTURE it replaces that instance and every later one,
+#     each shifted by the same delta the named instance was moved by.
+#   * STATUS:CANCELLED on an override drops that one instance; on the master it
+#     drops the whole series.
 
 
 def _aligned(value: datetime | date, reference: datetime) -> datetime:
@@ -346,6 +354,18 @@ def _is_recurring(event: Any) -> bool:
     return bool(event.get("rrule") or event.get("rdate"))
 
 
+def _is_cancelled(event: Any) -> bool:
+    return str(event.get("status", "")).strip().upper() == "CANCELLED"
+
+
+def _is_this_and_future(event: Any) -> bool:
+    return str(event["recurrence-id"].params.get("RANGE", "")).upper() == "THISANDFUTURE"
+
+
+def _has_end(event: Any) -> bool:
+    return event.get("dtend") is not None or event.get("duration") is not None
+
+
 def _occurrence_uid(uid: str, start: datetime) -> str:
     return f"{uid}::{start.astimezone(UTC):%Y%m%dT%H%M%SZ}"
 
@@ -374,45 +394,90 @@ def parse_ics_occurrences(
         # Overrides with no master in the same .ics: nothing to expand against,
         # so each stands on its own at the time it was moved to.
         return sorted(
-            (p for p in map(_parse_event, events) if window_start <= p.start <= window_end),
+            (
+                p
+                for p in map(_parse_event, (e for e in events if not _is_cancelled(e)))
+                if window_start <= p.start <= window_end
+            ),
             key=lambda p: p.start,
         )
 
     master = masters[0]
+    if _is_cancelled(master):
+        return []
     base = _parse_event(master)
     if not _is_recurring(master):
         return [base] if window_start <= base.start <= window_end else []
 
     dtstart = _local_dtstart(master)
     duration = base.end - base.start
-    overrides = {
-        _to_utc(_aligned(event["recurrence-id"].dt, dtstart)): event
-        for event in events
-        if event.get("recurrence-id") is not None
-    }
+    overrides: dict[datetime, Any] = {}
+    ranges: list[tuple[datetime, Any]] = []  # THISANDFUTURE, by original start
+    for event in events:
+        if event.get("recurrence-id") is None:
+            continue
+        original_start = _to_utc(_aligned(event["recurrence-id"].dt, dtstart))
+        if _is_this_and_future(event):
+            ranges.append((original_start, event))
+        else:
+            overrides[original_start] = event
+    ranges.sort(key=lambda pair: pair[0])
+
+    def _range_for(start: datetime) -> tuple[datetime, Any] | None:
+        applicable = [pair for pair in ranges if pair[0] <= start]
+        return applicable[-1] if applicable else None
+
+    # A THISANDFUTURE override that moves instances *later* can pull one that
+    # the rule generates before the window into it, so iterate from that far
+    # back and filter on where each instance ends up instead.
+    lead = max(
+        (_parse_event(event).start - original for original, event in ranges),
+        default=timedelta(0),
+    )
+    scan_from = window_start - max(lead, timedelta(0))
 
     occurrences: list[ParsedInvite] = []
     rules = _rule_set(master, dtstart)
     # `count=` is the runaway guard: an RRULE with no COUNT and no UNTIL is
     # infinite, and `xafter` is lazy, so nothing past the cap is ever generated.
-    for local_start in rules.xafter(
-        _aligned(window_start, dtstart), count=max_occurrences, inc=True
-    ):
+    for local_start in rules.xafter(_aligned(scan_from, dtstart), count=max_occurrences, inc=True):
         start = _to_utc(local_start)
         if start > window_end:
             break
         if start in overrides:
             continue  # replaced below, at wherever the override moved it to
+        this_and_future = _range_for(start)
+        if this_and_future is None:
+            if start < window_start:
+                continue
+            occurrences.append(
+                dataclasses.replace(
+                    base,
+                    start=start,
+                    end=start + duration,
+                    occurrence_uid=_occurrence_uid(base.uid, start),
+                )
+            )
+            continue
+        original, event = this_and_future
+        if _is_cancelled(event):
+            continue
+        moved = _parse_event(event)
+        shifted = start + (moved.start - original)
+        if not (window_start <= shifted <= window_end):
+            continue
         occurrences.append(
             dataclasses.replace(
-                base,
-                start=start,
-                end=start + duration,
+                moved,
+                start=shifted,
+                end=shifted + ((moved.end - moved.start) if _has_end(event) else duration),
                 occurrence_uid=_occurrence_uid(base.uid, start),
             )
         )
 
     for original_start, event in overrides.items():
+        if _is_cancelled(event):
+            continue
         moved = _parse_event(event)
         if not (window_start <= moved.start <= window_end):
             continue
@@ -423,7 +488,7 @@ def parse_ics_occurrences(
         occurrences.append(
             dataclasses.replace(
                 moved,
-                end=moved.end if event.get("dtend") is not None else moved.start + duration,
+                end=moved.end if _has_end(event) else moved.start + duration,
                 occurrence_uid=_occurrence_uid(base.uid, original_start),
             )
         )
