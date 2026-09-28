@@ -22,7 +22,7 @@ def _settings(**overrides: str) -> Settings:
         "nebius_base_url": "https://fake.test/v1",
         "resend_api_key": "",
         "compose_from_email": "",
-        "compose_default_attendees": "Vitaly <vitaly@test.dev>, Artem <artem@test.dev>",
+        "compose_host": "",
         "discord_meeting_url": "https://discordapp.com/channels/1/2",
         "compose_timezone": "Europe/Madrid",
         "calendar_public_url": "http://localhost:8790",
@@ -33,6 +33,17 @@ def _settings(**overrides: str) -> Settings:
 
 def _form(fields: dict[str, str]) -> FormData:
     return FormData(list(fields.items()))
+
+
+def _invitee_rows(*pairs: tuple[str, str], confirm: bool = True) -> dict[str, str]:
+    """The confirm page's invitee table plus the explicit yes, as the browser posts them."""
+    fields = {"invitees_count": str(len(pairs))}
+    for i, (name, email) in enumerate(pairs):
+        fields[f"invitee_name_{i}"] = name
+        fields[f"invitee_email_{i}"] = email
+    if confirm:
+        fields["confirm"] = "yes"
+    return fields
 
 
 # --- pure helpers --------------------------------------------------------------
@@ -116,7 +127,7 @@ async def test_handle_send_creates_meeting_even_when_mail_is_dry_run() -> None:
         {
             "title": "Pricing sync",
             "brief": "let's talk pricing",
-            "attendees": "Vitaly <vitaly@test.dev>, Artem <artem@test.dev>",
+            **_invitee_rows(("Vitaly", "vitaly@test.dev"), ("Artem", "artem@test.dev")),
             "start": "2026-09-20T15:00",
             "duration_minutes": "30",
             "topics_count": "1",
@@ -152,7 +163,7 @@ async def test_handle_send_survives_ears_being_down() -> None:
     form = _form(
         {
             "title": "Standup",
-            "attendees": "Vitaly <vitaly@test.dev>",
+            **_invitee_rows(("Vitaly", "vitaly@test.dev")),
             "duration_minutes": "15",
             "topics_count": "0",
         }
@@ -179,7 +190,7 @@ async def test_handle_send_survives_mailer_raising(monkeypatch: pytest.MonkeyPat
         {
             "title": "Standup",
             "brief": "quick one",
-            "attendees": "Vitaly <vitaly@test.dev>",
+            **_invitee_rows(("Vitaly", "vitaly@test.dev")),
             "start": "2026-09-20T09:00",
             "duration_minutes": "15",
             "topics_count": "0",
@@ -197,14 +208,68 @@ async def test_handle_send_survives_mailer_raising(monkeypatch: pytest.MonkeyPat
 # --- invitees + the invite email -------------------------------------------------
 
 
-def test_resolve_invitees_always_includes_the_standing_room() -> None:
-    """The brief can add people; it can never silently drop one."""
-    pairs = compose._resolve_invitees("New Person <new@test.dev>", _settings())
-    emails = [email for _, email in pairs]
-    assert "new@test.dev" in emails
-    for _, email in compose._attendees_from_field(_settings().compose_default_attendees):
-        assert email in emails
-    assert len(emails) == len(set(emails))  # typed duplicate of a default collapses
+async def test_handle_send_refuses_without_the_explicit_yes() -> None:
+    """The confirm page is a step, not a formality: no `confirm=yes`, no meeting,
+    and the page comes back with every edit still in it."""
+    store = InviteStore()
+    form = _form(
+        {
+            "title": "Pricing sync",
+            "brief": "let's talk pricing",
+            **_invitee_rows(("Vitaly", "vitaly@test.dev"), confirm=False),
+            "duration_minutes": "30",
+            "topics_count": "1",
+            "topic_title_0": "Pricing",
+            "enforcement": "high",
+        }
+    )
+    html_out = await compose.handle_send(form, store, _settings())
+
+    assert store._records == {}
+    assert "Nothing was sent" in html_out
+    assert 'action="/compose/send"' in html_out
+    assert 'value="vitaly@test.dev"' in html_out and 'value="Pricing"' in html_out
+    assert 'value="high" checked' in html_out
+
+
+async def test_handle_send_refuses_an_empty_guest_list() -> None:
+    store = InviteStore()
+    form = _form(
+        {
+            "title": "Pricing sync",
+            **_invitee_rows(("Nobody", "not-an-address")),
+            "duration_minutes": "30",
+            "topics_count": "0",
+        }
+    )
+    html_out = await compose.handle_send(form, store, _settings())
+
+    assert store._records == {}
+    assert "nobody to invite" in html_out
+
+
+async def test_handle_send_invites_exactly_the_confirmed_rows() -> None:
+    """No standing room: whoever is in the confirmed table is the whole guest list,
+    and the configured host is the organizer when present."""
+    store = InviteStore()
+    form = _form(
+        {
+            "title": "Pricing sync",
+            **_invitee_rows(
+                ("Host", "host@test.dev"),
+                ("Artem", "artem@test.dev"),
+                ("", ""),  # the spare row, left blank
+                ("Artem again", "ARTEM@test.dev"),  # same address, different case
+            ),
+            "duration_minutes": "30",
+            "topics_count": "0",
+        }
+    )
+    await compose.handle_send(form, store, _settings(compose_host="Host <host@test.dev>"))
+
+    agenda = next(iter(store._records.values())).agenda
+    assert [a["name"] for a in agenda["attendees"]] == ["Host", "Artem"]
+    assert [a["role"] for a in agenda["attendees"]] == ["host", "attendee"]
 
 
 def test_invite_email_carries_the_agenda_not_the_brief() -> None:
@@ -312,7 +377,7 @@ async def test_enforcement_gauge_reaches_the_agenda_policy() -> None:
     form = FormData(
         {
             "title": "Pricing sync",
-            "attendees": "Vitaly <vitaly@test.dev>, Artem <artem@test.dev>",
+            **_invitee_rows(("Vitaly", "vitaly@test.dev"), ("Artem", "artem@test.dev")),
             "duration_minutes": "30",
             "topics_count": "1",
             "topic_title_0": "Pricing",
