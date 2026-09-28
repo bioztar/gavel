@@ -72,7 +72,12 @@ def test_compose_send_creates_meeting_with_working_join_link(httpx_mock: HTTPXMo
             data={
                 "title": "Pricing sync",
                 "brief": "talk pricing",
-                "attendees": "Vitaly <vitaly@test.dev>, Artem <artem@test.dev>",
+                "invitees_count": "2",
+                "invitee_name_0": "Vitaly",
+                "invitee_email_0": "vitaly@test.dev",
+                "invitee_name_1": "Artem",
+                "invitee_email_1": "artem@test.dev",
+                "confirm": "yes",
                 "start": "2026-09-20T15:00",
                 "duration_minutes": "30",
                 "topics_count": "1",
@@ -185,6 +190,79 @@ def test_a_typed_agenda_clears_the_gate(
     assert resp.status_code == 200
     assert 'action="/compose/send"' in resp.text
     assert "Pricing" in resp.text
+
+
+def test_parse_confirm_send_with_inferred_invitees(
+    monkeypatch: pytest.MonkeyPatch, httpx_mock: HTTPXMock
+) -> None:
+    """The whole beat: brief -> model reads the guest list -> confirm page shows it
+    (with the made-up address named and left out) -> explicit yes -> meeting. The
+    same POST minus the yes creates nothing."""
+    payload = {
+        "title": "Pricing sync",
+        "purpose": "Land the price.",
+        "start": "2026-09-19T13:00:00+02:00",
+        "duration_minutes": 30,
+        "invitees": [
+            {"name": "Artem", "email": "artem@test.dev"},
+            {"name": "Marc", "email": "marc@test.dev"},  # not in the brief: hallucinated
+        ],
+        "topics": [{"title": "Pricing", "minutes": 30, "owner": "Artem", "must_hear": []}],
+    }
+    httpx_mock.add_response(
+        url="https://fake.test/v1/chat/completions",
+        method="POST",
+        json={"choices": [{"message": {"content": json.dumps(payload)}}]},
+    )
+    httpx_mock.add_response(url="http://localhost:8787/api/meetings", json={"id": "m-1"})
+    httpx_mock.add_response(url="http://localhost:8787/api/sessions", json={"sessionId": "s-1"})
+    monkeypatch.setattr(app_module.settings, "nebius_api_key", "key123")
+    monkeypatch.setattr(app_module.settings, "compose_host", "Host <host@test.dev>")
+
+    with TestClient(app) as client:
+        parsed = client.post(
+            "/compose/parse",
+            data={
+                "brief": "Karen, thirty minutes with Artem <artem@test.dev> tomorrow at ten on pricing.",
+                "attendees": "",
+            },
+        )
+        assert parsed.status_code == 200
+        assert 'value="host@test.dev"' in parsed.text
+        assert 'value="artem@test.dev"' in parsed.text
+        assert 'value="marc@test.dev"' not in parsed.text
+        assert "Left out" in parsed.text and "marc@test.dev" in parsed.text
+        assert 'name="confirm" value="yes" required' in parsed.text
+
+        confirmed = {
+            "title": "Pricing sync",
+            "brief": "Karen, thirty minutes with Artem <artem@test.dev> tomorrow at ten on pricing.",
+            "invitees_count": "3",
+            "invitee_name_0": "Host",
+            "invitee_email_0": "host@test.dev",
+            "invitee_name_1": "Artem",
+            "invitee_email_1": "artem@test.dev",
+            "invitee_name_2": "",
+            "invitee_email_2": "",
+            "start": "2026-09-19T13:00",
+            "duration_minutes": "30",
+            "topics_count": "1",
+            "topic_title_0": "Pricing",
+            "topic_minutes_0": "30",
+            "topic_owner_0": "Artem",
+            "topic_must_hear_0": "",
+        }
+        refused = client.post("/compose/send", data=confirmed)
+        assert refused.status_code == 200
+        assert "Nothing was sent" in refused.text
+        assert store._records == {}
+
+        sent = client.post("/compose/send", data={**confirmed, "confirm": "yes"})
+        assert sent.status_code == 200
+        assert "Karen is holding the room" in sent.text
+        record = next(iter(store._records.values()))
+        assert [a["name"] for a in record.agenda["attendees"]] == ["Host", "Artem"]
+        assert record.agenda["purpose"]
 
 
 def test_parse_accepts_an_empty_invitee_box():
