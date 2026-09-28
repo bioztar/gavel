@@ -16,13 +16,22 @@ class EarsError(RuntimeError):
 
 
 class EarsClient:
-    def __init__(self, base_url: str, timeout: float = 10.0) -> None:
+    """`seam_secret` is SEAM_SHARED_SECRET (docs/CONTRACT.md §2): ears' /api/ routes sit
+    behind the operator console's auth, and this header is how a machine gets past it."""
+
+    def __init__(self, base_url: str, timeout: float = 10.0, seam_secret: str = "") -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
+        self._headers = {"X-Seam-Secret": seam_secret} if seam_secret else {}
+
+    def _client(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            base_url=self._base_url, timeout=self._timeout, headers=self._headers
+        )
 
     async def create_meeting(self, title: str, context: str, agenda: dict[str, Any]) -> str:
         body = {"title": title, "context": context, "agenda": agenda}
-        async with httpx.AsyncClient(base_url=self._base_url, timeout=self._timeout) as client:
+        async with self._client() as client:
             try:
                 resp = await client.post("/api/meetings", json=body)
                 resp.raise_for_status()
@@ -31,7 +40,7 @@ class EarsClient:
         return resp.json()["id"]
 
     async def start_session(self, meeting_id: str) -> str:
-        async with httpx.AsyncClient(base_url=self._base_url, timeout=self._timeout) as client:
+        async with self._client() as client:
             try:
                 resp = await client.post("/api/sessions", json={"meetingId": meeting_id})
                 resp.raise_for_status()

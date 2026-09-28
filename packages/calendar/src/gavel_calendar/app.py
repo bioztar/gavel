@@ -49,7 +49,7 @@ from .store import InviteRecord, InviteStore
 
 settings = get_settings()
 store = InviteStore()
-ears = EarsClient(settings.ears_api_url)
+ears = EarsClient(settings.ears_api_url, seam_secret=settings.seam_shared_secret)
 feed_registry = FeedRegistry()
 logger = logging.getLogger(__name__)
 

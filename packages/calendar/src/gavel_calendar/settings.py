@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     # HTTP, not the `ws://` wire URL — same host/port, see packages/ears-discord's
     # POST /api/meetings + POST /api/sessions (docs/CONTRACT.md, wire.py).
     ears_api_url: str = "http://localhost:8787"
+    # Sent to ears as X-Seam-Secret (docs/CONTRACT.md §2). Empty: not sent — only fine
+    # against an ears with CONSOLE_AUTH_REQUIRED=false.
+    seam_shared_secret: str = ""
 
     # --- the meeting room page (room.py) ----------------------------------------
     # The brain's read-only state endpoint (`packages/brain/src/main.ts`,
