@@ -17,6 +17,10 @@ export const env = {
   earsHttpUrl: blank(process.env.EARS_HTTP_URL) ?? localEarsEndpoint("http"),
   stageHost: blank(process.env.STAGE_HOST) ?? "127.0.0.1",
   stagePort: Number(blank(process.env.STAGE_PORT) ?? 8788),
+  // Browser origins allowed to read /state cross-origin; unset = same-origin only.
+  stageCorsOrigins: blank(process.env.STAGE_CORS_ORIGINS),
+  // Sent to ears on the wire handshake and every store call when set (CONTRACT §2).
+  seamSharedSecret: blank(process.env.SEAM_SHARED_SECRET),
   // Langfuse tracing (src/mastra/index.ts): on when both keys are set.
   langfuse: {
     publicKey: blank(process.env.LANGFUSE_PUBLIC_KEY),

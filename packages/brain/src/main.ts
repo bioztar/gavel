@@ -9,12 +9,14 @@ import { loadAgendaFile } from "./contract/agenda";
 import { MastraLlm } from "./chair/mastraLlm";
 import { StubLlm } from "./chair/llm";
 import { SilentTts, SlngTts, type Tts } from "./chair/tts";
+import { seamHeaders } from "./ears/seam";
 import { EarsStore } from "./ears/store";
 import { EarsWire } from "./ears/wire";
 import { Engine } from "./engine";
 import { log } from "./log";
 import { mastra } from "./mastra";
 import { setConfig, setEngine } from "./runtime";
+import { corsHeaders, parseOrigins } from "./cors";
 
 let config = loadConfig();
 setConfig(config);
@@ -31,7 +33,9 @@ const agenda = (() => {
 if (!env.nebiusApiKey) log.warn("nebius.off", { reason: "NEBIUS_API_KEY unset — keyword classifier + templates only" });
 if (!env.slngApiKey) log.warn("tts.off", { reason: "SLNG_API_KEY unset — the chair cannot speak" });
 
-const wire = new EarsWire(env.earsWireUrl);
+if (!env.seamSharedSecret) log.warn("seam.open", { reason: "SEAM_SHARED_SECRET unset — ears will not check who connects" });
+const seam = seamHeaders(env.seamSharedSecret);
+const wire = new EarsWire(env.earsWireUrl, seam);
 
 /**
  * The voice ears' console has selected, if it has. It wins over models.yaml:
@@ -58,7 +62,7 @@ engine = new Engine({
   config: () => config,
   clock: Date.now,
   wire,
-  store: new EarsStore(env.earsHttpUrl),
+  store: new EarsStore(env.earsHttpUrl, seam),
   llm,
   tts,
   fallbackAgenda: agenda,
@@ -96,9 +100,10 @@ watchConfig(config, (next) => {
   timer = setInterval(() => engine.tick(), next.policy.engine.tickMs);
 });
 
+const corsOrigins = parseOrigins(env.stageCorsOrigins);
 createServer((req, res) => {
   if (req.url === "/state" || req.url === "/") {
-    res.writeHead(200, { "content-type": "application/json", "access-control-allow-origin": "*" });
+    res.writeHead(200, { "content-type": "application/json", ...corsHeaders(req.headers.origin, corsOrigins) });
     res.end(JSON.stringify(engine.view(), null, 2));
     return;
   }
