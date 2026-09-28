@@ -45,6 +45,20 @@ class Settings(BaseSettings):
     # Base URL the join page and /invite responses use to build join links.
     calendar_public_url: str = "http://localhost:8790"
 
+    # --- operator routes: /compose*, /architecture, /demo-script (access.py) ------
+    # The admin token those routes require: `Authorization: Bearer <token>` or
+    # HTTP Basic with the token as the password. A secret — never logged.
+    calendar_admin_token: str = ""
+    # Fail-closed default. With auth required and no token set the routes answer
+    # 503. `false` opens them up and is for a developer's own machine only.
+    calendar_auth_required: bool = True
+    # Per-client-IP budget for the same routes, a `limits` string.
+    calendar_rate_limit: str = "30/minute"
+    # Which proxies' `X-Forwarded-For` uvicorn believes when working out that
+    # client IP. `127.0.0.1` on a laptop; `*` in compose, where only Traefik
+    # can reach the container. Comma-separated addresses otherwise.
+    calendar_forwarded_allow_ips: str = "127.0.0.1"
+
     # --- the shared database -------------------------------------------------
     # The same Postgres `packages/ears-discord` owns, and the same DSN — this
     # service keeps one table of its own in it (`db/models.py` says why) and

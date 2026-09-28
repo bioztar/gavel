@@ -11,4 +11,6 @@ if __name__ == "__main__":
         host=settings.calendar_host,
         port=settings.calendar_port,
         log_level=settings.log_level.lower(),
+        proxy_headers=True,
+        forwarded_allow_ips=settings.calendar_forwarded_allow_ips,
     )
