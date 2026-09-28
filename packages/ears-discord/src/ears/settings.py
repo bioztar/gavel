@@ -45,6 +45,17 @@ class Settings(BaseSettings):
     # Read-only live state exposed by brain; proxied to the operator console.
     brain_state_url: str = "http://127.0.0.1:8788/state"
 
+    # --- access (access.py) --------------------------------------------------
+    # The ears<->brain seam (docs/CONTRACT.md §2): the brain sends this as
+    # `X-Seam-Secret` on the wire handshake and on store calls. Empty: not checked.
+    seam_shared_secret: str = ""
+    # HTTP Basic on /console, /live and /api/*. On by default; `false` is for a
+    # developer's own machine only. With it on and no users set: 503, never open.
+    console_auth_required: bool = True
+    # htpasswd bcrypt lines (comma/newline separated) — the same value Traefik's
+    # basicauth reads; scripts/set-console-auth.sh writes it. A credential.
+    gavel_console_users: str = ""
+
     # --- data --------------------------------------------------------------
     postgres_dsn: str = "postgresql+asyncpg://gavel:gavel@localhost:5432/gavel"
     redis_dsn: str = "redis://localhost:6379/0"

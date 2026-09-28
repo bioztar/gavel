@@ -3,6 +3,9 @@
     WS   /                          the brain: ears→brain frames out, `speak` / `stop` in
     WS   /live                      operators: every frame + debug events, read-only
 
+Who gets in is access.py: the brain's socket takes SEAM_SHARED_SECRET; everything
+but /health takes the console's basic auth (or the seam secret, for the store).
+
     GET  /health                    what is connected
     GET  /api/status                call, session, participants, open turns, playback, checks
     GET  /api/selfcheck             re-run the selector self-check against the live page
@@ -35,6 +38,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
+from . import access
 from .frames import Frame
 from .logging import get_logger
 from .tts import TtsError
@@ -151,17 +155,20 @@ def _uuid(value: str) -> uuid.UUID:
 
 def create_api(ears: Ears) -> FastAPI:
     api = FastAPI(title="gavel ears-meet", docs_url="/docs")
+    access.install(api, ears.settings)
 
     # --- sockets ------------------------------------------------------------------
 
     @api.websocket("/")
     async def brain(ws: WebSocket) -> None:
-        await ws.accept()
+        if not await access.admit_brain(ws, ears.settings):
+            return
         await ears.hub.serve(ws, ears.hello(), ears.command)
 
     @api.websocket("/live")
     async def live(ws: WebSocket) -> None:
-        await ws.accept()
+        if not await access.admit_operator(ws, ears.settings):
+            return
         hello = [{"type": "console.hello", "status": ears.status(), "recent": list(ears.recent)}]
         await ears.console.serve(ws, hello, lambda _msg: None)
 
