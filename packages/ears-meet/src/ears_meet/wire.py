@@ -170,8 +170,14 @@ def create_api(ears: Ears) -> FastAPI:
     @api.get("/health")
     async def health() -> dict[str, Any]:
         s = ears.status()
+        if s["inCall"]:
+            status = "ok"
+        elif ears.standby:
+            status = "standby"
+        else:
+            status = "joining"
         return {
-            "status": "ok" if s["inCall"] else "joining",
+            "status": status,
             **{k: s[k] for k in ("inCall", "channelId", "sessionId", "stt", "captions", "stage")},
             "participants": len(s["participants"]),
             "wireClients": s["brains"],
@@ -181,6 +187,18 @@ def create_api(ears: Ears) -> FastAPI:
     @api.get("/api/status")
     async def status() -> dict[str, Any]:
         return ears.status()
+
+    @api.get("/api/browser")
+    async def browser() -> dict[str, Any]:
+        """The open tabs, by url and title. The stage tab must be titled exactly
+        `settings.stage_tab_title` for Chromium's tab capture to pick it."""
+        pages = await ears.browser_pages()
+        title = ears.settings.stage_tab_title
+        return {
+            "launched": bool(pages),
+            "pages": pages,
+            "stageTab": next((p for p in pages if p["title"] == title), None),
+        }
 
     @api.get("/api/selfcheck")
     async def selfcheck() -> dict[str, Any]:

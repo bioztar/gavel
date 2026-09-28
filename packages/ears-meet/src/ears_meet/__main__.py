@@ -45,7 +45,9 @@ class _Server(uvicorn.Server):
 
 
 async def run(settings: Settings) -> None:
-    settings.require_auth()  # names the missing setting; never a value
+    standby = not settings.meet_url
+    if not standby:
+        settings.require_auth()  # names the missing setting; never a value
     saved_agenda = load_agenda(settings.agenda_file)
 
     pulse = Pulse(settings.pulse_sink_out, settings.pulse_sink_in, manage=settings.pulse_manage)
@@ -98,9 +100,13 @@ async def run(settings: Settings) -> None:
         logger.info(
             "ears.started",
             wire=f"ws://{settings.wire_host}:{settings.wire_port}",
-            meet=meet_code(settings.meet_url),
+            meet=meet_code(settings.meet_url) if not standby else None,
+            mode="standby" if standby else "call",
         )
-        background.append(loop.create_task(_join(ears, browser, pulse, recorder, stop)))
+        if standby:
+            background.append(loop.create_task(_standby(ears, browser, stop)))
+        else:
+            background.append(loop.create_task(_join(ears, browser, pulse, recorder, stop)))
         try:
             await server.serve()
         finally:
@@ -114,6 +120,27 @@ async def run(settings: Settings) -> None:
             await browser.close()
             await xvfb.stop()
             await pulse.teardown()
+
+
+async def _standby(ears: Ears, browser: Browser, stop: Callable[[], None]) -> None:
+    """No MEET_URL: bring the browser up on the display and open the stage tab, so the
+    surface can be inspected (`/api/browser`) without a call or a Google account. Nothing
+    is joined and no sign-in is attempted; the wire keeps serving until stopped."""
+    settings = ears.settings
+    try:
+        await browser.launch()
+        stage = await browser.open_stage() if settings.stage_url else None
+        logger.warning(
+            "meet.standby",
+            reason="MEET_URL is not set",
+            stage_tab=stage is not None,
+            hint="set MEET_URL (and MEET_PROFILE_DIR) to join a call",
+        )
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception("standby.crashed")
+        stop()
 
 
 async def _join(
