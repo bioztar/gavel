@@ -36,8 +36,10 @@ def test_cancelled_override_drops_exactly_that_instance() -> None:
 
 
 def test_cancelled_master_yields_no_occurrences() -> None:
-    raw = (FIXTURES / "weekly_standup.ics").read_bytes().replace(
-        b"SUMMARY:", b"STATUS:CANCELLED\nSUMMARY:"
+    raw = (
+        (FIXTURES / "weekly_standup.ics")
+        .read_bytes()
+        .replace(b"SUMMARY:", b"STATUS:CANCELLED\nSUMMARY:")
     )
     assert parse_ics_occurrences(raw, window_start=WINDOW[0], window_end=WINDOW[1]) == []
 
