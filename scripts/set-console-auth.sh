@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Put the ears operator console behind HTTPS basic auth and switch its Traefik route on.
+# Set the ears operator console's basic-auth credential and switch its Traefik route on.
 #
 # The console is the control plane — it starts and ends sessions and makes Karen speak
-# into a live call — so it is never published without a credential.
+# into a live call — so it is never reachable without a credential: ears checks
+# GAVEL_CONSOLE_USERS itself (packages/ears-discord/src/ears/access.py) on every request,
+# public route or loopback, and Traefik checks the same value again on the public route.
 #
 # The password is read with echo off, never appears in argv, never reaches the shell
 # history, and is never printed back. Only the bcrypt hash is stored, in the repo-root
@@ -13,20 +15,19 @@
 set -euo pipefail
 user=${1:-karen}
 
-# `--off` is the post-hackathon step: drop both switches and the route stops existing.
-# Kept in the same script so there is exactly one thing to remember.
+# `--off` drops the public route. The credential stays: the console on 127.0.0.1:8787
+# (over an SSH tunnel) still asks for it, and without one it answers 503, never open.
 if [[ ${1:-} == --off ]]; then
   env_file="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.env"
   python3 - "$env_file" <<'OFF'
 import sys
 p = sys.argv[1]
-keep = [l for l in open(p).read().splitlines()
-        if not l.startswith(("GAVEL_CONSOLE_USERS=", "GAVEL_CONSOLE_PUBLIC="))]
+keep = [l for l in open(p).read().splitlines() if not l.startswith("GAVEL_CONSOLE_PUBLIC=")]
 open(p, "w").write("\n".join(keep) + "\n")
 OFF
   chmod 600 "$env_file"
   docker compose -f "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/compose.yaml" up -d ears
-  echo "console route removed; ears is back to 127.0.0.1 only"
+  echo "console route removed; ears is back to 127.0.0.1 only (still behind basic auth)"
   exit 0
 fi
 env_file="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/.env"
