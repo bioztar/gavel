@@ -1,5 +1,7 @@
 # gavel
 
+[![CI](https://github.com/bioztar/gavel/actions/workflows/ci.yml/badge.svg)](https://github.com/bioztar/gavel/actions/workflows/ci.yml)
+
 Karen is an AI chair for meetings. Add her to a Discord voice call, hand her the agenda,
 gather the attendees, and say “Karen, let's start the meeting.” She opens with the agenda,
 hands the first topic to a named person, keeps time, redirects shared tangents, balances
